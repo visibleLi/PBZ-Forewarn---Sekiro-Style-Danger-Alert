@@ -6,20 +6,21 @@
 
 源码仓库与音频
 Git源码仓库不包含cue.wav、PBZForewarn.bnk及生成的WEM；本地已有文件会保留，但不提交。
-从源码构建完整安装包，需要自行提供与0.5基线一致的音源：
+从源码构建安装包，请自行提供有权使用的音源：
   放置位置（相对仓库根目录）：js-package/PBZForewarn/cue.wav
-  格式：44100Hz、双声道、16bit PCM WAV，202860帧（4.6秒）
-  SHA256：5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8
-当前验证锁定该文件，不能随意换一份WAV或通过重命名MP3代替；使用不同音源需另行修改并验证构建。
+  格式：未压缩PCM WAV，44100Hz、双声道、16bit，时长0.01到30秒。
+原0.5音源SHA256为5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8；
+这只是原版声音的识别值。符合格式的自备音源可构建，但不代表该音源经过游戏实测。
+原0.5声音自动裁去开头80ms近静音；自备音源默认不裁剪。只有确认开头为静音时才使用--trim-start-ms N。
 在仓库根目录执行：
   python -m pip install --target hooks-package/tests/lib -r requirements-test.txt
   python audio-bank/build_bank.py
   python verify.py --node <node.exe的实际路径>
   python package.py
-安装包输出到dist/PBZForewarn-0.5.zip；该目录已由.gitignore排除。
-开发环境为Python 3.12和Node.js 24。第二条命令生成audio-bank/generated/PBZForewarn.bnk；
-BNK用于玩家安装包，Source ZIP继续排除WAV、BNK和WEM。打包器仍锁定已测0.5运行文件，
-源码改动后不能沿用旧实测哈希。更多说明见DEVELOPMENT.md。
+默认只生成dist/PBZForewarn-0.5.zip（原0.5基线）或PBZForewarn-custom.zip（自定义构建）。
+安装ZIP仅包含ProjectPBZ、platform和一份简短中英README。目录dist/已由.gitignore排除。
+额外需要Source ZIP时执行python package.py --source。源码或音频在验证后改变，须重跑verify.py。
+开发环境为Python 3.12和Node.js 24。bank和实际时长配置一起生成，原0.5完全一致性检查可选--check-baseline。
 音频自备说明不授予第三方素材使用或再分发许可。玩家安装方式见下方。
 
 必装前置

@@ -1,69 +1,35 @@
-PBZForewarn 0.5 — 只狼风格危字与音效提示
+PBZForewarn 0.5 / 只狼风格“危”提示
 
-介绍
-为《影之刃零》支持的红、蓝、黑光攻击增加对应颜色的“危”字和危音效，让危险动作更容易注意到。原游戏提示光、攻击时序和招架窗口不变。
-默认目标提前量350ms，短起手可能来不及提前。默认支持无锁玩法，可配置只提醒当前锁定目标。
+中文
+为已支持的红、蓝、黑光攻击增加“危”字和游戏内音效。不是全招覆盖，不改变原攻击、招架或伤害规则。
 
-必装前置
-- PBZModLoader（已测2.1.0）
-  https://github.com/KintaroModding/phantombladezero_pbzmodloader/releases/tag/v2.1.0
-- UE4SS（已测PBZ专用v3.0.1-1195-g1ceefac8）
-  N网同一发行线路：https://www.nexusmods.com/phantombladezero/mods/13
-  https://github.com/KintaroModding/ue4ss/releases/tag/v3.0.1-1195-g1ceefac8
-
-以上是本MOD已测的具体组合，管理器和手动安装均可使用。N网mods/5的自定义UE4SS包、mods/113的原作Loader1.0.2尚未完成本MOD组合实测，不能直接承诺等价兼容。两套Loader或两套UE4SS包不要叠装。
-
-推荐使用 Phantom Blade Zero - Mod Manager 管理上述前置和本MOD：
+前置
+必须安装PBZModLoader和PBZ专用UE4SS。建议用Phantom Blade Zero - Mod Manager管理前置和本MOD：
 https://www.nexusmods.com/phantombladezero/mods/2
 
-Mod Manager安装（推荐）
-1. 完全退出游戏，在管理器中安装PBZModLoader和UE4SS。
-2. 停用旧Forewarn、AlertCue及旧外置音效包，导入PBZForewarn-0.5.zip。
-3. 包内三项全部启用：PBZForewarn主程序、PBZForewarn.bnk音效、PBZForewarnHooks。
-4. 完整启动游戏，进入可控场景按Alt+F9试听，再试战斗。
+Mod Manager：完全退出游戏，禁用旧Forewarn/AlertCue及外置音效包，导入本包并启用全部MOD部分。
+手动安装：默认前置已安装。把包内ProjectPBZ和platform目录合并到游戏根目录，保留所有文件。
+完整重启游戏；替换Lua/音效后仅按Alt+F5不够。可控场景按Alt+F9试听。
 
-手动安装
-以下默认你已安装好PBZModLoader和UE4SS。
-1. 完全退出游戏，解压PBZForewarn-0.5.zip。
-2. 把包内ProjectPBZ和platform两个文件夹合并到游戏根目录（能看到这两个文件夹的位置）。
-3. 保留全部文件，不要只拿main.js，也不要把BNK放到Paks/~mods。
-4. 启动游戏，在可控场景按Alt+F9试听。
+设置位于%LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt。
+LeadMs=350是相对原光的目标提前量，不保证短起手也有350ms。
+OnlyLockedTarget=0支持无锁；设为1只提示已锁定目标。SoundVolume调节本MOD音量。
 
-配置
-首次运行生成：%LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt
-LeadMs=350：目标提前量；SoundVolume=0.8：音量（0—2）。
-OnlyLockedTarget=0：无锁也提示；改为1只提示游戏确认锁定的目标，未锁定时不报。
-替换MOD文件后完整重启。Alt+F5只重载JS，不能代替重启。
+卸载：用Mod Manager移除此MOD；手动用户只删Forewarn自己的脚本、音频、Hooks目录。保留共用加载器和存档。
+仅Windows/Steam build26367565的有限BOSS样本做过实机测试；不承诺全招覆盖或WeGame兼容。
 
-升级与卸载
-升级前先停用／移除旧版本，保留自己的配置，再安装新包。
-管理器用户直接移除本MOD；手动用户退出后只删除以下三个目录：
-  ProjectPBZ\PBZModLoader\mods\PBZForewarn
-  ProjectPBZ\Content\PBZForewarn
-  platform\steam\ue4ss\Mods\PBZForewarnHooks
-保留其他MOD共用的加载器，不要删除整个Saved或存档。
+English
+Adds a “危” danger glyph and in-game sound for supported red, blue and black attacks.
+Not every move is covered. Original attacks, parry rules and damage are unchanged.
+Requires PBZModLoader and PBZ-specific UE4SS. Mod Manager is recommended (link above).
+Manager: close the game, disable older Forewarn/AlertCue and external cue-player mods, import this package and enable all its parts.
+Manual: with both prerequisites installed, merge ProjectPBZ and platform into the game root. Keep every file.
+Fully restart after replacing Lua or audio. Alt+F9 previews the sound.
+Settings: %LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt. LeadMs is target lead relative to the original flash;
+short attacks may provide less time. OnlyLockedTarget=1 requires a confirmed lock.
+Remove this mod with the manager or delete only its own scripts, bank and UE4SS Hooks folders.
+Limited Windows/Steam testing only; full move coverage and WeGame are not claimed.
 
-已知问题
-- 已测Windows／Steam build26367565和4个BOSS，尚未覆盖全部招式；WeGame未实测。
-- 极短起手可能只起到补充提醒，甚至稍晚于原光。只锁定模式尚需更多测试。
-- BOSS取消／切换动作时会撤回提示，可能出现短闪。
-- 不建议同时启用另一套额外危字／提前预警；修改技能和提示资源的MOD可能影响识别。
-
-日志与反馈
-日志自动记录，不需要运行收集脚本。反馈时附BOSS、动作、问题和大致时间，退出后手动复制：
-  %LOCALAPPDATA%\ProjectPBZ\Saved\pbzforewarn_diagnostics.json
-  %LOCALAPPDATA%\ProjectPBZ\Saved\pbzforewarn_resources.json
-  %LOCALAPPDATA%\ProjectPBZ\Saved\pbzforewarn_hooks.json
-  <游戏根>\ProjectPBZ\PBZModLoader\loader.log
-  <游戏根>\platform\steam\ue4ss\UE4SS.log
-新启动或热重载会覆盖记录，及时保存。日志包含本地路径及可能的其他MOD输出，分享前可检查；不会自动上传。
-
-致谢与声明
-“危”提示形式参考《只狼：影逝二度》，危音效来自《只狼》游戏原声（FromSoftware）。
-危字使用PBZ游戏内字体绘制，未使用《只狼》原版UI动画素材。相关素材权利归原权利方所有。
-感谢PBZModLoader、UE4SS及Phantom Blade Zero - Mod Manager的作者。
-使用AI辅助分析、编码、调试和文档整理。
-
-玩家包：PBZForewarn-0.5.zip
-可选源码：PBZForewarn-0.5-Source.zip（不是另一个必装包）
-运行版本：0.5.0-release.2
+来源 / Credits
+“危”风格参考《只狼：影逝二度》(FromSoftware)。游戏安装包内的音效由发布者提供；相关素材权利归权利人。
+The style is inspired by Sekiro: Shadows Die Twice (FromSoftware). The publisher supplies the runtime audio asset; third-party rights remain with their owners.

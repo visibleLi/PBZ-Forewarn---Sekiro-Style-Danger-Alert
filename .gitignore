@@ -4,6 +4,10 @@ audio-bank/generated/
 hooks-package/tests/lib/
 hooks-package/tests/results.json
 hooks-package/tests/*-results.json
+player-docs/CHANGELOG.txt
+player-docs/CREDITS.md
+player-docs/README_EN.txt
+player-docs/VALIDATION.md
 __pycache__/
 dist/
 /publish-docs/

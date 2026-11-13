@@ -11,22 +11,25 @@ The default target lead is 350 ms. Short attacks may provide less lead or a slig
 SOURCE REPOSITORY / AUDIO INPUT
 
 The Git source repository excludes cue.wav, PBZForewarn.bnk and generated WEM files.
-Existing local copies are kept but must not be committed. To build the complete
-0.5 installer, provide the exact baseline audio at this repository-relative path:
+Existing local copies are kept but must not be committed. Supply audio you have rights to use at:
   js-package/PBZForewarn/cue.wav
-Format: 44100 Hz, stereo, 16-bit PCM WAV, 202860 frames (4.6 seconds).
-SHA256: 5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8
-Validation requires this exact file. A different WAV or a renamed MP3 will not
-reproduce the frozen release; different audio requires a separately validated build.
+Format: uncompressed 44100 Hz stereo 16-bit PCM WAV, 0.01 to 30 seconds.
+The original 0.5 hash is 5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8;
+it identifies the baseline, not a universal build requirement. Other valid audio
+produces a custom build without the original in-game test claim.
+Original 0.5 audio trims its verified silent first 80 ms; custom audio is untrimmed
+by default. Use --trim-start-ms N only for verified leading silence.
 With Python 3.12 and Node.js 24 available, run from the repository root:
   python -m pip install --target hooks-package/tests/lib -r requirements-test.txt
   python audio-bank/build_bank.py
   python verify.py --node <actual-path-to-node.exe>
   python package.py
-The player archive is written to dist/PBZForewarn-0.5.zip; dist/ is Git-ignored.
-The bank builder writes audio-bank/generated/PBZForewarn.bnk. The player archive
-includes the BNK; Source ZIPs exclude the WAV, BNK and WEM. The packer rejects
-runtime changes against the frozen 0.5 hashes. See DEVELOPMENT.md for details.
+By default the installer is dist/PBZForewarn-0.5.zip for the exact original baseline,
+or PBZForewarn-custom.zip for custom builds. Each contains only ProjectPBZ, platform
+and a short bilingual README. Use --source to also create a source archive.
+Bank and runtime duration configuration are generated together. Changing source or
+audio after verification requires rerunning verify.py. Exact original hashes are
+optional via --check-baseline on verify.py and package.py. See DEVELOPMENT.md.
 Providing your own audio does not grant rights to third-party assets.
 
 PLAYER REQUIREMENTS
