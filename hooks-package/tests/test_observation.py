@@ -52,7 +52,8 @@ function StaticFindObject(p)
  requireGame()
  if p=='/Script/Engine.Default__GameplayStatics' then
   if T.noClock then return nil end
-  return obj('GameplayStatics '..p,{GetTimeSeconds=function(self,ctx)requireGame();return T.gameTime end})
+  return obj('GameplayStatics '..p,{GetTimeSeconds=function(self,ctx)requireGame();if T.noClock then error('clock unavailable')end;return T.gameTime end,
+    IsGamePaused=function(self,ctx)requireGame();return T.paused==true end})
  end
  if T.loaded[p] or T.allLoaded then return obj('Function '..p)end
 end
@@ -106,9 +107,15 @@ z,m=fresh()
 check(len(z.globals().T.hooks)==0,'setup queues registration without touching UE from the loading thread')
 z.execute('game();publish()')
 p=data(z)
-check(m.status()['registered']==4 and p['active'],'two native and only loaded warning functions register on game thread')
-check(p['events']==[] and p['health']['dynamicRegistered']==2,'publisher emits bounded empty evidence without calling UE')
-z.execute("a,task,actor,tl=ability();invoke(PLAY,'pre',a,param(tl),param(1.2),param(0),param(0.65),param('Previous'));task.CurrentTime=0.65;invoke(PLAY,'post',a,param(tl),param(1.2),param(0),param(0.65),param('Previous'));maintenance();publish()")
+check(m.status()['registered']==2 and p['active'],'idle startup registers only the two native timeline hooks')
+check(p['events']==[] and p['health']['dynamicRegistered']==0,'idle publisher stays bounded without searching warning methods')
+noContextBefore=m.status()['health']['discoveryNoContext']
+z.execute("a,task,actor,tl=ability();tl.Actions=arr({{Action=warning(a,task,actor)}});task.CurrentTime=0.65;invoke(PLAY,'pre',a,param(tl),param(1.2),param(0),param(0.65),param('Previous'));invoke(PLAY,'post',a,param(tl),param(1.2),param(0),param(0.65),param('Previous'));T.now=T.now+1;maintenance();publish()")
+_context_data=data(z)
+check(_context_data['lookupProfile']['attempts']>2 and m.status()['health']['discoveryNoContext']==noContextBefore,
+    'live timeline hook establishes context before dynamic warning discovery begins')
+z.execute("T.allLoaded=true;for i=1,12 do local before=M.status().registered;T.now=T.now+1;maintenance();assert(M.status().registered-before<=1,'more than one dynamic registration in a maintenance pass')end;publish()")
+check(m.status()['registered']<=11,'dynamic warning UFunctions install gradually under the per-pass limit')
 p=data(z);e=p['events']
 check(len(e)==2 and e[0]['callId']==e[1]['callId'] and e[1]['matching']=='synchronous-stack','native pre/post pair by synchronous context stack')
 check(e[0]['params']['StartTimeSeconds']['value']==0.65 and e[0]['params']['PlayRate']['value']==1.2,'SDK named start offset and rate are captured as synchronous scalars')
@@ -147,7 +154,7 @@ check(data(z)['events'][-1]['matching']=='unknown','mismatched context does not 
 z.execute("T.mode='game';hook(PLAY).pre({get=function()error('bad ephemeral context')end});T.mode='test';maintenance();publish()")
 check(m.status()['health']['captureFailures']==1,'ephemeral parameter capture failure is contained and separately counted')
 
-z,m=fresh();z.execute('game();T.registerFail=true;T.allLoaded=true;T.now=T.now+1;maintenance();publish()')
+z,m=fresh();z.execute("game();a,task,actor,tl=ability();tl.Actions=arr({{Action=warning(a,task,actor)}});invoke(PLAY,'pre',a,param(tl),param(1),param(0),param(0),param(''));invoke(PLAY,'post',a,param(tl),param(1),param(0),param(0),param(''));T.registerFail=true;T.allLoaded=true;T.now=T.now+1;maintenance();publish()")
 check(m.status()['active'] and m.status()['health']['registrationFailures']>0,'dynamic registration errors degrade observation without raising into caller')
 z,m=fresh();z.execute('game();T.writeFail=true;publish()')
 check(m.status()['health']['writeFailures']==1 and m.status()['health']['currentlyFailing'],'write refusal is counted and retained for retry')
@@ -161,7 +168,7 @@ p=data(z)
 check(p['seq']==540 and len(p['events'])<=512 and p['retention']['dropped']>0,'retention is bounded with monotonic sequence and explicit lost-history count')
 check(p['retention']['firstSeq']==p['events'][0]['seq'] and p['retention']['lastSeq']==540,'snapshot first and last sequence identify gaps without claiming complete history')
 
-z,m=fresh();z.execute("game();a,task,actor,tl=ability();local items={};for i=1,40 do items[i]={Action=warning(a,task,actor,'/Game/Test.WarningClass_'..i)}end;tl.Actions=arr(items);invoke(PLAY,'pre',a,param(tl),param(1),param(0),param(0),param(''));invoke(PLAY,'post',a,param(tl),param(1),param(0),param(0),param(''));T.allLoaded=true;T.now=T.now+1;maintenance();publish()")
+z,m=fresh();z.execute("game();a,task,actor,tl=ability();local items={};for i=1,40 do items[i]={Action=warning(a,task,actor,'/Game/Test.WarningClass_'..i)}end;tl.Actions=arr(items);invoke(PLAY,'pre',a,param(tl),param(1),param(0),param(0),param(''));invoke(PLAY,'post',a,param(tl),param(1),param(0),param(0),param(''));T.allLoaded=true;for i=1,40 do T.now=T.now+1;maintenance()end;publish()")
 check(m.status()['dynamicRegistered']==32 and m.status()['health']['dynamicLimitReached']>0,'runtime action-class discovery respects maximum 32 dynamic hooks')
 z.execute('M.stop();game()')
 check(not m.status()['active'] and len(z.globals().T.removed)==34 and data(z)['heartbeat']==0,'stop invalidates heartbeat and unregisters only its hooks on game thread')
@@ -177,8 +184,9 @@ z,m=fresh('IsInGameThread=nil')
 check(not m.status()['active'] and len(z.globals().T.loops)==0,'missing thread verification API safely disables only observer')
 z,m=fresh('T.scheduleFail=true')
 check(not m.status()['active'] and m.status()['stopped'],'setup scheduling failure disables observer safely')
-z,m=fresh('T.scriptBackend=true');z.execute("game();a,task,actor,tl=ability();w=warning(a,task,actor);for i=1,70 do invoke(BLUE..':Received_ActionBegin','pre',w,param(0),param(0.4),param(0.7))end;maintenance();publish()")
-check(all(e['phase']=='call' and e['matching']=='single-script-callback-no-post' for e in data(z)['events']),'script-hook equal IDs yield single observations without imaginary post callbacks or pairing-stack overflow')
+z,m=fresh('T.scriptBackend=true');z.execute("game();a,task,actor,tl=ability();w=warning(a,task,actor);tl.Actions=arr({{Action=w}});invoke(PLAY,'pre',a,param(tl),param(1),param(0),param(0),param(''));invoke(PLAY,'post',a,param(tl),param(1),param(0),param(0),param(''));T.allLoaded=true;for i=1,12 do T.now=T.now+1;maintenance()end;for i=1,70 do invoke(BLUE..':Received_ActionBegin','pre',w,param(0),param(0.4),param(0.7))end;maintenance();publish()")
+warnings=[e for e in data(z)['events'] if e['kind']=='warning-call']
+check(len(warnings)==70 and all(e['phase']=='call' and e['matching']=='single-script-callback-no-post' for e in warnings),'script-hook equal IDs yield single observations without imaginary post callbacks or pairing-stack overflow')
 
 out={'checks':len(passed),'passed':passed,'scope':'Lua runtime, thread-checking UE4SS and file stubs; no PBZ execution or runtime ABI certification.'}
 (Path(__file__).parent/'observer-results.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')

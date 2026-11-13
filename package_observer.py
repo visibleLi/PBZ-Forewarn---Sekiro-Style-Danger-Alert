@@ -3,12 +3,13 @@ from pathlib import Path
 import hashlib, json, shutil, zipfile
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '0.6.0-observe.1'
+VERSION = '0.6.0-observe-bounded.1'
 DEST = ROOT.parents[1] / 'outputs' / ('PBZForewarn-' + VERSION)
 report = json.loads((ROOT / 'verification/summary.json').read_text(encoding='utf-8'))
 baseline = json.loads((ROOT / 'baseline-manifest.json').read_text(encoding='utf-8'))
 assert report['version'] == VERSION and all(case['exit'] == 0 and case['checks'] for case in report['suites'])
 assert hashlib.sha256(Path(baseline['publishedArchive']).read_bytes()).hexdigest() == baseline['publishedArchiveSha256']
+bounded_lua = json.loads((ROOT / 'bounded-candidate-manifest.json').read_text(encoding='utf-8'))
 DEST.mkdir(parents=True, exist_ok=True)
 runtime = {}
 prefix = 'ProjectPBZ/PBZModLoader/mods/PBZForewarn/'
@@ -28,24 +29,26 @@ assert sorted(changed) == sorted([prefix + 'main.js', hooks + 'Scripts/main.lua'
 assert added == sorted([prefix + 'native-attack-observer.js', prefix + 'observation-store.js',
                         prefix + 'timeline-observation.js', hooks + 'Scripts/observation-hooks.lua']), added
 assert not removed, removed
+assert hashlib.sha256(runtime[hooks + 'Scripts/observation-hooks.lua']).hexdigest() == bounded_lua['candidateSha256']
 assert report['bankSha256'] == hashlib.sha256(runtime['ProjectPBZ/Content/PBZForewarn/PBZForewarn.bnk']).hexdigest()
-readme = '''PBZForewarn 0.6.0-observe.1 — observation trial / 观测测试版
+readme = '''PBZForewarn 0.6.0-observe-bounded.1 — Lua bounded observation trial / Lua观察器限频候选
 
 中文
-这版沿用0.5的危字、音效和提示规则，增加本地观察记录。
-它用于验证攻击通知、招式起播和原生提示何时执行；尚未启用新的补漏／提前规则。
-离线检查通过不等于实机已验证，不要作为正式0.6上传。
+这版保留0.5已验证的危字和音效，记录攻击通知和招式起播；Lua观察器使用已短测的有界查找版本。
+有界Lua短测未观察到原先卡顿；完整多阶段Boss长测尚需验证。这是公开前测试候选，不是N网正式发布包。
+帧生成启动仍受RTSS顺序影响；本包不修改帧生成参数或RTSS设置。
 
 强制前置：PBZModLoader及PBZ用UE4SS。
 建议使用Phantom Blade Zero - Mod Manager管理：
 https://www.nexusmods.com/phantombladezero/mods/2
 
-管理器：完全退出游戏，禁用旧Forewarn，导入本ZIP并启用；不要同时启用两个版本。
+管理器：完全退出游戏，禁用旧Forewarn及其他B隔离版，导入本ZIP并只启用这一版本。
 手动：默认已装好前置。备份旧Forewarn文件夹，将ZIP的ProjectPBZ与platform目录合并到游戏根目录。
 替换Lua后必须完全重启游戏，不能只按Alt+F5。
 
-先测一个熟悉的BOSS约5分钟，留意原有危和声音、打断、多段、飞弹及正常退出。
-测试后回复已完成即可，由开发者读取本地记录；不含收集脚本，不自动上传。
+先测熟悉的Boss，尽量覆盖多个阶段、连续招、打断和飞弹，最终正常退出，观察卡顿与预警。
+若FG启动时不工作，按已验证顺序：游戏内关RTSS，点OP调试启用FG，再开RTSS；确认FG保持后再测试。
+结束后告知测试结果；本包不含收集脚本，不自动上传。
 记录位于 %LOCALAPPDATA%\\ProjectPBZ\\Saved\\：
   pbzforewarn_observations.json（JS观测）
   pbzforewarn_observer_hooks.json（Lua调用观测）
@@ -58,13 +61,16 @@ LeadMs仍是相对原光的目标提前量；Alt+F9仍为试听。
 手动用户恢复备份的Forewarn与ForewarnHooks目录。不要在未退出游戏时替换。
 
 English
-This trial retains the 0.5 cue/audio rules and adds local, read-only observations.
-It does not enable new warning coverage or promise earlier alerts. Not a public 0.6 release.
+This candidate keeps 0.5's validated glyph/audio and read-only attack observations,
+with the bounded Lua observer that passed a short in-game test. A longer multi-phase
+Boss run remains to be validated. This is a pre-release test candidate, not the Nexus build.
 Requires PBZModLoader and PBZ-specific UE4SS. Mod Manager is recommended (link above).
 Close the game, disable old Forewarn, import this ZIP, and enable it alone.
 Manual users with both loaders installed: back up the old mod folders, then merge
 ProjectPBZ and platform into the game root. Fully restart after replacing Lua.
-Test one familiar boss for about five minutes, then exit normally.
+Test a familiar Boss through multiple phases, consecutive attacks, interruption and projectiles,
+then exit normally. If FG is inactive on startup, use the tested in-game sequence: RTSS off,
+enable FG in the OP UI, RTSS on. Report FG, stutter and cue behavior separately.
 Local files are written under %LOCALAPPDATA%\\ProjectPBZ\\Saved as listed above;
 no collector, upload tool, external player, executable, or loader is bundled.
 Set ObserveAttacks=0 or Diagnostics=0 and fully restart to disable observations.
@@ -100,6 +106,8 @@ for name in ('summary.json',) + tuple(case['name'] + '.txt' for case in report['
     shutil.copy2(ROOT / 'verification' / name, checks / name)
 manifest = {'version': VERSION, 'stage': 'observation-only', 'installed': False,
     'inGameVerified': False, 'offlineChecks': report['checks'], 'baselineArchiveSha256': baseline['publishedArchiveSha256'],
+    'boundedLuaCandidateSha256': bounded_lua['candidateSha256'],
+    'boundedLuaShortInGameTest': 'user-reported stutter absent; longer Boss run pending',
     'runtimeFiles': len(runtime), 'changedBaselineFiles': changed, 'addedRuntimeFiles': added,
     'unchangedBaselineRuntimeFiles': len(runtime) - len(changed) - len(added),
     'unchangedAudioBankSha256': report['bankSha256'],

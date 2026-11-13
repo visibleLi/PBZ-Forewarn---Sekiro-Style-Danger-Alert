@@ -7,6 +7,7 @@ if type(prior) == "table" then return prior end
 local M = {}; rawset(_G, KEY, M)
 local PREFIX = "[PBZForewarnObserver] "
 local MAX_EVENTS, MAX_BYTES, MAX_DYNAMIC = 512, 393216, 32
+local MAX_LOOKUPS, MAX_ATTEMPTS_PER_PATH = 64, 3
 local PLAY = "/Script/LegoAbility.LegoAbility:PlayTimeline"
 local BYNAME = "/Script/LegoAbility.LegoAbility:PlayTimelineByName"
 local BASE = "/PBZCombatAsset/Prototypes/Actions/"
@@ -16,11 +17,15 @@ local PARTICLE = BASE .. "GAAction_WeaponParticle.GAAction_WeaponParticle_C"
 local METHODS = {"Received_ActionBegin", "Spawn Particles", "Play Particle"}
 local S = {active=false, stopped=false, seq=0, serial=0, rows={}, bytes=0, dropped=0,
     hooks={}, registered={}, backends={}, stacks={}, overflows={}, candidates={}, attempted={}, dynamic=0,
+    lookupProfile={timer="os.clock-process-cpu-seconds",notGameClock=true,notWallDuration=true,
+        attempts=0,misses=0,cpuClockUnavailable=0,totalCpuSeconds=0,maxCpuSeconds=0,byPath={},calls={}},
     revision=0, frame={seq=0, json="[]", firstSeq=0, dropped=0}, published=-1,
     health={captureFailures=0, registrationFailures=0, unregisterFailures=0,
         writeFailures=0, recoveries=0, unmatchedPosts=0, abandonedPres=0,
         rejectedOffThread=0, unknownThread=0, abiUnknown=0, clockUnavailable=0,
         dynamicLimitReached=0, candidateDrops=0, discoveryFailures=0, publishExceptions=0,
+        lookupBudgetDrops=0,lookupBackoffSkips=0,lookupPathExhausted=0,
+        discoveryPaused=0,discoveryNoContext=0,snapshotRebuilds=0,
         lastErrorStage="", lastError="", currentlyFailing=false}}
 local function log(k,t) print(PREFIX .. k .. " " .. tostring(t) .. "\n") end
 local function finite(x) return type(x)=="number" and x==x and x~=math.huge and x~=-math.huge end
@@ -60,6 +65,41 @@ local function path(o)
 end
 local function field(o,k) local ok,v=pcall(function() return o[k] end); if ok then return v end end
 local function call(o,k,...) local a=table.pack(...); local ok,v=pcall(function() return o[k](o,table.unpack(a,1,a.n)) end); if ok then return v end end
+local function cpuClock()
+    local ok,v=pcall(os.clock)
+    if ok and finite(v) then return v end
+    return nil
+end
+local function findObject(p,purpose)
+    local P=S.lookupProfile
+    if P.attempts>=MAX_LOOKUPS then S.health.lookupBudgetDrops=S.health.lookupBudgetDrops+1; return nil,"budget" end
+    local start=cpuClock(); local ok,value=pcall(StaticFindObject,p); local finish=cpuClock()
+    P.attempts=P.attempts+1
+    local found=ok and valid(value)
+    if not found then P.misses=P.misses+1 end
+    local record=P.byPath[p] or {attempts=0,misses=0,totalCpuSeconds=0,maxCpuSeconds=0,purpose=purpose}
+    P.byPath[p]=record; record.attempts=record.attempts+1
+    if not found then record.misses=record.misses+1 end
+    if start and finish and finish>=start then
+        local dt=finish-start
+        P.totalCpuSeconds=P.totalCpuSeconds+dt; P.maxCpuSeconds=math.max(P.maxCpuSeconds,dt)
+        record.totalCpuSeconds=record.totalCpuSeconds+dt; record.maxCpuSeconds=math.max(record.maxCpuSeconds,dt)
+        P.calls[tostring(P.attempts)]={path=p,purpose=purpose,result=found and "found" or ok and "missing" or "error",cpuSeconds=dt}
+    else
+        P.cpuClockUnavailable=P.cpuClockUnavailable+1
+        P.calls[tostring(P.attempts)]={path=p,purpose=purpose,result=found and "found" or ok and "missing" or "error",cpuStatus="unavailable"}
+    end
+    S.revision=S.revision+1
+    return found and value or nil,found and "found" or ok and "missing" or "error"
+end
+local function cachedGameLibrary()
+    if valid(S.gameLibrary) then return S.gameLibrary end
+    local now=os.time(); local a=S.clockAttempt or {count=0,nextAt=0}; S.clockAttempt=a
+    if a.count>=MAX_ATTEMPTS_PER_PATH or now<a.nextAt then return nil end
+    a.count=a.count+1; a.nextAt=now+(a.count==1 and 5 or 30)
+    S.gameLibrary=findObject("/Script/Engine.Default__GameplayStatics","engine-clock-library")
+    return S.gameLibrary
+end
 local function unwrap(p)
     if type(p)=="number" or type(p)=="boolean" or type(p)=="string" or p==nil then return p end
     local ok,v=pcall(function() return p:get() end); if ok then return v end
@@ -132,7 +172,7 @@ local function eventSnapshot(action,timeline)
     return out
 end
 local function clock(context)
-    local lib=StaticFindObject("/Script/Engine.Default__GameplayStatics")
+    local lib=cachedGameLibrary()
     local v=valid(lib) and call(lib,"GetTimeSeconds",context) or nil
     if finite(v) then return {status="read",value=v,source="GameplayStatics.GetTimeSeconds"} end
     S.health.clockUnavailable=S.health.clockUnavailable+1
@@ -184,16 +224,33 @@ local function append(event)
     S.revision=S.revision+1
 end
 local function rebuild()
+    if S.frame.seq==S.seq then return end
     local rows={}; for i,r in ipairs(S.rows) do rows[i]=r.json end
     S.frame={seq=S.seq,json='['..table.concat(rows,',')..']',firstSeq=S.rows[1] and S.rows[1].seq or 0,dropped=S.dropped}
+    S.health.snapshotRebuilds=S.health.snapshotRebuilds+1
 end
-local function candidate(classPath)
+local function candidate(classPath,action)
     if type(classPath)~="string" or classPath:sub(1,1)~="/" then return end
     for _,method in ipairs(METHODS) do
         local p=classPath..":"..method
+        if action and S.candidates[p] then
+            local existing=field(action,method)
+            local full=valid(existing) and call(existing,"GetFullName") or nil
+            if type(full)=="string" and full:sub(1,9)=="Function " and path(existing)==p then
+                S.candidates[p].exactFunction=existing
+            end
+        end
         if not S.registered[p] and not S.candidates[p] then
             local n=0; for _ in pairs(S.candidates) do n=n+1 end
-            if n<128 then S.candidates[p]=true else S.health.candidateDrops=S.health.candidateDrops+1 end
+            if n<128 then
+                -- Some UE4SS facades expose a loaded UFunction at the member.
+                -- Prefer it only when GetFullName identifies the exact path;
+                -- ordinary Lua functions/unreadable wrappers remain unknown.
+                local existing=action and field(action,method) or nil
+                local full=valid(existing) and call(existing,"GetFullName") or nil
+                local exact=type(full)=="string" and full:sub(1,9)=="Function " and path(existing)==p
+                S.candidates[p]={exactFunction=exact and existing or nil}
+            else S.health.candidateDrops=S.health.candidateDrops+1 end
         end
     end
 end
@@ -209,7 +266,7 @@ local function inspectActions(task)
             local effect=path(field(action,"NiagaraEffect")):lower()
             local cls=path(call(action,"GetClass"))
             if effect:find("/ns_attackalert_red_",1,true) or effect:find("/ns_attackalert_blue_",1,true)
-                or (effect:find("/ns_attackalert_post_001",1,true) and cls==BLACK) then candidate(cls) end
+                or (effect:find("/ns_attackalert_post_001",1,true) and cls==BLACK) then candidate(cls,action) end
         end,budget)
     end
     events(field(timeline,"Actions"))
@@ -232,6 +289,10 @@ local function capture(hook,kind,phase,ctx,args)
     end
     local c,ability,task=contextOf(o,kind,warning)
     if c.object=="" then error("context unavailable") end
+    -- This reference is used only by subsequent game-thread maintenance and is
+    -- checked before access. It never crosses to the async JSON publisher.
+    local actor=valid(ability) and call(ability,"GetAvatarActorFromActorInfo") or nil
+    if valid(actor) then S.discoveryContext=actor end
     local stack=S.stacks[hook] or {}; S.stacks[hook]=stack
     local id,match,parent
     if S.backends[hook]=="script-single-slot" then
@@ -275,12 +336,12 @@ local function callback(hook,kind,phase)
         -- No parameter writes, Set calls, return override, or deferred params.
     end
 end
-local function register(hook,kind,dynamic)
+local function register(hook,kind,dynamic,suppliedFunction)
     if S.registered[hook] then return true end
     if dynamic and S.dynamic>=MAX_DYNAMIC then
         S.health.dynamicLimitReached=S.health.dynamicLimitReached+1; S.candidates[hook]=nil; return false
     end
-    local fn=StaticFindObject(hook)
+    local fn=valid(suppliedFunction) and path(suppliedFunction)==hook and suppliedFunction or findObject(hook,"hook-discovery")
     if not valid(fn) then return false end -- no LoadAsset/LoadObject
     local full=call(fn,"GetFullName"); if type(full)~="string" or full:sub(1,9)~="Function " then return false end
     local pre,post=RegisterHook(hook,callback(hook,kind,"pre"),callback(hook,kind,"post"))
@@ -293,18 +354,38 @@ local function register(hook,kind,dynamic)
     S.candidates[hook]=nil; if dynamic then S.dynamic=S.dynamic+1 end
     S.revision=S.revision+1; log("REGISTERED",hook); return true
 end
-local function discover()
+local function tryRegister(hook,kind,dynamic,suppliedFunction)
+    if S.registered[hook] then return false end
+    local now=os.time(); local state=S.attempted[hook] or {count=0,nextAt=0}; S.attempted[hook]=state
+    if state.count>=MAX_ATTEMPTS_PER_PATH then S.health.lookupPathExhausted=S.health.lookupPathExhausted+1; return false end
+    if now<state.nextAt then S.health.lookupBackoffSkips=S.health.lookupBackoffSkips+1; return false end
+    if S.lookupProfile.attempts>=MAX_LOOKUPS and not valid(suppliedFunction) then
+        S.health.lookupBudgetDrops=S.health.lookupBudgetDrops+1; return false
+    end
+    state.count=state.count+1; state.nextAt=now+(state.count==1 and 5 or 30)
+    local ok,result=pcall(register,hook,kind,dynamic,suppliedFunction)
+    if not ok then S.health.registrationFailures=S.health.registrationFailures+1; err("register",result) end
+    return true
+end
+local function discover(initial)
     if not gameThread() then return end
+    if initial then
+        -- Only these known native functions are searched at setup. No nine-path
+        -- speculative particle search runs before there is a live world context.
+        for _,hook in ipairs({PLAY,BYNAME}) do tryRegister(hook,"timeline-call",false) end
+        return
+    end
+    if not valid(S.discoveryContext) then S.health.discoveryNoContext=S.health.discoveryNoContext+1; return end
+    local lib=cachedGameLibrary(); local paused
+    if valid(lib) then paused=call(lib,"IsGamePaused",S.discoveryContext) end
+    if type(paused)~="boolean" or paused then S.health.discoveryPaused=S.health.discoveryPaused+1; return end
     for _,hook in ipairs({PLAY,BYNAME}) do
-        if not S.registered[hook] then
-            local ok,why=pcall(register,hook,"timeline-call",false)
-            if not ok then S.health.registrationFailures=S.health.registrationFailures+1; err("register",why) end
-        end
+        if not S.registered[hook] and tryRegister(hook,"timeline-call",false) then return end
     end
     local pending={}; for p in pairs(S.candidates) do pending[#pending+1]=p end; table.sort(pending)
     for _,p in ipairs(pending) do
-        local ok,why=pcall(register,p,"warning-call",true)
-        if not ok then S.health.registrationFailures=S.health.registrationFailures+1; err("register-dynamic",why) end
+        local candidateInfo=S.candidates[p]
+        if tryRegister(p,"warning-call",true,candidateInfo and candidateInfo.exactFunction) then break end
     end
 end
 local function publish(stopping)
@@ -320,7 +401,7 @@ local function publish(stopping)
     local payload='{"schemaVersion":1,"session":'..q(S.session)..',"seq":'..frame.seq
         ..',"heartbeat":'..(stopping and '0' or tostring(second*1000))..',"active":'..tostring(not stopping and S.active)
         ..',"retention":'..json({maxEvents=MAX_EVENTS,maxBytes=MAX_BYTES,firstSeq=frame.firstSeq,lastSeq=frame.seq,dropped=frame.dropped})
-        ..',"health":'..json(health)..',"events":'..frame.json..'}\n'
+        ..',"health":'..json(health)..',"lookupProfile":'..json(S.lookupProfile)..',"events":'..frame.json..'}\n'
     local f,why=io.open(S.output,"wb")
     local ok,wrote,closeOK,closed=true,nil,true,nil
     if f then ok,wrote=pcall(f.write,f,payload); closeOK,closed=pcall(f.close,f) end
@@ -336,7 +417,7 @@ local function maintenance()
     if not gameThread() then return false end
     local now=os.time()
     if not S.lastDiscovery or now-S.lastDiscovery>=1 then
-        S.lastDiscovery=now; local ok,why=pcall(discover)
+        S.lastDiscovery=now; local ok,why=pcall(discover,false)
         if not ok then S.health.discoveryFailures=S.health.discoveryFailures+1; err("discover",why) end
     end
     rebuild(); return false
@@ -397,6 +478,7 @@ end)
 if not loopOK then S.active=false; log("DISABLED",why); return M end
 local setupOK,setupWhy=pcall(ExecuteInGameThread,function()
     if not gameThread() or S.stopped then return end
+    discover(true)
     maintenance()
     local good,e=pcall(LoopInGameThreadWithDelay,50,maintenance)
     if not good then S.health.discoveryFailures=S.health.discoveryFailures+1; err("maintenance",e) end

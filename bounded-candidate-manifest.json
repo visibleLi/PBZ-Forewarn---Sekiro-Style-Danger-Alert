@@ -1,0 +1,11 @@
+{
+  "candidateVersion": "0.6.0-observe-bounded.1",
+  "baselineVersion": "0.6.0-observe.1",
+  "changedFiles": [
+    "hooks-package/observation-hooks.lua"
+  ],
+  "baselineSha256": "f344f3d03c3d300a77dc014958c2c3577655dc67dae9b646087e003c2fe3b514",
+  "candidateSha256": "c4536864393e5ed24edc19a596378946db894fb2f597c4edb65217653e75aabe",
+  "installed": false,
+  "inGameValidationInherited": false
+}
