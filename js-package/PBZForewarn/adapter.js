@@ -1,10 +1,12 @@
 "use strict";
 const { probeAttackSemantics } = require("./attack-semantics-probe");
 const { recognizeWarning } = require("./attack-recognition");
+const { matchSemanticFallbackScope, matchSemanticFallback } = require("./semantic-fallback");
 // Read-only UE adapter. Never assigns to a gameplay object or timeline event.
 // Injected dependencies make the bridge testable without starting PBZ.
-function createAdapter(UE, puerts, diagnostic) {
+function createAdapter(UE, puerts, diagnostic, options = {}) {
     const log = diagnostic || (() => {});
+    let semanticFallbackEnabled = options.semanticFallback === true;
     const safe = (fn, fallback) => { try { const v = fn(); return v === undefined || v === null ? fallback : v; } catch (_) { return fallback; } };
     const valid = o => !!o && safe(() => UE.KismetSystemLibrary.IsValid(o), false);
     const path = o => valid(o) ? safe(() => UE.KismetSystemLibrary.GetPathName(o), "") : "";
@@ -43,6 +45,18 @@ function createAdapter(UE, puerts, diagnostic) {
             const value = object && object[field];
             return value === undefined || value === null ? { status: "missing" } : { status: "read", value };
         } catch (_) { return { status: "unreadable" }; }
+    }
+    function semanticFallbackEligibility(action) {
+        // Match the probe's three aliases and finite-number conflict policy,
+        // without reading any timing arrays or diagnostic-only fields per tick.
+        const values = ["DeflectBulletType", "Deflect Bullet Type", "DeflectType"]
+            .map(field => readField(action, field))
+            .filter(item => item.status === "read" && typeof item.value === "number" && Number.isFinite(item.value))
+            .map(item => item.value);
+        if (!values.length) return { eligible: false, reason: "semantic-type-unavailable" };
+        if (values.some(value => value !== values[0])) return { eligible: false, reason: "semantic-type-conflict" };
+        return values[0] === 3 ? { eligible: true, reason: "eligible" } :
+            { eligible: false, reason: "semantic-type-changed" };
     }
     function snapshotArray(value, convert, limit = 128) {
         if (value === undefined || value === null) return { status: "missing", values: [] };
@@ -246,8 +260,13 @@ function createAdapter(UE, puerts, diagnostic) {
                 const effect = effectPath(action);
                 const times = eventTimes(event);
                 const recognition = recognizeWarning({ effectPath: effect.path, actionClass }, classify);
-                const color = recognition.color;
-                const semantics = captureDiagnostics ? probeAttackSemantics(action) : null;
+                let color = recognition.color;
+                const fallbackScope = semanticFallbackEnabled && !color ? matchSemanticFallbackScope({
+                    actor: path(group.execution.actor) || context.actor,
+                    ability: context.ability,
+                    actionClass
+                }) : null;
+                const semantics = captureDiagnostics || fallbackScope ? probeAttackSemantics(action) : null;
                 const semanticCandidate = !!semantics && (semantics.deflect.candidates.some(x => x.status === "read") ||
                     Object.values(semantics.timing).some(x => x.status === "read") ||
                     Object.values(semantics.arrays).some(x => x.status === "read"));
@@ -281,7 +300,25 @@ function createAdapter(UE, puerts, diagnostic) {
                     info.requirementsEvidence = tagCheck.evidence;
                     info.requirementsReason = tagCheck.reason;
                 }
-                if (!color) return;
+                if (!color) {
+                    const rule = fallbackScope ? matchSemanticFallback({
+                        actor: path(group.execution.actor) || context.actor,
+                        ability: context.ability,
+                        actionClass,
+                        semantics
+                    }) : null;
+                    if (!rule) return;
+                    color = rule.color;
+                    info.color = color;
+                    info.semanticFallback = {
+                        schemaVersion: 1, ruleId: rule.id, testedBuild: rule.testedBuild,
+                        color, typeValue: rule.typeValue, typeName: rule.typeName,
+                        timingBasis: rule.timingBasis, interpretation: rule.interpretation,
+                        usedForScheduling: false, status: "recognized-candidate", executionVerified: false
+                    };
+                    info.recognition = { color, supported: true, source: "semantic-fallback",
+                        timingBasis: rule.timingBasis, reason: "recognized-evidence-rule" };
+                }
                 if (![times.start, times.end].every(Number.isFinite) || times.end < times.start) {
                     info.reason = "invalid-time"; return;
                 }
@@ -290,8 +327,20 @@ function createAdapter(UE, puerts, diagnostic) {
                 if (eligibility.detail) info.detail = eligibility.detail;
                 if (seen.has(key)) return;
                 seen.add(key);
+                if (info.semanticFallback) {
+                    info.semanticFallback.usedForScheduling = true;
+                    info.semanticFallback.status = "scheduled";
+                    if (info.attackSemantics) {
+                        info.attackSemantics.timingBasis = info.semanticFallback.timingBasis;
+                        info.attackSemantics.usedForScheduling = true;
+                    }
+                }
                 // Point notifications remain exact points. The scheduler can
                 // preannounce them without manufacturing a gameplay duration.
+                // Identity belongs to the physical node, not its recognition
+                // source. Late Niagara resolution must retain the fired
+                // tombstone. The Scheduler separately owns task/activation
+                // generations; different nodes are never merged by colour.
                 found.push({ key, color, start: times.start, end: times.end,
                     eligible: eligibility.eligible, meta: info });
                 checks.set(key, action);
@@ -300,6 +349,8 @@ function createAdapter(UE, puerts, diagnostic) {
         }
         return { events: found, inventory, checks, contexts };
     }
-    return { safe, valid, path, list, effectPath, eventTimes, requirements, activation, abilityTasks, collectAbilities, events };
+    function configureSemanticFallback(enabled) { semanticFallbackEnabled = enabled === true; }
+    return { safe, valid, path, list, effectPath, eventTimes, requirements, activation, abilityTasks, collectAbilities,
+        events, configureSemanticFallback, semanticFallbackEligibility };
 }
 module.exports = { createAdapter };

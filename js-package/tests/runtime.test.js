@@ -11,7 +11,7 @@ const mainSource = fs.readFileSync(path.join(__dirname, '../PBZForewarn/main.js'
 let passed = 0;
 function test(name, body) { body(); passed++; console.log('PASS ' + name); }
 const array = xs => ({ Num: () => xs.length, Get: i => xs[i] });
-function fixture(config) {
+function fixture(config, startup = {}) {
     const env = { wall: 1800000000000, game: 0, paused: false, files: new Map(), logs: [], timers: new Map(),
         nextTimer: 0, objects: new Map(), actors: [], actorsInScan: [], hud: [], failUI: false, failClock: false, failWrite: false, audioEvents: [], audioCalls: [], audioPaused: true, lockedTarget: null, keysDown: new Set() };
     function object(p, values) { const o = Object.assign({ _path: p }, values); env.objects.set(p, o); return o; }
@@ -19,7 +19,7 @@ function fixture(config) {
         ActivatableAbilities: { Items: array([]) }, TickingTasks: array([]), KnownTasks: array([]) }); }
     function delegate() { const callbacks = new Set(); return { callbacks, Add: f => callbacks.add(f), Remove: f => callbacks.delete(f), Fire: () => [...callbacks].forEach(f => f()) }; }
     env.world = object('/World/A'); env.gi = object('/GI'); env.pc = object('/PC', { GetWorld: () => env.world, IsInputKeyDown: key => env.keysDown.has(key.KeyName) });
-    env.player = object('/Player', { AbilitySystemComponent: asc('/Player/ASC') });
+    env.player = object('/Player', { AbilitySystemComponent: asc('/Player/ASC'), GetComponentByClass: () => env.deflect });
     env.addEnemy = function (label, scan = true) {
         const system = asc('/' + label + '/ASC');
         const enemy = object('/' + label, { AbilitySystemComponent: system, distance: 1000,
@@ -54,10 +54,10 @@ function fixture(config) {
             GetGameTimeInSeconds: () => { if (env.failClock) throw Error('clock unavailable'); return env.nanClock ? NaN : env.game; } },
         BlueprintPathsLibrary: { ProjectSavedDir: () => saved, ProjectContentDir: () => 'D:/Mock/ProjectPBZ/Content/', ConvertRelativePathToFull: p => p, FileExists: p => env.files.has(p) },
         EasyCsv: { LoadStringFromLocalFile(p, ref) { ref.value = env.files.get(p) || ''; return env.files.has(p); },
-            SaveStringToFileWithFullPath(body, p) { if (env.failWrite && p.endsWith('_diagnostics.json')) return false; env.files.set(p, body); return true; } },
+            SaveStringToFileWithFullPath(body, p) { if (env.failWrite && p.endsWith('_diagnostics.json') || env.failObservationWrite && p.endsWith('_observations.json')) return false; env.files.set(p, body); return true; } },
         GameplayStatics: { GetPlayerController: () => env.pc, GetPlayerPawn: () => env.player,
             IsGamePaused: () => env.paused, GetAllActorsOfClass: (w, c, ref) => { ref.value = array(env.actorsInScan); } },
-        PBZCharacter_NPC: { StaticClass: () => 'NPC' }, Actor: {}, NewArray: () => array([]), GameplayTag: function () {}, Key: function () {},
+        PBZCharacter_NPC: { StaticClass: () => 'NPC' }, DeflectComponent: { StaticClass: () => 'Deflect' }, Actor: {}, NewArray: () => array([]), GameplayTag: function () {}, Key: function () {},
         FactionUtils: { GetFaction: () => 'enemy', GetFactionRelation: (p, a) => a.friendly ? 1 : 2 }, ETeamAttitude: { Friendly: 1, Hostile: 2 },
         BlueprintGameplayTagLibrary: { Conv_ObjectToGameplayTagAssetInterface: a => a,
             HasAllMatchingGameplayTags: (a, ts) => ts.every(t => a.tags.has(t)), HasAnyMatchingGameplayTags: (a, ts) => ts.some(t => a.tags.has(t)),
@@ -83,13 +83,18 @@ function fixture(config) {
         allows(actor, state) { return state.mode === 'nearby' || state.target === actor; }
     }) };
     class Clock extends Date { static now() { return env.wall; } }
-    const context = vm.createContext({ require: name => ({ ue: UE, puerts, cpp: {}, './core': core, './adapter': adapter,
+    const context = vm.createContext({ require: name => {
+        if (startup.missingModule===name) throw Error('optional module missing');
+        return ({ ue: UE, puerts, cpp: {}, './core': core, './adapter': adapter,
         './presentation': presentation, './wwise-audio': nativeAudio, './wwise-bank-config': require('../PBZForewarn/wwise-bank-config'), './target-filter': targetFilter,
         './diagnostic-store': require('../PBZForewarn/diagnostic-store'),
-        './audio-environment': { createAudioEnvironmentProbe: () => () => ({ status: 'mock' }) } })[name], exports: {}, console: { log: s => env.logs.push(s) }, Date: Clock,
+        './observation-store': startup.badStore ? {createObservationStore(){throw Error('optional store failed');}} : require('../PBZForewarn/observation-store'),
+        './native-attack-observer': require('../PBZForewarn/native-attack-observer'),
+        './timeline-observation': require('../PBZForewarn/timeline-observation'),
+        './audio-environment': { createAudioEnvironmentProbe: () => () => ({ status: 'mock' }) } })[name]; }, exports: {}, console: { log: s => env.logs.push(s) }, Date: Clock,
         setInterval: (fn, ms) => { const id = ++env.nextTimer; env.timers.set(id, { fn, ms }); return id; },
         clearInterval: id => env.timers.delete(id) });
-    vm.runInContext(mainSource, context, { filename: 'PBZForewarn/main.js' });
+    vm.runInContext(startup.mainSource || mainSource, context, { filename: 'PBZForewarn/main.js' });
     env.mod = context.exports;
     env.tick = (time, delta = 16) => { env.wall += delta; env.game += delta / 1000;
         if (time !== undefined) env.first.task.CurrentTime = time;
@@ -352,7 +357,8 @@ test('actor range loss still cancels tail after natural warning end', () => {
 test('one withdrawal is counted once with explicit cancellation evidence', () => {
     const e=fixture(); e.tick(0.7); const cueId=e.cues()[0].id;
     e.first.task.OnCancelled.Fire(); e.tick(0.72); e.tick(0.74); e.mod.stop();
-    const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
+            e.mod.stop();
+            const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
     assert.equal(e.cancels().filter(x=>x.id===cueId).length,1); assert.equal(report.stats.cancels,1);
     assert(report.stats.duplicateCancelsSuppressed>0);
     const cancel=report.recent.find(x=>x.kind==='CANCEL' && x.id===cueId);
@@ -369,8 +375,8 @@ test('editor preview condition is counted as inactive instead of a missed attack
     assert(report.recent.some(x=>x.kind==='condition-not-met' && x.reason==='editor-preview-only'));
 });
 
-test('diagnostics off skips deep sampling but keeps identical warning identity and withdrawal', () => {
-    const e=fixture('Diagnostics=0'); let semanticReads=0, evidenceReads=0;
+test('diagnostics off with fallback disabled skips deep sampling but keeps warning identity and withdrawal', () => {
+    const e=fixture('Diagnostics=0\nSemanticFallback=0'); let semanticReads=0, evidenceReads=0;
     Object.defineProperty(e.first.action,'DeflectBulletType',{get(){semanticReads++; return 3;}});
     e.first.action.GetAbilitySystemComponent=()=>{evidenceReads++; return e.owner.asc;};
     e.tick(0.7); assert.equal(e.cues().length,1); e.first.task.OnCancelled.Fire(); e.tick(0.72); e.mod.stop();
@@ -424,6 +430,381 @@ test('Lua health failures and recovery remain visible in JS diagnostics', () => 
     assert.equal(report.hookHealth.writeFailures,2); assert.equal(report.hookHealth.recoveries,1);
     assert.equal(report.hookHealth.lastErrorStage,'open'); assert.equal(report.hookBridgeAlive,true);
     assert.equal(report.stats.errors,0);
+});
+
+function observations(env) { return JSON.parse(env.files.get(env.saved+'pbzforewarn_observations.json')); }
+function provideNativeFrame(env, handle=1) {
+    env.first.action.GetAbility=()=>env.owner.ability;
+    env.first.action.GetAvatarActor=()=>env.owner.enemy;
+    env.first.action.GetTimeline=()=>env.first.timeline;
+    env.first.action.DeflectBulletType=3;
+    const frame={SourceAction:env.first.action,HitGameTime:1.5,IsDodge:true,IsHit:false};
+    const entries=new Map([[handle,frame]]), keys=[handle];
+    env.deflect={_path:'/Player/Deflect',ReceiveFrames:{Num:()=>entries.size,GetMaxIndex:()=>keys.length,
+        IsValidIndex:i=>entries.has(keys[i]),GetKey:i=>keys[i],Get:key=>entries.get(key)}};
+    return {frame,entries,keys};
+}
+
+test('observation on and off keep identical cue and withdrawal sequences',()=>{
+    const results=[];
+    for(const enabled of [true,false]) {
+        const e=fixture('ObserveAttacks='+(enabled?'1':'0')); provideNativeFrame(e);
+        e.tick(0.3);e.tick(0.7);e.first.task.OnCancelled.Fire();e.tick(0.71);e.mod.stop();
+        results.push(e.audioEvents.map(x=>({kind:x.kind,id:x.id,color:x.color,reason:x.reason})));
+    }
+    assert.deepEqual(results[0],results[1]);
+});
+test('native observations are persisted but cannot generate an unsupported warning',()=>{
+    const e=fixture();provideNativeFrame(e);
+    e.first.action.NiagaraEffect={_path:'/Unknown/OrdinaryEffect'};
+    e.tick(0.7);e.mod.stop();const report=observations(e);
+    assert.equal(e.cues().length,0);assert(report.events.some(x=>x.kind==='native-frame'&&x.typeName==='RedEye'));
+    assert(report.events.some(x=>x.kind==='attack-plan'));assert.equal(report.mode,'observe-only');
+});
+test('same resource in another activation has another observation identity',()=>{
+    const e=fixture();provideNativeFrame(e);e.tick(0.1);
+    e.owner.ability.activation++;e.tick(0.1,250);e.mod.stop();
+    const plans=observations(e).events.filter(x=>x.kind==='attack-plan');
+    assert.equal(new Set(plans.map(x=>x.activation)).size,2);
+});
+test('unchanged action snapshots do not record every compile progress update',()=>{
+    const e=fixture();provideNativeFrame(e);e.tick(0.1);e.tick(0.2,250);e.tick(0.3,250);e.mod.stop();
+    const report=observations(e);
+    assert.equal(report.events.filter(x=>x.kind==='attack-plan').length,1);
+    assert.equal(report.events.filter(x=>x.kind==='warning-plan').length,1);
+});
+test('observation file write failure leaves cues and audio running',()=>{
+    const e=fixture();e.failObservationWrite=true;e.tick(0.7);e.tick(0.8,5100);e.mod.stop();
+    assert.equal(e.cues().length,1);const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
+    assert.equal(report.stats.errors,0);assert(report.flush.observationWriteFailures>0);
+    assert(report.recent.some(x=>x.kind==='observation-write-error'));
+});
+test('diagnostics off disables all optional observation reads and files',()=>{
+    const e=fixture('Diagnostics=0');let reads=0;
+    Object.defineProperty(e.player,'GetComponentByClass',{get(){reads++;throw Error('must not read');}});
+    e.tick(0.7);e.mod.stop();assert.equal(reads,0);assert.equal(e.cues().length,1);
+    assert(!e.files.has(e.saved+'pbzforewarn_observations.json'));
+});
+test('Lua observations preserve callback clock and never use import player as capture identity',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+        session:'observer-lua',seq:1,active:true,heartbeat:e.wall,events:[{seq:1,kind:'timeline-call',phase:'pre',
+            callId:1,gameTime:{status:'read',value:42,source:'GameplayStatics.GetTimeSeconds'},
+            context:{world:'/World/A',ability:'/Ability',actor:'/Enemy',task:'/Task'},params:{StartTimeSeconds:{status:'read',value:2.88}}}]}));
+    e.tick(0.7);e.mod.stop();const entry=observations(e).events.find(x=>x.kind==='timeline-call');
+    assert.equal(entry.capture.gameTime.value,42);assert.equal(entry.player,null);assert.equal(entry.gameTime,null);
+    assert.equal(entry.importedPlayer,'/Player');assert.equal(entry.captureWorldMatchesImportedWorld,true);
+    assert.equal(entry.capture.params.StartTimeSeconds.value,2.88);assert.equal(e.cues().length,1);
+});
+test('stale Lua observation snapshots cannot impersonate current calls',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+        session:'old',seq:1,active:true,heartbeat:e.wall-5000,events:[{seq:1,kind:'warning-call',phase:'call'}]}));
+    e.tick(0.7);e.mod.stop();assert(!observations(e).events.some(x=>x.kind==='native-warning-call'));
+    assert(observations(e).events.some(x=>x.status==='snapshot-inactive-or-stale'));
+});
+test('Lua snapshot sequence gaps are explicit and repeated imports do not duplicate calls',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+        session:'gap',seq:8,active:true,heartbeat:e.wall,events:[{seq:8,kind:'warning-call',phase:'call',context:{world:'/Other'}}]}));
+    e.tick(0.1);e.tick(0.2,100);e.mod.stop();const report=observations(e);
+    assert.equal(report.events.filter(x=>x.kind==='native-warning-call').length,1);
+    assert(report.events.some(x=>x.kind==='observer-hook-gap'&&x.actual===8));
+    assert.equal(report.events.find(x=>x.kind==='native-warning-call').captureWorldMatchesImportedWorld,false);
+});
+test('clock rewind increments observation epoch before native records are reused',()=>{
+    const e=fixture();provideNativeFrame(e);e.game=2;e.tick(0.1);e.game=0;e.tick(0.2);e.mod.stop();
+    const frames=observations(e).events.filter(x=>x.kind==='native-frame');
+    assert.equal(new Set(frames.map(x=>x.clockEpoch)).size,2);
+    assert(observations(e).events.some(x=>x.kind==='observer-reset'&&x.reason==='game-clock-rewind'));
+});
+
+test('missing optional observation modules leave baseline cues operational',()=>{
+    for(const name of ['./observation-store','./native-attack-observer','./timeline-observation']) {
+        const e=fixture(undefined,{missingModule:name});e.tick(0.7);e.mod.stop();
+        assert.equal(e.cues().length,1);assert(!e.files.has(e.saved+'pbzforewarn_observations.json'));
+        assert(e.diagnostics().some(x=>x.includes('observation-unavailable')));
+    }
+});
+test('disabled observations do not even require missing optional files',()=>{
+    const e=fixture('ObserveAttacks=0',{missingModule:'./observation-store'});e.tick(0.7);e.mod.stop();
+    assert.equal(e.cues().length,1);assert(!e.diagnostics().some(x=>x.includes('observation-unavailable')));
+});
+test('observer store construction failure cannot stop cue startup',()=>{
+    const e=fixture(undefined,{badStore:true});e.tick(0.7);e.mod.stop();assert.equal(e.cues().length,1);
+});
+test('invalid Lua rows cannot advance cursor past valid observations',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+        session:'reject',seq:1,active:true,heartbeat:e.wall,events:[
+            {seq:999999,kind:'timeline-call',phase:'pre'},
+            {seq:1,kind:'not-a-call',phase:'post'},
+            {seq:1,kind:'timeline-call',phase:'post',context:{world:'/World/A'}}]}));
+    e.tick(0.7);e.mod.stop();const report=observations(e);
+    assert.equal(report.events.filter(x=>x.kind==='timeline-call').length,1);
+    assert.equal(report.hookImport.lastSeq,1);assert.equal(report.hookImport.rejectedRows,2);
+});
+test('Lua structured activation stays in capture and is not promoted to identity',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+        session:'abi',seq:1,active:true,heartbeat:e.wall,events:[{seq:1,kind:'timeline-call',phase:'pre',
+            context:{world:'/World/A',activation:{status:'read',value:7}}}]}));
+    e.tick(0.7);e.mod.stop();const entry=observations(e).events.find(x=>x.kind==='timeline-call');
+    assert.equal(entry.activation,null);assert.equal(entry.capture.context.activation.value,7);
+});
+test('global observation sampling rotates tasks and exposes deferrals without withholding cues',()=>{
+    const e=fixture();provideNativeFrame(e);
+    const other=e.addEnemy('Other'),second=e.addTask(other,'other');second.action.DeflectBulletType=2;
+    second.task.CurrentTime=0.7;e.tick(0.7);assert.equal(e.cues().length,2);
+    e.tick(0.71);e.mod.stop();const report=observations(e);
+    assert(report.sampling.deferredTaskSamples>=1);assert.equal(report.sampling.maxTimelineTasksPerTick,1);
+    assert(report.events.some(x=>x.kind==='attack-plan'&&x.actor==='/Enemy'));
+    assert(report.events.some(x=>x.kind==='attack-plan'&&x.actor==='/Other'));
+});
+
+test('QiShu semantic fallback creates a red cue while leaving the action read-only',()=>{
+    const e=fixture('SemanticFallback=1');
+    e.owner.enemy._path='/Game/Test.BP_Monster_QiShu_Huo_C_1';
+    e.owner.ability._path='/Game/Test.GA_Qishu_Huo_RoundSkill_FireRing_C_1';
+    e.first.action.NiagaraEffect=null;
+    e.first.action['Deflect Bullet Type']=3;
+    e.first.action.GetClass=()=>({_path:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
+    e.first.task.CurrentTime=0.7;
+    e.tick(0.7);
+    assert.equal(e.cues().length,1);
+    assert.equal(e.cues()[0].color,'red');
+    assert(e.logs.some(x=>x.includes('"source":"semantic-fallback"')));
+    e.mod.stop();
+    const report=observations(e);
+    const cue=report.events.find(x=>x.kind==='warning-cue');
+    assert.equal(cue.source,'semantic-fallback');
+    assert.equal(cue.fallbackRule,'qishu-round-fire-ring');
+    assert.equal(cue.timingBasis,'timeline-action-start');
+    assert.equal(cue.usedForScheduling,true);
+    assert.equal(cue.executionVerified,false);
+    const plan=report.events.find(x=>x.kind==='warning-plan');
+    assert.equal(plan.source,'semantic-fallback');
+    assert.equal(plan.fallbackRule,'qishu-round-fire-ring');
+    assert.equal(plan.usedForScheduling,true);
+    assert.equal(plan.executionVerified,false);
+});
+
+function qishuRuntime(config='SemanticFallback=1', abilityName='GA_Qishu_Huo_RoundSkill_FireRing_C') {
+    const e=fixture(config);
+    e.owner.enemy._path='/Game/Test.BP_Monster_QiShu_Huo_C_1';
+    e.owner.ability._path='/Game/Test.'+abilityName+'_1';
+    e.warningEffect=e.first.action.NiagaraEffect;
+    e.first.action.NiagaraEffect=null;
+    e.first.action['Deflect Bullet Type']=3;
+    e.first.action.GetClass=()=>({_path:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
+    return e;
+}
+
+test('delayed standard resource resolution shares a fired fallback node identity without double cue or cancel',()=>{
+    for(const hasGuid of [false,true]) {
+        const e=qishuRuntime();
+        if(hasGuid) e.first.timeline.Actions=array([{...e.first.event,Guid:{A:1,B:2,C:3,D:4}}]);
+        e.tick(0.7);assert.equal(e.cues().length,1);
+        const id=e.cues()[0].id;
+        e.first.action.NiagaraEffect=e.warningEffect;
+        e.tick(0.95,250);
+        assert.equal(e.cues().length,1);assert.equal(e.cues()[0].id,id);
+        assert.equal(e.cancels().length,0);
+        e.mod.stop();
+    }
+});
+test('standard recognition is preferred before cue and a later fallback cannot replay the same physical node',()=>{
+    const e=qishuRuntime();e.first.action.NiagaraEffect=e.warningEffect;
+    e.tick(0.7);assert.equal(e.cues().length,1);
+    const line=e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] CUE '));
+    assert(!line.includes('semantic-fallback'));
+    e.first.action.NiagaraEffect=null;e.tick(0.95,250);
+    assert.equal(e.cues().length,1);assert.equal(e.cancels().length,0);e.mod.stop();
+});
+test('duplicate semantic GUID nodes and later array reorder cannot produce a second cue',()=>{
+    const e=qishuRuntime();const node={...e.first.event,Guid:{A:1,B:2,C:3,D:4}};
+    e.first.timeline.Actions=array([node,{...node}]);e.tick(0.7);
+    assert.equal(e.cues().length,1);
+    const unrelated={...node,Action:{_path:'/Action/Unrelated',GetClass:()=>({_path:'/Class/Unrelated'})}};
+    e.first.timeline.Actions=array([unrelated,node]);e.tick(0.95,250);
+    assert.equal(e.cues().length,1);assert.equal(e.cancels().length,0);e.mod.stop();
+});
+test('both semantic rules rearm on a real outer ability activation change',()=>{
+    for(const ability of ['GA_Qishu_Huo_RoundSkill_FireRing_C','GA_Qishu_Huo_SkillAttack_F_AssaultEnd_C']) {
+        const e=qishuRuntime('SemanticFallback=1',ability);
+        e.tick(0.7);assert.equal(e.cues().length,1);
+        e.owner.ability.activation++;e.tick(0.7,64);
+        assert.equal(e.cues().length,2);assert.notEqual(e.cues()[0].id,e.cues()[1].id);
+        e.mod.stop();
+    }
+});
+test('different tasks and enemies keep their own semantic cue identities',()=>{
+    const e=qishuRuntime();const other=e.addEnemy('BP_Monster_QiShu_Huo_C_2');
+    other.ability._path='/Game/Other.GA_Qishu_Huo_RoundSkill_FireRing_C_2';
+    const task=e.addTask(other,'other',{actionClass:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
+    task.action.NiagaraEffect=null;task.action['Deflect Bullet Type']=3;task.task.CurrentTime=0.7;
+    e.tick(0.7);assert.equal(e.cues().length,2);
+    assert.notEqual(e.cues()[0].id,e.cues()[1].id);e.mod.stop();
+});
+test('an ineligible standard red node leaves a distinct semantic node available to schedule',()=>{
+    const e=qishuRuntime();
+    const standard={_path:'/Action/Standard',NiagaraEffect:e.warningEffect,
+        GetClass:()=>({_path:'/Class/Ordinary'}),
+        ActivationRequirements:{RequireTags:['Missing.Tag'],IgnoreTags:[],TagQuery:{empty:true}}};
+    e.first.timeline.Actions=array([{...e.first.event,Action:standard,StartTime:8},e.first.event]);
+    e.tick(0.7);assert.equal(e.cues().length,1);
+    assert(e.logs.some(x=>x.includes('"source":"semantic-fallback"')));e.mod.stop();
+});
+test('a standard red role belonging to an unlocked actor cannot suppress the locked owner fallback',()=>{
+    const e=qishuRuntime('SemanticFallback=1\nOnlyLockedTarget=1');
+    const other=e.addEnemy('Other');e.lockedTarget=e.owner.enemy;
+    const standard={_path:'/Action/StandardRole',NiagaraEffect:e.warningEffect,
+        GetClass:()=>({_path:'/Class/Ordinary'}),
+        ActivationRequirements:{RequireTags:[],IgnoreTags:[],TagQuery:{empty:true}}};
+    e.first.timeline.RoleLayers=array([{RoleName:'Other',Actions:array([{...e.first.event,Action:standard}])}]);
+    e.first.task.GetRoleActor=()=>other.enemy;
+    e.tick(0.7);assert.equal(e.cues().length,1);
+    assert(e.logs.some(x=>x.includes('"source":"semantic-fallback"')));e.mod.stop();
+});
+test('semantic type changes and conflicts fail closed inside the compile interval',()=>{
+    for(const change of [a=>a['Deflect Bullet Type']=0,a=>a.DeflectType=2,a=>delete a['Deflect Bullet Type']]) {
+        const e=qishuRuntime();e.tick(0.5);assert.equal(e.cues().length,0);
+        change(e.first.action);e.tick(0.7,16);assert.equal(e.cues().length,0);e.mod.stop();
+    }
+});
+test('stable semantic type three is rechecked without resampling diagnostic timing arrays per tick',()=>{
+    const e=qishuRuntime('SemanticFallback=1\nDiagnostics=0');e.tick(0.5);
+    let deepReads=0;
+    for(const field of ['SendFrameTimes','StartBulletTimes','EndBulletTimes']) Object.defineProperty(e.first.action,field,
+        {get(){deepReads++;throw Error('not for per-tick eligibility');}});
+    e.tick(0.7,16);assert.equal(e.cues().length,1);assert.equal(deepReads,0);e.mod.stop();
+});
+test('a semantic cue uses the same explicit task cancellation path as a standard cue',()=>{
+    const e=qishuRuntime();e.tick(0.7);assert.equal(e.cues().length,1);
+    e.first.task.OnCancelled.Fire();e.tick(0.72);
+    assert(e.cancels().some(item=>item.id===e.cues()[0].id&&item.reason==='task-cancelled'));
+    assert.equal(e.hud.at(-1).active.length,0);e.mod.stop();
+});
+
+test('QiShu semantic fallback can be disabled without changing normal warning behavior',()=>{
+    const e=fixture('SemanticFallback=0');
+    e.owner.enemy._path='/Game/Test.BP_Monster_QiShu_Huo_C_1';
+    e.owner.ability._path='/Game/Test.GA_Qishu_Huo_RoundSkill_FireRing_C_1';
+    e.first.action.NiagaraEffect=null;
+    e.first.action['Deflect Bullet Type']=3;
+    e.first.action.GetClass=()=>({_path:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
+    e.tick(0.7);
+    assert.equal(e.cues().length,0);
+    e.mod.stop();
+});
+
+test('trial version is identical in START, diagnostics and observation snapshots',()=>{
+    const e=fixture();e.tick(0.1);e.mod.stop();
+    const start=JSON.parse(e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] START ')).split('START ')[1]);
+    assert.equal(start.version,'0.6.0-trial.1');
+    assert.equal(observations(e).version,start.version);
+    assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).version,start.version);
+});
+
+test('Lua schema2 paths decode without changing callback clock or cue output',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:2,
+        version:'0.6.0-trial.1',session:'lua-v2',seq:1,active:true,heartbeat:e.wall,
+        pathDictionary:{1:'/World/A',2:'/Enemy/Ability',3:'/Enemy/Actor'},
+        health:{writeFailures:2,recoveries:2,currentlyFailing:false},events:[{seq:1,kind:'timeline-call',phase:'pre',callId:1,
+            gameTime:{status:'read',value:42},context:{world:{$path:1},ability:{$path:2},actor:{$path:3}},
+            params:{StartTimeSeconds:{status:'read',value:2.883}}}]}));
+    e.tick(0.7);e.mod.stop();const r=observations(e),call=r.events.find(x=>x.kind==='timeline-call');
+    assert.equal(call.ability,'/Enemy/Ability');assert.equal(call.capture.context.actor,'/Enemy/Actor');
+    assert.equal(call.capture.gameTime.value,42);assert.equal(call.gameTime,null);assert.equal(call.player,null);
+    assert.equal(r.hookImport.health.recoveries,2);assert.equal(e.cues().length,1);
+});
+
+test('real Lua schema2 wire fixture imports string call IDs and structured parameters',()=>{
+    const e=fixture();const fixturePath=path.join(__dirname,'../../hooks-package/tests/observer-schema2-wire-fixture.json');
+    const payload=JSON.parse(fs.readFileSync(fixturePath,'utf8'));payload.heartbeat=e.wall;
+    e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify(payload));e.tick(0.7);e.mod.stop();
+    const r=observations(e),calls=r.events.filter(x=>x.kind==='timeline-call'),focus=r.events.filter(x=>x.kind==='focused-call-summary');
+    assert.equal(calls.length,2);assert.equal(focus.length,1);
+    assert.equal(typeof focus[0].capture.callId,'string');assert.equal(focus[0].capture.first.params.StartTimeSeconds.value,2.883);
+    assert.equal(focus[0].capture.last.taskTime.value,2.9);
+    assert.equal(calls[0].capture.gameTime.value,42.25);assert.equal(calls[0].gameTime,null);assert.equal(calls[0].player,null);
+    assert.equal(calls[0].capture.context.activation.value,3);assert.equal(calls[0].activation,null);
+    assert.equal(r.hookImport.rejectedRows,0);assert.equal(e.cues().length,1);
+});
+
+test('Lua schema2 missing or malformed references cannot advance valid cursor',()=>{
+    for(const reference of [{$path:99},{$path:1,extra:'ambiguous'},{$path:-1}]){
+        const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:2,
+            session:'bad-path',seq:2,active:true,heartbeat:e.wall,pathDictionary:{1:'/World/A'},events:[
+                {seq:1,kind:'timeline-call',phase:'pre',context:{world:reference}},
+                {seq:2,kind:'timeline-call',phase:'post',context:{world:{$path:1}}}]}));
+        e.tick(0.7);e.mod.stop();const r=observations(e);
+        assert.equal(r.events.filter(x=>x.kind==='timeline-call').length,1);
+        assert.equal(r.hookImport.rejectedRows,1);assert.equal(r.hookImport.lastSeq,2);
+        assert(r.events.some(x=>x.kind==='observer-hook-gap'&&x.expected===1&&x.actual===2));assert.equal(e.cues().length,1);
+    }
+});
+
+test('focused Lua summaries survive original event eviction without becoming duplicate execution events',()=>{
+    const e=fixture();const payload={schemaVersion:2,session:'focused',seq:500,active:true,heartbeat:e.wall,
+        pathDictionary:{1:'/Game/FeiZei_SpecialAttack_07',2:'/Game/Enemy'},events:[],
+        focusRetention:{count:1,total:1,dropped:0},focusSummaries:[{callId:'fw-observe-focused:4',kind:'timeline-call',firstSeq:1,lastSeq:2,
+            ability:{$path:1},actor:{$path:2},first:{phase:'pre',params:{StartTimeSeconds:{value:2.883}}},
+            last:{phase:'post',taskTime:{value:2.9}},abiVerified:false}]};
+    e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify(payload));e.tick(0.1);
+    payload.heartbeat=e.wall+300;e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify(payload));e.tick(0.2,300);
+    e.mod.stop();const r=observations(e),focus=r.events.filter(x=>x.kind==='focused-call-summary');
+    assert.equal(focus.length,1);assert.equal(focus[0].capture.first.params.StartTimeSeconds.value,2.883);
+    assert.equal(focus[0].ability,'/Game/FeiZei_SpecialAttack_07');assert.equal(focus[0].gameTime,null);
+    assert.equal(r.events.filter(x=>x.kind==='timeline-call').length,0);assert.equal(r.hookImport.lastSeq,0);
+});
+
+test('late first discovery retains the task position and missed-plan context',()=>{
+    const e=fixture();e.tick(3.71554);e.mod.stop();const r=observations(e);
+    const first=r.events.find(x=>x.kind==='task-lifecycle'&&x.phase==='first-observed');
+    const missed=r.events.find(x=>x.kind==='warning-missed');
+    assert.equal(first.firstObservedTimelineTime,3.71554);assert.equal(first.startTimeVerified,false);
+    assert.equal(missed.recordSerial,first.recordSerial);assert.equal(missed.firstObservedTimelineTime,3.71554);
+    assert.equal(missed.executionVerified,false);assert.equal(e.cues().length,0);
+});
+
+test('task rewind and record replacement retain separate local identities without manufacturing strikes',()=>{
+    const e=fixture();e.tick(0.3);e.tick(0.1);e.owner.ability.activation++;e.tick(0.1,64);e.mod.stop();
+    const r=observations(e),life=r.events.filter(x=>x.kind==='task-lifecycle');
+    const rewind=life.find(x=>x.phase==='timeline-rewind-observed');
+    const firsts=life.filter(x=>x.phase==='first-observed');
+    assert.equal(rewind.previousTimelineTime,0.3);assert.equal(rewind.observationRun,2);
+    assert.equal(firsts.length,2);assert.notEqual(firsts[0].recordSerial,firsts[1].recordSerial);
+    assert.equal(firsts[1].replacesRecordSerial,firsts[0].recordSerial);
+    assert.equal(firsts[1].identityBasis,'local-task-record-not-cross-source-strike-id');
+});
+
+test('task cancellation preserves terminal facts without asserting a projectile became safe',()=>{
+    const e=fixture();e.tick(0.7);e.first.task.OnCancelled.Fire();e.tick(0.72);e.mod.stop();
+    const r=observations(e),ended=r.events.find(x=>x.kind==='task-lifecycle'&&x.phase==='native-task-ended');
+    const cancel=r.events.find(x=>x.kind==='warning-withdrawal');
+    assert.equal(ended.callback,'OnCancelled');assert.equal(ended.dangerEndedVerified,false);
+    assert.equal(cancel.recordSerial,ended.recordSerial);assert.equal(cancel.termination.playerHitCauseVerified,false);
+});
+
+test('native task delegate does not borrow an old world clock after the actor world changes',()=>{
+    const e=fixture();e.tick(0.7);e.owner.enemy.GetWorld=()=>({_path:'/World/New'});e.game=1.2;
+    e.first.task.OnCancelled.Fire();e.mod.stop();const r=observations(e);
+    const ended=r.events.find(x=>x.kind==='task-lifecycle'&&x.phase==='native-task-ended');
+    assert.equal(ended.captureWorld,'/World/New');assert.equal(ended.worldKey,null);assert.equal(ended.clockEpoch,null);
+    assert.equal(ended.gameTime,1.2);assert.equal(ended.callbackContextVerified,false);
+});
+
+test('bounded1 and bounded2 main produce identical cue and audio events across combat transitions',()=>{
+    const previous=fs.readFileSync(path.join(__dirname,'fixtures/bounded1-main.fixture.js'),'utf8');
+    const scenarios=[
+        e=>{e.tick(0.3);e.tick(0.7);e.tick(1.42,720);e.first.task.OnCompleted.Fire();e.tick(1.45);},
+        e=>{e.tick(0.7);e.first.task.OnCancelled.Fire();e.tick(0.71);e.owner.ability.activation++;e.tick(0,64);e.tick(0.7);},
+        e=>{const other=e.addEnemy('Other');const t=e.addTask(other,'other');t.task.CurrentTime=0.7;e.tick(0.7);e.tick(1.42,720);
+            e.owner.ability.activation++;e.tick(0.7,80);e.owner.enemy.distance=9000;e.tick(0.72);},
+        e=>{e.tick(0.7);e.paused=true;e.tick(0.71);e.paused=false;e.tick(0.72);e.world={_path:'/World/New'};e.tick(0.73);},
+        e=>{e.first.action.ActivationRequirements.RequireTags=['ready'];e.tick(0.7);e.owner.asc.tags.add('ready');e.tick(0.8);
+            e.owner.asc.tags.delete('ready');e.tick(0.82);e.tick(0.1);}
+    ];
+    for(const play of scenarios){const outputs=[];for(const source of [previous,mainSource]){
+        const e=fixture(undefined,{mainSource:source});play(e);e.mod.stop();
+        outputs.push(JSON.parse(JSON.stringify(e.audioEvents)));
+    }assert.deepEqual(outputs[1],outputs[0]);}
 });
 
 console.log('Runtime integration: ' + passed + ' tests passed. Unreal APIs are mocked; no in-game claim.');

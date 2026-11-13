@@ -1,33 +1,43 @@
-# Validation / 实测与离线验证
+# Validation / 自检边界
 
-Public version `0.5`; runtime `0.5.0-release.2`; public test build.
+## 0.6.0-trial.1
 
-## In-game evidence
+This candidate builds on observe-bounded.2 and retains the 0.5 scheduler, glyph and Wwise audio modules.
+Its new gameplay-facing behaviour is limited to two QiShu_Huo semantic red warnings.
+The sanitized captured-plan fixture preserves the actual type fields, empty tag requirements and authored times:
 
-On2026-11-11 the user removed Forewarn/AlertCue deployment and their Saved configuration/runtime files, ran the game without a warning mod, then installed the exact release.2 package with PBZ Mod Manager and tested four bosses. This is a clean first-install test with the loaders and other mods retained; it is not an otherwise unmodified game or a manual-install game run.
+| Ability | Type | Plan start | Plan end |
+|---|---|---:|---:|
+| GA_Qishu_Huo_RoundSkill_FireRing_C | RedEye=3 | 0.8014639616 | 1.3372839689 |
+| GA_Qishu_Huo_SkillAttack_F_AssaultEnd_C | RedEye=3 | 3.8763465881 | 5.2415456772 |
 
-The15 deployed runtime files matched the tested release.2 archive by hash. Four actors produced59 distinct automatic cues (13 red,8 blue,38 black). Each submitted one audio request;4 previews made63 total. There were no audio drops, duplicate audio IDs or JS runtime errors. Accepted PlayingIDs alone are not acoustic output measurements; this log audit complements the user's audible/visual testing.
+These are plan facts, not measured flash times, impact times or certified executions.
+The build label 26367565 records the evidence environment; it is not an enforced runtime build check.
 
-All22 actually used resource detail records remained available, with399 essential events retained and no essential-history eviction. Lua had one open failure followed by recovery about55ms later; failure/recovery counters preserved the incident. It would be incorrect to describe the entire Lua chain as error-free or all sharing conflicts as fixed.
+Offline checks cover strict object/class matching, type conflicts and live revalidation, tag/role filtering,
+standard-node precedence, source changes without duplicate cues, GUID duplicate handling, repeated activations,
+normal warnings and mocked audio delivery, bounded JS/Lua observations, Lua unloading, audio bank integrity,
+complete source inventory, validation-gate rejection and reproducible ZIP metadata.
+The exact current suite/check counts and input hashes are in generated `verification/summary.json`.
+They do not certify engine ABI, measured sound output, combat timing, coverage or performance.
 
-## Timing and coverage limitations
+The standalone source check extracts the Source ZIP to a new directory, supplies audio and test dependencies,
+runs the full verifier, and rebuilds the archives. Audio and generated banks are excluded from source.
+The installer has no tests, logs, SDK dump, Node/Python executable or data-collection script.
 
-- Nine cues were not early relative to recorded original warning nodes: eight YuCong black cues were roughly14–25ms late because the node lies only24.84ms after task start; one ChiLian black cue was roughly38ms late.
-- One past-window record belongs to a new task observed after the node; the previous task of the same ability had already cued that resource. Start-offset parameters were not logged, so this is neither certified as a separate missed attack nor dismissed as harmless.
-- Sixteen unmet conditions include four editor-preview nodes and twelve IgnoreTags cases. The latter need comparison against the game's actual node Begin events; eligibility metadata is not an independent record of final execution.
-- Lead values are estimates from node time and observed rate, not measured screen/audio timing or guaranteed lead before impact.
-- Confirmed-lock-only mode, all bosses, other builds, WeGame and all mod combinations remain unverified.
+**中文：**当前完成的是离线代码与构建检查；新两招是否提示得准、会不会误报/双响、
+是否影响其他招式、性能和退出仍须实机验证。`SemanticFallback=0`可关闭新增规则，
+但观察模块仍保留；需要完整恢复0.5时应重新安装0.5发布包。
 
-## Offline validation
+## Historical 0.5 evidence
 
-349 checks passed across scheduler, adapter, presentation, runtime integration, bounded diagnostic retention, Wwise audio, binary bank, environment probe, target filter, attack probe and Lua hooks/entry. All JavaScript syntax checks passed. The independent bank parser and media decoder confirmed the bank and80ms prefix trim, with remaining PCM identical to the original suffix.
+The 0.5 release.2 baseline was tested on Windows/Steam build26367565 with PBZModLoader 2.1.0
+and PBZ-specific UE4SS v3.0.1-1195-g1ceefac8. Four bosses produced 59 distinct automatic cues
+(13 red, 8 blue, 38 black), plus four previews. No JS runtime errors or audio drops were recorded.
+PlayingIDs indicate accepted audio requests, not independent acoustic measurements.
+Some short warnings were late; one Lua write-open failure recovered. Whole-game coverage was never claimed.
+This history validates the baseline only and cannot be assigned to the new trial automatically.
 
-Independent folder fixtures verified the installation layout and preservation of unrelated files/settings. They do not substitute for an actual manual-install game run. The player package is checked to contain no loader DLL, executable, collector CMD/BAT/PowerShell script, tests, raw personal logs or source WAV.
-
-## Tested environment
-
-Windows x64 / Steam build26367565; KintaroModding PBZModLoader2.1.0; PBZ-specific UE4SS v3.0.1-1195-g1ceefac8. The original full WAV is preserved in the optional source archive. The installed trimmed BNK is unchanged from fix7:
-
-`f710b3bedad502aa2234c887da3d16630faefad13e61289ddf4b7a4e86282953`
-
-中文：本版已完成首次安装与四BOSS实测，不能继续写“候选尚未实机测试”；同样不能扩大成“所有招式都提前／全部条件正确／所有平台兼容”。日志显示的晚提示、条件分支、续播记录及Lua短暂故障均保留在说明中。发布素材来源见CREDITS.md。
+The local trial retains the same trimmed BNK SHA256:
+`f710b3bedad502aa2234c887da3d16630faefad13e61289ddf4b7a4e86282953`.
+Source contains no WAV/BNK/WEM. Full coverage, WeGame, other builds and every mod combination are unvalidated.

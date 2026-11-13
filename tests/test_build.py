@@ -2,6 +2,7 @@ from pathlib import Path
 import array
 import json
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -12,7 +13,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from build_state import validated_inputs
+from build_state import VERSION, TEST_CASES, SOURCE_ROOT_FILES, source_paths, validated_inputs
 
 
 class BuildTests(unittest.TestCase):
@@ -23,13 +24,9 @@ class BuildTests(unittest.TestCase):
         ignored = shutil.ignore_patterns('lib', '__pycache__', 'generated', 'cue.wav', '*results.json')
         for folder in ('js-package', 'hooks-package', 'audio-bank', 'player-docs', 'tests'):
             shutil.copytree(ROOT / folder, self.root / folder, ignore=ignored)
-        for name in ('package.py', 'verify.py', 'build_state.py', 'Run-Checks.ps1', 'requirements-test.txt',
-                     '.gitignore', '.gitattributes', 'README.txt', 'README_EN.txt', 'DEVELOPMENT.md',
-                     'CREDITS.md', 'CHANGELOG.txt', 'PBZForewarn.example.txt', 'VALIDATION.md'):
+        for name in SOURCE_ROOT_FILES:
+            (self.root / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / name, self.root / name)
-        (self.root / 'evidence').mkdir()
-        shutil.copy2(ROOT / 'evidence/release2-tested-runtime-hashes.json',
-                     self.root / 'evidence/release2-tested-runtime-hashes.json')
         self.write_audio()
 
     def tearDown(self):
@@ -54,9 +51,11 @@ class BuildTests(unittest.TestCase):
     def record_mock_validation(self):
         folder = self.root / 'verification'
         folder.mkdir(exist_ok=True)
-        report = {'version': '0.5.0-release.2', 'checks': 1,
-                  'suites': [{'name': 'mock-fixture', 'checks': 1, 'exit': 0}],
+        report = {'version': VERSION, 'javascriptSyntax': 'passed',
+                  'distributionName': 'PBZForewarn-' + VERSION,
+                  'suites': [{'name': name, 'checks': 1, 'exit': 0} for name, _ in TEST_CASES],
                   'validatedInputs': validated_inputs(self.root)}
+        report['checks'] = len(report['suites'])
         (folder / 'summary.json').write_text(json.dumps(report), encoding='utf8')
 
     def test_custom_audio_generates_matching_duration_without_sha_lock(self):
@@ -98,11 +97,11 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         destination = self.root / 'dist'
         self.assertEqual({path.name for path in destination.iterdir()},
-                         {'PBZForewarn-custom.zip', 'PACKAGE_CHECK.json'})
-        with zipfile.ZipFile(destination / 'PBZForewarn-custom.zip') as archive:
+                         {'PBZForewarn-0.6.0-trial.1.zip', 'PACKAGE_CHECK.json'})
+        with zipfile.ZipFile(destination / 'PBZForewarn-0.6.0-trial.1.zip') as archive:
             self.assertEqual({name.split('/')[0] for name in archive.namelist()},
                              {'ProjectPBZ', 'platform', 'README.txt'})
-            self.assertEqual(len(archive.namelist()), 16)
+            self.assertEqual(len(archive.namelist()), 21)
             self.assertIn('中文', archive.read('README.txt').decode('utf-8-sig'))
             self.assertIn('English', archive.read('README.txt').decode('utf-8-sig'))
             self.assertIn(b'durationSeconds: 0.25', archive.read(
@@ -114,11 +113,38 @@ class BuildTests(unittest.TestCase):
         self.record_mock_validation()
         result = self.run_script('package.py', '--source')
         self.assertEqual(result.returncode, 0, result.stderr)
-        with zipfile.ZipFile(self.root / 'dist/PBZForewarn-0.5-Source.zip') as archive:
+        with zipfile.ZipFile(self.root / 'dist/PBZForewarn-0.6.0-trial.1-Source.zip') as archive:
             self.assertIn('build_state.py', archive.namelist())
             self.assertIn('tests/test_build.py', archive.namelist())
             self.assertFalse(any(name.lower().endswith(('.wav', '.bnk', '.wem')) for name in archive.namelist()))
             self.assertFalse(any('/generated/' in name for name in archive.namelist()))
+            self.assertIn('PBZForewarn.example.txt', archive.namelist())
+            self.assertEqual(set(archive.namelist()),
+                             {path.relative_to(self.root).as_posix() for path in source_paths(self.root)})
+            self.assertFalse(any(name.lower().endswith(('.exe', '.dll', '.pyd', '.log'))
+                                 for name in archive.namelist()))
+
+    def test_source_archive_builds_audio_free_fixture_without_repository_generated_files(self):
+        self.build()
+        self.record_mock_validation()
+        result = self.run_script('package.py', '--source')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with tempfile.TemporaryDirectory(prefix='forewarn-source-') as extracted:
+            with zipfile.ZipFile(self.root / 'dist/PBZForewarn-0.6.0-trial.1-Source.zip') as archive:
+                archive.extractall(extracted)
+            source_root = Path(extracted)
+            self.assertEqual({path.relative_to(source_root).as_posix() for path in source_paths(source_root)},
+                             {path.relative_to(self.root).as_posix() for path in source_paths(self.root)})
+            self.assertTrue(all(path.is_file() for path in source_paths(source_root)))
+            self.write_source_fixture_audio(source_root)
+            build = subprocess.run([sys.executable, str(source_root / 'audio-bank/build_bank.py')],
+                                   cwd=source_root, capture_output=True, text=True,
+                                   encoding='utf8', errors='replace')
+            self.assertEqual(build.returncode, 0, build.stderr)
+            bank = subprocess.run([sys.executable, str(source_root / 'audio-bank/test_bank.py')],
+                                  cwd=source_root, capture_output=True, text=True,
+                                  encoding='utf8', errors='replace')
+            self.assertEqual(bank.returncode, 0, bank.stdout + bank.stderr)
 
     def test_changed_source_requires_new_validation(self):
         self.build()
@@ -151,6 +177,76 @@ class BuildTests(unittest.TestCase):
         result = self.run_script('package.py')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(previous.read_bytes(), b'previous artifact')
+
+    def test_incomplete_failed_or_inconsistent_validation_is_rejected(self):
+        self.build()
+        report_path = self.root / 'verification/summary.json'
+        for case in ('missing-suite', 'duplicate-suite', 'failed-suite', 'bad-total',
+                     'negative-count', 'bad-version', 'bad-distribution', 'bad-syntax'):
+            with self.subTest(case=case):
+                self.record_mock_validation()
+                report = json.loads(report_path.read_text(encoding='utf8'))
+                if case == 'missing-suite':
+                    report['suites'].pop()
+                    report['checks'] -= 1
+                elif case == 'duplicate-suite':
+                    report['suites'][-1] = report['suites'][0]
+                elif case == 'failed-suite':
+                    report['suites'][0]['exit'] = 1
+                elif case == 'bad-total':
+                    report['checks'] += 1
+                elif case == 'negative-count':
+                    report['suites'][0]['checks'] = -1
+                    report['checks'] -= 2
+                elif case == 'bad-version':
+                    report['version'] = '0.5.0-release.2'
+                elif case == 'bad-distribution':
+                    report['distributionName'] = 'wrong-package'
+                else:
+                    report['javascriptSyntax'] = 'failed'
+                report_path.write_text(json.dumps(report), encoding='utf8')
+                result = self.run_script('package.py')
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('verify.py again', result.stderr)
+                self.assertFalse((self.root / 'dist').exists())
+
+    def test_source_document_change_requires_validation_but_test_outputs_do_not(self):
+        self.build()
+        self.record_mock_validation()
+        before = validated_inputs(self.root)
+        (self.root / 'hooks-package/tests/results.json').write_text('{"changed":true}', encoding='utf8')
+        self.assertEqual(validated_inputs(self.root), before)
+        with (self.root / 'hooks-package/README-hooks.md').open('a', encoding='utf8') as document:
+            document.write('\nChanged after checks.\n')
+        result = self.run_script('package.py', '--source')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('changed after validation', result.stderr)
+
+    def test_archives_are_identical_after_rebuild_and_file_timestamp_changes(self):
+        self.build()
+        self.record_mock_validation()
+        first = self.run_script('package.py', '--source')
+        self.assertEqual(first.returncode, 0, first.stderr)
+        archives = sorted((self.root / 'dist').glob('*.zip'))
+        before = {path.name: path.read_bytes() for path in archives}
+        for path in source_paths(self.root):
+            os.utime(path, (1000000000, 1000000000))
+        second = self.run_script('package.py', '--source')
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual({path.name: path.read_bytes() for path in archives}, before)
+        for path in archives:
+            with zipfile.ZipFile(path) as archive:
+                self.assertTrue(all(info.create_system == 3 and info.external_attr == 0o100644 << 16
+                                    and info.date_time == (2026, 11, 13, 0, 0, 0)
+                                    for info in archive.infolist()))
+
+    def write_source_fixture_audio(self, root):
+        samples = array.array('h')
+        for frame in range(44100 // 4):
+            samples.extend([round(256 * math.sin(2 * math.pi * 440 * frame / 44100))] * 2)
+        with wave.open(str(root / 'js-package/PBZForewarn/cue.wav'), 'wb') as audio:
+            audio.setparams((2, 2, 44100, 0, 'NONE', 'not compressed'))
+            audio.writeframes(samples.tobytes())
 
 
 class ReportingResult(unittest.TextTestResult):

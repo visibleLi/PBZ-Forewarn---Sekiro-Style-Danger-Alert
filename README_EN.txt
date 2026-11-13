@@ -1,95 +1,55 @@
-﻿PBZForewarn 0.5
-Peril Glyph and In-Game Warning Audio
-Runtime: 0.5.0-release.2
+PBZForewarn 0.6.0-trial.1
 
-DESCRIPTION
+Adds coloured “危” glyphs and in-game Wwise audio for supported red, blue and black warnings.
+This trial keeps the 0.5 scheduling, presentation and audio modules, adds bounded.2 observation,
+and tries two scoped QiShu_Huo red rules: fire ring and assault end.
+Captured plans contain RedEye=3, but the old warning-resource recognizer did not schedule them.
+The new rules check actor, ability, action class and unambiguous type. They do not enable all RedEye attacks.
+A standard warning takes precedence on the same node. Switching that node's source keeps its identity.
+Distinct nodes are not merged merely by colour or nearby timing. This trial still needs in-game testing.
 
-Adds a colored “危” danger glyph and a warning sound for supported red, blue and black attacks. Original warning effects, attack timing and parry windows stay unchanged. Black warnings use charcoal text with a light outline.
+Requirements and installation
+PBZModLoader and PBZ-specific UE4SS are mandatory. The 0.5 tested versions were PBZModLoader 2.1.0
+and PBZ-specific UE4SS v3.0.1-1195-g1ceefac8. Other distributions need separate validation.
+Recommended Mod Manager: https://www.nexusmods.com/phantombladezero/mods/2
+UE4SS release page: https://www.nexusmods.com/phantombladezero/mods/13
+Manager: close the game, disable old Forewarn/AlertCue and external players, import the installer ZIP,
+and enable all three parts (scripts, bank, Hooks).
+Manual: with prerequisites already installed, merge ProjectPBZ and platform into the game root.
+Keep every file. Fully restart; Alt+F5 does not reload Lua/audio. Alt+F9 previews the warning sound.
 
-The default target lead is 350 ms. Short attacks may provide less lead or a slightly late reminder. Attacks that are cancelled or switched withdraw their warning.
+Settings
+%LOCALAPPDATA%/ProjectPBZ/Saved/PBZForewarn.txt. Existing values stay; missing keys use defaults.
+LeadMs=350 requests earlier notice relative to the original warning node, or action-plan start for the supplement.
+Larger values request earlier cues; no guaranteed lead before impact or full coverage is claimed.
+SemanticFallback=0 disables the two new rules, leaving the observation version's normal cue path.
+OnlyLockedTarget=1 requires a confirmed lock; 0 supports unlocked play. SoundVolume is local volume (0–2).
+ObserveAttacks and Diagnostics enable bounded read-only evidence. Restart after edits.
+To return to the released 0.5 build, remove this trial and reinstall the original package.
 
-SOURCE REPOSITORY / AUDIO INPUT
-
-The Git source repository excludes cue.wav, PBZForewarn.bnk and generated WEM files.
-Existing local copies are kept but must not be committed. Supply audio you have rights to use at:
-  js-package/PBZForewarn/cue.wav
-Format: uncompressed 44100 Hz stereo 16-bit PCM WAV, 0.01 to 30 seconds.
-The original 0.5 hash is 5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8;
-it identifies the baseline, not a universal build requirement. Other valid audio
-produces a custom build without the original in-game test claim.
-Original 0.5 audio trims its verified silent first 80 ms; custom audio is untrimmed
-by default. Use --trim-start-ms N only for verified leading silence.
-With Python 3.12 and Node.js 24 available, run from the repository root:
+Build from source
+Git and Source ZIPs exclude WAV/BNK/WEM. Supply audio you have rights to use at
+js-package/PBZForewarn/cue.wav: uncompressed 44100 Hz stereo 16-bit PCM, 0.01–30 seconds.
+Only original 0.5 audio gets its verified 80 ms silence trim automatically; custom audio stays untrimmed.
+Using Python 3.12 and Node.js 24, run from the source root:
   python -m pip install --target hooks-package/tests/lib -r requirements-test.txt
   python audio-bank/build_bank.py
-  python verify.py --node <actual-path-to-node.exe>
+  python verify.py --node <path-to-node-or-node-on-PATH>
   python package.py
-By default the installer is dist/PBZForewarn-0.5.zip for the exact original baseline,
-or PBZForewarn-custom.zip for custom builds. Each contains only ProjectPBZ, platform
-and a short bilingual README. Use --source to also create a source archive.
-Bank and runtime duration configuration are generated together. Changing source or
-audio after verification requires rerunning verify.py. Exact original hashes are
-optional via --check-baseline on verify.py and package.py. See DEVELOPMENT.md.
-Providing your own audio does not grant rights to third-party assets.
+Default output: dist/PBZForewarn-0.6.0-trial.1.zip. Add --source to also create an audio-free Source ZIP.
+Only ProjectPBZ, platform and one bilingual README are installed. PACKAGE_CHECK.json stays outside the ZIP.
+Edits to source, docs or audio invalidate verification. See DEVELOPMENT.md for the full workflow.
 
-PLAYER REQUIREMENTS
+Validation and feedback
+0.5 had a four-boss Steam build26367565 test. This does not validate the new trial or its lead times.
+The captured build is metadata, not an enforced version lock. Full coverage, WeGame and locked-only mode remain unvalidated.
+After reproduction, preserve the five pbzforewarn_*.json snapshots in Saved, loader.log and UE4SS.log,
+plus the boss/move/time. New starts/reloads replace snapshots. No automatic upload occurs.
 
-Both PBZModLoader and UE4SS are mandatory. Tested versions:
-- PBZModLoader 2.1.0:
-  https://github.com/KintaroModding/phantombladezero_pbzmodloader/releases/tag/v2.1.0
-- PBZ-specific UE4SS v3.0.1-1195-g1ceefac8:
-  Nexus page for the same release line: https://www.nexusmods.com/phantombladezero/mods/13
-  https://github.com/KintaroModding/ue4ss/releases/tag/v3.0.1-1195-g1ceefac8
-
-These exact versions were tested with this mod and can also be installed manually. The custom UE4SS package at Nexus mods/5 and original PBZModLoader1.0.2 at mods/113 have not been tested as a Forewarn combination. Do not stack two editions of either loader.
-
-Recommended: Phantom Blade Zero - Mod Manager to install/manage the requirements and this mod:
-https://www.nexusmods.com/phantombladezero/mods/2
-
-INSTALL WITH MOD MANAGER
-
-1. Close the game. Use Mod Manager to install PBZModLoader and UE4SS.
-2. Disable older Forewarn, AlertCue and external cue-player packages.
-3. Import PBZForewarn-0.5.zip and enable all three parts: Forewarn scripts, Forewarn.bnk and ForewarnHooks.
-4. Restart the game fully. In a controllable scene, hold Alt and press F9 to preview sound.
-
-MANUAL INSTALL
-
-PBZModLoader and UE4SS must already be installed.
-
-1. Close the game and extract PBZForewarn-0.5.zip.
-2. Copy ProjectPBZ and platform into the game root, the folder containing those two directories. Merge the folders; do not add an enclosing folder.
-3. Restart fully and test Alt+F9. Keep every script module; do not put the BNK in Paks/~mods.
-
-SETTINGS
-
-First launch creates:
-%LOCALAPPDATA%/ProjectPBZ/Saved/PBZForewarn.txt
-
-LeadMs=350 sets the target lead. SoundVolume=0.8 adjusts this mod’s audio (0–2). OnlyLockedTarget=0 supports unlocked play; 1 requires a confirmed lock. Existing settings are preserved. Restart after editing; changing Lua/audio files always requires a full restart.
-
-REMOVE / NOTES
-
-Close the game. Remove this package with Mod Manager, or delete only:
-ProjectPBZ/PBZModLoader/mods/PBZForewarn
-ProjectPBZ/Content/PBZForewarn
-platform/steam/ue4ss/Mods/PBZForewarnHooks
-
-Keep shared loaders. Do not run multiple extra-warning mods together.
-Tested on Windows / Steam build 26367565 with four bosses. All-move coverage, WeGame and locked-only mode are not fully validated. No automatic parry or counterattack is included. PBZForewarn-0.5-Source.zip is optional developer source, not another required install.
-
-LOGS / FEEDBACK
-
-Logs are automatic. After reproducing a problem, copy these files and include the boss, move and approximate time:
-%LOCALAPPDATA%/ProjectPBZ/Saved/pbzforewarn_diagnostics.json
-%LOCALAPPDATA%/ProjectPBZ/Saved/pbzforewarn_resources.json
-%LOCALAPPDATA%/ProjectPBZ/Saved/pbzforewarn_hooks.json
-<game root>/ProjectPBZ/PBZModLoader/loader.log
-<game root>/platform/steam/ue4ss/UE4SS.log
-
-New starts/reloads replace snapshots. Review local paths before sharing; nothing is uploaded automatically.
-
-CREDITS
-
-The “危” presentation is inspired by Sekiro: Shadows Die Twice; the warning sound is sourced from that game (FromSoftware). The glyph uses PBZ’s in-game font; no original Sekiro UI animation was imported.
-Thanks to PBZModLoader, UE4SS and Mod Manager authors. AI assisted research, coding, debugging and documentation.
+Uninstall and credits
+Remove with Manager, or delete only ProjectPBZ/PBZModLoader/mods/PBZForewarn,
+ProjectPBZ/Content/PBZForewarn and platform/steam/ue4ss/Mods/PBZForewarnHooks.
+Keep shared loaders and saves. Avoid simultaneous extra-warning mods.
+The “危” style is inspired by Sekiro: Shadows Die Twice, using PBZ's font without imported UI animation.
+The local installer retains the 0.5 Sekiro warning sound. Third-party rights remain with their owners.
+Source archives contain no audio. Thanks to loader/manager authors; AI assisted analysis and development.

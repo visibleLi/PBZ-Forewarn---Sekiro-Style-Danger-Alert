@@ -1,0 +1,249 @@
+{
+  "evidenceBuild": "26367565",
+  "provenance": "Retained 2026-11-13 resource catalog; only these two plan facts, no session paths or execution certification.",
+  "interpretation": "RedEye type and authored plan timing; not original flash, impact, or confirmed execution.",
+  "rules": [
+    {
+      "ability": "GA_Qishu_Huo_RoundSkill_FireRing_C",
+      "action": "GAA_DelayDeflectProjectileBullet_C_4",
+      "actionClass": "/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C",
+      "attackSemantics": {
+        "arrays": {
+          "EndBulletTimes": {
+            "status": "missing"
+          },
+          "SendFrameTimes": {
+            "status": "missing"
+          },
+          "StartBulletTimes": {
+            "status": "missing"
+          }
+        },
+        "deflect": {
+          "candidates": [
+            {
+              "field": "DeflectBulletType",
+              "status": "missing"
+            },
+            {
+              "enumSource": "SDK-0.3.3/PBZDeflectSystem.EDeflectBulletType",
+              "field": "Deflect Bullet Type",
+              "name": "RedEye",
+              "status": "read",
+              "value": 3
+            },
+            {
+              "field": "DeflectType",
+              "status": "missing"
+            }
+          ],
+          "conflict": false,
+          "field": "Deflect Bullet Type",
+          "name": "RedEye",
+          "value": 3
+        },
+        "schemaVersion": 1,
+        "timing": {
+          "BulletDuration": {
+            "status": "missing"
+          },
+          "PreHitPointDuration": {
+            "status": "missing"
+          },
+          "RuntimePreHitPointDuration": {
+            "status": "missing"
+          }
+        },
+        "timingBasis": "unverified-not-scheduled",
+        "usedForScheduling": false
+      },
+      "start": 0.8014639616012573,
+      "end": 1.337283968925476,
+      "key": "main/10",
+      "requirements": {
+        "ignoreTags": {
+          "debug": "",
+          "parentTags": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "parentTagsFieldStatus": "read",
+          "status": "read",
+          "tags": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "tagsFieldStatus": "read"
+        },
+        "requireTags": {
+          "debug": "",
+          "parentTags": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "parentTagsFieldStatus": "read",
+          "status": "read",
+          "tags": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "tagsFieldStatus": "read"
+        },
+        "tagQuery": {
+          "autoDescription": "",
+          "empty": true,
+          "queryTokenStream": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "status": "read",
+          "tagDictionary": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "tokenStreamVersion": 0,
+          "userDescription": ""
+        }
+      }
+    },
+    {
+      "ability": "GA_Qishu_Huo_SkillAttack_F_AssaultEnd_C",
+      "action": "GAA_DelayDeflectProjectileBullet_C_4",
+      "actionClass": "/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C",
+      "attackSemantics": {
+        "arrays": {
+          "EndBulletTimes": {
+            "status": "missing"
+          },
+          "SendFrameTimes": {
+            "status": "missing"
+          },
+          "StartBulletTimes": {
+            "status": "missing"
+          }
+        },
+        "deflect": {
+          "candidates": [
+            {
+              "field": "DeflectBulletType",
+              "status": "missing"
+            },
+            {
+              "enumSource": "SDK-0.3.3/PBZDeflectSystem.EDeflectBulletType",
+              "field": "Deflect Bullet Type",
+              "name": "RedEye",
+              "status": "read",
+              "value": 3
+            },
+            {
+              "field": "DeflectType",
+              "status": "missing"
+            }
+          ],
+          "conflict": false,
+          "field": "Deflect Bullet Type",
+          "name": "RedEye",
+          "value": 3
+        },
+        "schemaVersion": 1,
+        "timing": {
+          "BulletDuration": {
+            "status": "missing"
+          },
+          "PreHitPointDuration": {
+            "status": "missing"
+          },
+          "RuntimePreHitPointDuration": {
+            "status": "missing"
+          }
+        },
+        "timingBasis": "unverified-not-scheduled",
+        "usedForScheduling": false
+      },
+      "start": 3.8763465881347656,
+      "end": 5.241545677185059,
+      "key": "main/30",
+      "requirements": {
+        "ignoreTags": {
+          "debug": "",
+          "parentTags": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "parentTagsFieldStatus": "read",
+          "status": "read",
+          "tags": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "tagsFieldStatus": "read"
+        },
+        "requireTags": {
+          "debug": "",
+          "parentTags": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "parentTagsFieldStatus": "read",
+          "status": "read",
+          "tags": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "tagsFieldStatus": "read"
+        },
+        "tagQuery": {
+          "autoDescription": "",
+          "empty": true,
+          "queryTokenStream": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "status": "read",
+          "tagDictionary": {
+            "length": 0,
+            "status": "read",
+            "truncated": false,
+            "unreadableIndices": [],
+            "values": []
+          },
+          "tokenStreamVersion": 0,
+          "userDescription": ""
+        }
+      }
+    }
+  ]
+}

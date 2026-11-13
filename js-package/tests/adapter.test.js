@@ -481,4 +481,134 @@ test("disabled inventory does not read optional role diagnostic fields", () => {
     assert.equal(optionalReads, 0); assert.equal(r.events[0].eligible, false); assert.equal(r.events[0].meta.reason, "role-unbound");
     assert.deepEqual(r.inventory, []);
 });
+
+const fallbackUE = UE;
+const fallbackAdapter = createAdapter(fallbackUE, {}, () => {}, { semanticFallback: true });
+const qishuActor = "/World/BP_Monster_QiShu_Huo_C_1";
+const qishuContext = (ability) => ({ actor: qishuActor, ability, task: "/Task/QiShu", activation: "1" });
+function semanticAction(ability, typeValue, className = "GAA_DelayDeflectProjectileBullet_C") {
+    const a = object("/Action/QiShu", {
+        "Deflect Bullet Type": typeValue,
+        NiagaraEffect: null,
+        ActivationRequirements: emptyRequirements(),
+        GetClass: () => object("/Script/PBZDeflectSystem." + className)
+    });
+    return a;
+}
+function semanticTimeline(a, start = 0.8) {
+    return timeline([event({ Action: a, StartTime: start, duration: 0.5 })]);
+}
+
+test("Qishu fire-ring RedEye semantic action becomes a supplementary red warning", () => {
+    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
+    const result = fallbackAdapter.events(semanticTimeline(semanticAction(ability, 3)), classifyEffect, asc,
+        qishuContext(ability), null, { captureDiagnostics: false });
+    assert.equal(result.events.length, 1);
+    assert.equal(result.events[0].color, "red");
+    assert.equal(result.events[0].meta.semanticFallback.ruleId, "qishu-round-fire-ring");
+    assert.equal(result.events[0].meta.semanticFallback.status, "scheduled");
+    assert.equal(result.checks.size, 1); assert.equal(result.contexts.size, 1);
+});
+
+test("Qishu assault-end RedEye semantic action becomes a supplementary red warning", () => {
+    const ability = "/Game/Boss/GA_Qishu_Huo_SkillAttack_F_AssaultEnd_C";
+    const result = fallbackAdapter.events(semanticTimeline(semanticAction(ability, 3), 3.8), classifyEffect, asc,
+        qishuContext(ability), null, { captureDiagnostics: false });
+    assert.equal(result.events.length, 1);
+    assert.equal(result.events[0].color, "red");
+    assert.equal(result.events[0].meta.semanticFallback.ruleId, "qishu-assault-end");
+});
+
+test("semantic fallback rejects non-RedEye and conflicting type fields", () => {
+    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
+    const cantDeflect = semanticAction(ability, 0);
+    const conflict = semanticAction(ability, 3); conflict.DeflectType = 2;
+    for (const a of [cantDeflect, conflict]) {
+        const result = fallbackAdapter.events(semanticTimeline(a), classifyEffect, asc,
+            qishuContext(ability), null, { captureDiagnostics: false });
+        assert.equal(result.events.length, 0);
+    }
+});
+
+test("semantic fallback is scoped to QiShu ability and action class", () => {
+    const otherActor = fallbackAdapter.events(semanticTimeline(semanticAction(
+        "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C", 3)), classifyEffect, asc,
+        { actor: "/World/OtherEnemy", ability: "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C", task: "/Task/Other" },
+        null, { captureDiagnostics: false });
+    const otherClass = fallbackAdapter.events(semanticTimeline(semanticAction(
+        "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C", 3, "OrdinaryAction")), classifyEffect, asc,
+        qishuContext("/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C"), null, { captureDiagnostics: false });
+    assert.equal(otherActor.events.length, 0); assert.equal(otherClass.events.length, 0);
+});
+
+test("a distinct standard red node does not suppress a QiShu semantic node", () => {
+    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
+    const standard = action("StandardRed", object(redPath));
+    const semantic = semanticAction(ability, 3);
+    const result = fallbackAdapter.events(timeline([
+        event({ Action: standard, StartTime: 0.5, duration: 0.2 }),
+        event({ Action: semantic, StartTime: 0.8, duration: 0.5 })
+    ]), classifyEffect, asc, qishuContext(ability), null, { captureDiagnostics: false });
+    assert.equal(result.events.length, 2);
+    assert.equal(result.events[0].meta.semanticFallback, undefined);
+    assert.equal(result.events[1].meta.semanticFallback.ruleId, "qishu-round-fire-ring");
+});
+
+test("standard blue warning does not suppress a distinct QiShu red fallback", () => {
+    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
+    const blue = object("/BlueAction", {
+        NiagaraEffect: object("/PBZVFXPack/VFX/BattleFX/Test/NS_AttackAlert_Blue_01.NS_AttackAlert_Blue_01"),
+        ActivationRequirements: emptyRequirements(),
+        GetClass: () => object("/Class/BlueAction")
+    });
+    const result = fallbackAdapter.events(timeline([
+        event({ Action: blue, StartTime: 0.5, duration: 0.2 }),
+        event({ Action: semanticAction(ability, 3), StartTime: 0.8, duration: 0.5 })
+    ]), classifyEffect, asc, qishuContext(ability), null, { captureDiagnostics: false });
+    assert.equal(result.events.length, 2);
+    assert.deepEqual(result.events.map(item => item.color).sort(), ["blue", "red"]);
+});
+
+test("disabling semantic fallback leaves the original warning set unchanged", () => {
+    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
+    const disabled = createAdapter(UE, {}, () => {}, { semanticFallback: false });
+    const result = disabled.events(semanticTimeline(semanticAction(ability, 3)), classifyEffect, asc,
+        qishuContext(ability), null, { captureDiagnostics: false });
+    assert.equal(result.events.length, 0);
+});
+test("captured QiShu plans retain observed type and authored timing and disappear when fallback is disabled", () => {
+    const captured = require("./fixtures/qishu-captured-plans.json");
+    assert.equal(captured.evidenceBuild, "26367565");
+    assert.equal(captured.rules.length, 2);
+    for (const fact of captured.rules) {
+        const attack = object("/Captured/" + fact.action, {
+            NiagaraEffect: null,
+            GetClass: () => object(fact.actionClass),
+            ActivationRequirements: {
+                RequireTags: fact.requirements.requireTags.tags.values.slice(),
+                IgnoreTags: fact.requirements.ignoreTags.tags.values.slice(),
+                TagQuery: fact.requirements.tagQuery.empty ? {} : { required: "unconfirmed-query" }
+            }
+        });
+        for (const candidate of fact.attackSemantics.deflect.candidates) {
+            if (candidate.status === "read") attack[candidate.field] = candidate.value;
+        }
+        const index = Number(fact.key.split("/")[1]);
+        const nodes = Array.from({ length: index }, (_, i) => event({ Action: object("/Captured/Unused" + i) }));
+        nodes.push(event({ Action: attack, StartTime: fact.start, duration: fact.end - fact.start }));
+        const value = timeline(nodes), context = qishuContext("/Captured/" + fact.ability + "_1");
+        const enabled = fallbackAdapter.events(value, classifyEffect, asc, context, null, { captureDiagnostics: false });
+        assert.equal(enabled.events.length, 1);
+        const warning = enabled.events[0];
+        assert.equal(warning.meta.key, fact.key);
+        assert.equal(warning.meta.semanticFallback.typeValue, fact.attackSemantics.deflect.value);
+        assert.equal(warning.color, "red");
+        assert.equal(warning.start, fact.start);
+        assert(Math.abs(warning.end - fact.end) < 1e-12);
+        assert.equal(warning.eligible, true);
+        const disabled = createAdapter(UE, {}, () => {}, { semanticFallback: false })
+            .events(value, classifyEffect, asc, context, null, { captureDiagnostics: false });
+        assert.equal(disabled.events.length, 0);
+    }
+});
 console.log("Adapter mock tests: " + passed + " passed. No game launched; no gameplay writes; no synchronous loads.");

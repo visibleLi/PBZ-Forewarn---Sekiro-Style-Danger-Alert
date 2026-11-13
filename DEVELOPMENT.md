@@ -1,29 +1,59 @@
-# Build PBZForewarn 0.5
+# PBZForewarn development workflow
 
-## Requirements
+## Branch and evidence
 
-- Python 3.12
-- Node.js 24
-- `lupa==2.8` for Lua tests
-- A locally supplied, legally obtained warning sound WAV at `js-package/PBZForewarn/cue.wav`
+Develop on `feature/qishu-fallback`. The published `v0.5-preview` tag stays at its existing commit.
+The development baseline is `observe-bounded.2`; the first playable candidate is `0.6.0-trial.1`.
+A candidate name is not a claim that combat testing has passed.
 
-The audio is deliberately excluded from Git and Source ZIPs. This does not grant rights to Sekiro assets. The original 0.5 sound hash is `5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8`; it is not a universal build requirement. Any supported custom sound creates a custom, untested build.
+The two QiShu_Huo rules come from captured actor/ability/action/type facts in build 26367565.
+The sanitized `js-package/tests/fixtures/qishu-captured-plans.json` stores their plan times and types.
+It contains no full session or personal log. The plan start is not an impact or original-flash measurement.
+Runtime still uses the current live task and its conditions, never a fixed schedule of future enemy choices.
 
-Supported input: uncompressed 44100 Hz stereo 16-bit PCM WAV, 0.01 to 30 seconds. Audio is checked for clipping after the bank gain and default volume. Non-baseline audio receives no automatic silence trim; use `--trim-start-ms N` only when the leading samples are verified silence.
+## Build
 
-## Build and check
-
-Run from the repository root in PowerShell or Git Bash:
+Use Python 3.12, Node.js 24 and `lupa==2.8` for Lua mock tests.
+Supply audio you have rights to use at `js-package/PBZForewarn/cue.wav`.
+Supported input: uncompressed 44100 Hz stereo 16-bit PCM WAV, 0.01–30 seconds.
+Only the known original 0.5 sound receives its verified 80 ms silence trim automatically.
+Git/Source ZIPs exclude all WAV, BNK and WEM files and third-party runtimes.
 
 ```text
 python -m pip install --target hooks-package/tests/lib -r requirements-test.txt
 python audio-bank/build_bank.py
-python verify.py --node <path-to-node>
+python verify.py --node <node-path-or-node-on-PATH>
 python package.py
 ```
 
-The default package command creates only `dist/PBZForewarn-0.5.zip`. The installer contains the `ProjectPBZ/` and `platform/` runtime trees plus one bilingual `README.txt`. `PACKAGE_CHECK.json` is a separate build report.
+The default output is `dist/PBZForewarn-0.6.0-trial.1.zip`. Add `--source` for the optional source archive.
+Use `--output-dir <new-folder>` to collect a candidate separately from older outputs.
+`PACKAGE_CHECK.json` stays outside the installer. Only `ProjectPBZ/`, `platform/` and a bilingual README go to players.
 
-To also create an audio-free source archive, pass `--source`. To explicitly check the original 0.5 runtime, pass `--check-baseline` to both `verify.py` and `package.py`. Custom audio or runtime changes cannot inherit the original four-Boss in-game test claim.
+`build_state.py` owns the source inventory, version and required test suites. The verifier hashes inputs
+before and after checks; failure removes the old summary. The packager requires the complete suite list,
+passed syntax and matching input hashes. Tests cover rejection of partial/failed reports and edits after validation.
+ZIP time, permissions and platform metadata are fixed; text line endings are normalized.
+Byte reproducibility is checked under the same Python/zlib environment, not promised across arbitrary compressors.
+`--check-baseline` is an optional historical comparison; this 0.6 branch is expected to differ from 0.5.
 
-Build outputs, verification snapshots, generated bank files and personal release notes remain local and are ignored by Git. The original runtime hash manifest is retained in `evidence/` as the optional baseline check.
+## Candidate verification
+
+1. Run offline suites and package integrity checks.
+2. Extract only the Source ZIP into an empty directory. Supply audio and install the stated test dependency there.
+3. Rebuild the bank, run full verification, and generate both ZIPs from the extracted source.
+4. Compare runtime files and archive hashes with the candidate; preserve the report outside the installer.
+5. Test the candidate in PBZ: QiShu_Huo's two moves, existing red/blue/black moves, sound, lock/unlocked,
+   duplicate suppression, cancellation, performance, and normal exit. Save logs before starting another run.
+6. Audit by actor and actual cue source, not just `missed=0`. Missing recognition can leave `missed=0`.
+
+`SemanticFallback=0` disables the new rules; this is the bounded observation version's standard path,
+not a byte-identical 0.5 rollback. Reinstall the 0.5 archive for that. Lua-side switches need a full restart.
+
+## Git and distribution
+
+Review both the full diff against `v0.5-preview` and the incremental runtime diff against bounded.2.
+Commit source/test/docs on the feature branch; exclude audio, generated banks, dist, dependencies and personal captures.
+Push that branch when reviewed. Create a trial tag only after its candidate has been verified; do not move old tags.
+Nexus gets the tested installer ZIP, with an optional audio-free source download. A trial test is required before
+calling the new rules fixed or replacing the stable 0.5 download. No publication is performed by the build scripts.

@@ -1,4 +1,18 @@
-﻿PBZForewarn 0.5 — 发布记录
+PBZForewarn 0.6.0-trial.1 — 试用记录
+
+- 以observe-bounded.2为开发基础，沿用0.5的调度、危字与Wwise音效。
+- 仅为QiShu_Huo的火环与突进收招试接RedEye=3补充，不全局开放所有红眼或不可格挡动作。
+- 严格匹配角色/技能/动作类，并在触发前复核类型；未知、冲突或条件不符时不报。
+- 标准来源在同节点优先；补充转标准共用节点身份，不重复发危，不把不同节点按同色强行合并。
+- 有界观察保留来源、任务和时间证据；新增规则可用SemanticFallback=0关闭。
+- 构建只打运行目录与一份中英README，Source不带音频、测试依赖或可执行文件。
+- 新规则尚待实机验证，当前候选不继承0.5的四BOSS实测结论。
+
+- Builds on observe-bounded.2 with the existing scheduler, presentation and Wwise audio modules.
+- Tries two strict QiShu_Huo RedEye rules; preserves node identity across source changes.
+- Keeps evidence bounded and source archives audio/runtime-free; new combat behaviour remains unvalidated.
+
+PBZForewarn 0.5 — 发布记录
 
 版本0.5（运行版本0.5.0-release.2）
 - 红、蓝、黑光对应的危字与游戏内危音效。

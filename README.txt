@@ -1,88 +1,61 @@
-﻿PBZForewarn 0.5 — 只狼风格危字与音效提示
+PBZForewarn 0.6.0-trial.1 — 只狼风格危字与音效提示
 
-介绍
-为《影之刃零》支持的红、蓝、黑光攻击增加对应颜色的“危”字和危音效，让危险动作更容易注意到。原游戏提示光、攻击时序和招架窗口不变。
-默认目标提前量350ms，短起手可能来不及提前。默认支持无锁玩法，可配置只提醒当前锁定目标。
-
-源码仓库与音频
-Git源码仓库不包含cue.wav、PBZForewarn.bnk及生成的WEM；本地已有文件会保留，但不提交。
-从源码构建安装包，请自行提供有权使用的音源：
-  放置位置（相对仓库根目录）：js-package/PBZForewarn/cue.wav
-  格式：未压缩PCM WAV，44100Hz、双声道、16bit，时长0.01到30秒。
-原0.5音源SHA256为5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8；
-这只是原版声音的识别值。符合格式的自备音源可构建，但不代表该音源经过游戏实测。
-原0.5声音自动裁去开头80ms近静音；自备音源默认不裁剪。只有确认开头为静音时才使用--trim-start-ms N。
-在仓库根目录执行：
-  python -m pip install --target hooks-package/tests/lib -r requirements-test.txt
-  python audio-bank/build_bank.py
-  python verify.py --node <node.exe的实际路径>
-  python package.py
-默认只生成dist/PBZForewarn-0.5.zip（原0.5基线）或PBZForewarn-custom.zip（自定义构建）。
-安装ZIP仅包含ProjectPBZ、platform和一份简短中英README。目录dist/已由.gitignore排除。
-额外需要Source ZIP时执行python package.py --source。源码或音频在验证后改变，须重跑verify.py。
-开发环境为Python 3.12和Node.js 24。bank和实际时长配置一起生成，原0.5完全一致性检查可选--check-baseline。
-音频自备说明不授予第三方素材使用或再分发许可。玩家安装方式见下方。
+这版做什么
+沿用0.5的调度、危字和游戏内Wwise音效，在observe-bounded.2的有界观察基础上，试接QiShu_Huo两条红危补充：火环、突进收招。
+现有日志已读取到这两招的RedEye=3分类与动作计划，旧识别器只认提示资源，因此没有发危。
+新规则同时核对角色、技能、动作类和分类，不全局开启所有RedEye或不可格挡动作。
+标准提示在同一节点优先；同节点从补充转为标准来源时保留去重身份。不同节点不会仅因同色或时间接近而强行合并。
+本trial尚待实机验证；不承诺全招覆盖。原光、原攻击、招架和伤害规则不变。
 
 必装前置
-- PBZModLoader（已测2.1.0）
-  https://github.com/KintaroModding/phantombladezero_pbzmodloader/releases/tag/v2.1.0
-- UE4SS（已测PBZ专用v3.0.1-1195-g1ceefac8）
-  N网同一发行线路：https://www.nexusmods.com/phantombladezero/mods/13
-  https://github.com/KintaroModding/ue4ss/releases/tag/v3.0.1-1195-g1ceefac8
-
-以上是本MOD已测的具体组合，管理器和手动安装均可使用。N网mods/5的自定义UE4SS包、mods/113的原作Loader1.0.2尚未完成本MOD组合实测，不能直接承诺等价兼容。两套Loader或两套UE4SS包不要叠装。
-
-推荐使用 Phantom Blade Zero - Mod Manager 管理上述前置和本MOD：
+必须安装PBZModLoader和PBZ专用UE4SS。0.5已测组合为PBZModLoader 2.1.0和UE4SS v3.0.1-1195-g1ceefac8。
+推荐使用Phantom Blade Zero - Mod Manager管理前置和本MOD：
 https://www.nexusmods.com/phantombladezero/mods/2
+PBZ专用UE4SS发行页：https://www.nexusmods.com/phantombladezero/mods/13
+已测Loader源码：https://github.com/KintaroModding/phantombladezero_pbzmodloader/releases/tag/v2.1.0
+其他加载器发行版本须单独验证，不叠装两套加载器。
 
-Mod Manager安装（推荐）
-1. 完全退出游戏，在管理器中安装PBZModLoader和UE4SS。
-2. 停用旧Forewarn、AlertCue及旧外置音效包，导入PBZForewarn-0.5.zip。
-3. 包内三项全部启用：PBZForewarn主程序、PBZForewarn.bnk音效、PBZForewarnHooks。
-4. 完整启动游戏，进入可控场景按Alt+F9试听，再试战斗。
-
-手动安装
-以下默认你已安装好PBZModLoader和UE4SS。
-1. 完全退出游戏，解压PBZForewarn-0.5.zip。
-2. 把包内ProjectPBZ和platform两个文件夹合并到游戏根目录（能看到这两个文件夹的位置）。
-3. 保留全部文件，不要只拿main.js，也不要把BNK放到Paks/~mods。
-4. 启动游戏，在可控场景按Alt+F9试听。
+安装
+管理器：完全退出游戏，停用旧Forewarn/AlertCue及旧外置音效包，导入PBZForewarn-0.6.0-trial.1.zip，启用主脚本、BNK音效、Hooks全部三部分。
+手动：默认前置已装好。把ZIP内ProjectPBZ和platform合并到游戏根目录（能看到这两个文件夹的位置），保留全部文件。
+完全退出后重启，Alt+F9试听危音效；Alt+F5不能代替Lua/音效重载。
 
 配置
-首次运行生成：%LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt
-LeadMs=350：目标提前量；SoundVolume=0.8：音量（0—2）。
-OnlyLockedTarget=0：无锁也提示；改为1只提示游戏确认锁定的目标，未锁定时不报。
-替换MOD文件后完整重启。Alt+F5只重载JS，不能代替重启。
+%LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt。保留旧值，缺少新项使用默认值。
+LeadMs=350：数值越大，请求越早；普通来源参照原提示节点，补充来源参照动作计划起点，不是命中点。
+SemanticFallback=1：启用两条QiShu_Huo补充。设0关闭新增规则，保留观察版原提示链路。
+OnlyLockedTarget=0：无锁也提示；1只提醒已确认锁定目标。SoundVolume=0.8：本MOD音量0—2。
+ObserveAttacks=1和Diagnostics=1启用有限只读观察；只记录，不驱动预警决策。
+修改配置后完整重启。此处回退开关不代表逐字节回到0.5；要恢复0.5请移除本版再装发布包。
 
-升级与卸载
-升级前先停用／移除旧版本，保留自己的配置，再安装新包。
-管理器用户直接移除本MOD；手动用户退出后只删除以下三个目录：
-  ProjectPBZ\PBZModLoader\mods\PBZForewarn
-  ProjectPBZ\Content\PBZForewarn
-  platform\steam\ue4ss\Mods\PBZForewarnHooks
-保留其他MOD共用的加载器，不要删除整个Saved或存档。
+源码构建
+Git和Source ZIP均不含WAV、BNK或WEM。自备有权使用的音源放到：js-package/PBZForewarn/cue.wav。
+格式：44100Hz、双声道、16bit未压缩PCM WAV，0.01—30秒。
+原0.5音源自动去掉已验证的开头80ms近静音；其他音源默认不裁剪。SHA256只作原音源识别，不锁定自备音频。
+Python 3.12、Node.js 24，在仓库根目录运行：
+  python -m pip install --target hooks-package/tests/lib -r requirements-test.txt
+  python audio-bank/build_bank.py
+  python verify.py --node <node.exe路径，或PATH里的node>
+  python package.py
+安装包输出dist/PBZForewarn-0.6.0-trial.1.zip；默认不打Source。要源码包运行python package.py --source。
+安装ZIP只含ProjectPBZ、platform和一份中英README。外置PACKAGE_CHECK.json记录包与运行文件哈希，不需安装。
+源码、文档、音频在验证后有变，必须重跑verify.py。完整流程和分支使用见DEVELOPMENT.md。
 
-已知问题
-- 已测Windows／Steam build26367565和4个BOSS，尚未覆盖全部招式；WeGame未实测。
-- 极短起手可能只起到补充提醒，甚至稍晚于原光。只锁定模式尚需更多测试。
-- BOSS取消／切换动作时会撤回提示，可能出现短闪。
-- 不建议同时启用另一套额外危字／提前预警；修改技能和提示资源的MOD可能影响识别。
+日志与测试
+5个本MOD文件位于Saved：pbzforewarn_diagnostics.json、pbzforewarn_resources.json、pbzforewarn_hooks.json、pbzforewarn_observations.json、pbzforewarn_observer_hooks.json。
+另有游戏根目录下ProjectPBZ/PBZModLoader/loader.log及platform/steam/ue4ss/UE4SS.log。
+新启动/重载会覆盖快照；复现后退出并及时手动复制，附BOSS、动作与大概时间。日志不会自动上传。
+0.5曾在Steam build26367565上完成四BOSS测试；这不能作为本trial新规则已实测的证据。
+尚待核对两招是否发危、声字同步、时机、重复/误报、其他BOSS回归、性能和正常退出。
 
-日志与反馈
-日志自动记录，不需要运行收集脚本。反馈时附BOSS、动作、问题和大致时间，退出后手动复制：
-  %LOCALAPPDATA%\ProjectPBZ\Saved\pbzforewarn_diagnostics.json
-  %LOCALAPPDATA%\ProjectPBZ\Saved\pbzforewarn_resources.json
-  %LOCALAPPDATA%\ProjectPBZ\Saved\pbzforewarn_hooks.json
-  <游戏根>\ProjectPBZ\PBZModLoader\loader.log
-  <游戏根>\platform\steam\ue4ss\UE4SS.log
-新启动或热重载会覆盖记录，及时保存。日志包含本地路径及可能的其他MOD输出，分享前可检查；不会自动上传。
+卸载
+管理器移除本MOD；手动退出游戏后只删除：
+  ProjectPBZ/PBZModLoader/mods/PBZForewarn
+  ProjectPBZ/Content/PBZForewarn
+  platform/steam/ue4ss/Mods/PBZForewarnHooks
+保留共用加载器、Saved和存档。避免同时使用另一套额外危字或提前预警。
 
-致谢与声明
-“危”提示形式参考《只狼：影逝二度》，危音效来自《只狼》游戏原声（FromSoftware）。
-危字使用PBZ游戏内字体绘制，未使用《只狼》原版UI动画素材。相关素材权利归原权利方所有。
-感谢PBZModLoader、UE4SS及Phantom Blade Zero - Mod Manager的作者。
+来源
+“危”形式参考《只狼：影逝二度》，用PBZ字体绘制，未导入只狼UI动画。此处安装包沿用0.5的只狼危音效。
+素材权利归原权利人；源码包不附素材，构建者自行处理音源权利。感谢加载器与管理器作者。
 使用AI辅助分析、编码、调试和文档整理。
-
-玩家包：PBZForewarn-0.5.zip
-可选源码：PBZForewarn-0.5-Source.zip（不是另一个必装包）
-运行版本：0.5.0-release.2

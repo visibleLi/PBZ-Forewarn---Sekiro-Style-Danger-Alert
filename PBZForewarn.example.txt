@@ -1,7 +1,8 @@
-# PBZForewarn 0.5; example only, not automatically installed.
+# PBZForewarn 0.6.0-trial.1; example only, not automatically installed.
 LeadMs=350
 RangeCm=3500
 BlackOn=1
+SemanticFallback=1
 OnlyLockedTarget=0
 SoundOn=1
 SoundVolume=0.8
@@ -9,4 +10,5 @@ GlyphOn=1
 GlyphFontSize=120
 GlyphY=0.32
 Diagnostics=1
+ObserveAttacks=1
 Hooks=1
