@@ -1,0 +1,12 @@
+# 排除版权音频文件
+js-package/PBZForewarn/cue.wav
+audio-bank/generated/
+hooks-package/tests/lib/
+hooks-package/tests/results.json
+hooks-package/tests/*-results.json
+__pycache__/
+dist/
+/publish-docs/
+/verification/
+/evidence/*
+!/evidence/release2-tested-runtime-hashes.json

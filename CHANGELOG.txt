@@ -1,0 +1,17 @@
+﻿PBZForewarn 0.5 — 发布记录
+
+版本0.5（运行版本0.5.0-release.2）
+- 红、蓝、黑光对应的危字与游戏内危音效。
+- 无锁提示与可选只锁定目标提示。
+- 提示声去除开头80ms近静音；独立音量与高声部优先级。
+- 修正自然结束后错误截断尾音，明确取消仍及时停止。
+- 精简自动日志，区分未启用条件与过窗，保留实际预警资源和Lua恢复记录。
+- 完成清空旧提示配置后的首次安装与4个BOSS实测，仍为公开测试版。
+
+Version0.5 (runtime0.5.0-release.2)
+- Colored danger glyphs and in-game audio for supported red, blue and black warnings.
+- Unlocked play and optional confirmed-lock filtering.
+- Removes80ms of near-silence; local cue volume and high voice priority.
+- Preserves natural audio tails while cancelling withdrawn warnings promptly.
+- Compact automatic logs, warning resource retention and Lua recovery records.
+- Clean first-install and four-boss test completed; public test release.
