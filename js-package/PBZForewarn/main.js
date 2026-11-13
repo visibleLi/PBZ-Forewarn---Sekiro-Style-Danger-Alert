@@ -9,14 +9,14 @@ const bankConfig = require("./wwise-bank-config");
 const { createAudioEnvironmentProbe } = require("./audio-environment");
 const { createTargetFilter } = require("./target-filter");
 const { createDiagnosticStore } = require("./diagnostic-store");
-const VERSION = "0.5.0-release.2";
+const VERSION = "0.6.0-observe.1";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
-    Diagnostics: true, Hooks: true, BlackOn: true, OnlyLockedTarget: false, SoundOn: true, SoundVolume: 0.8,
+    Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, OnlyLockedTarget: false, SoundOn: true, SoundVolume: 0.8,
     FontPath: "/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font" };
-const TEMPLATE = "# PBZForewarn 0.5; edit then restart game or Alt+F5\n" +
+const TEMPLATE = "# PBZForewarn 0.6 observation trial; restart game after changes\n" +
     "# Extra cue lead in GAME seconds (ms input); original warning is unchanged.\n" +
-    "LeadMs=350\nRangeCm=3500\nBlackOn=1\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nHooks=1\n";
+    "LeadMs=350\nRangeCm=3500\nBlackOn=1\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\n";
 let state = null;
 function log(kind, data) { console.log("[PBZMOD] [Forewarn] " + kind + " " + JSON.stringify(data)); }
 function parseSettings(text) {
@@ -44,7 +44,12 @@ function start() {
         lastTickWall: 0, maxTickGap: 0, lastLongTick: 0, gameNow: 0, naturalCompletions: new Set(),
         targetStatus: null, previewDown: true, previewSerial: 0,
         cancelledIds: new Set(), resourceIds: new Map(), resourceSerial: 0, catalogedTemplates: new Set(),
-        lastCatalogReport: 0, flushStats: { writes: 0, catalogWrites: 0, lastChars: 0, maxWriteMs: 0, maxSerializeMs: 0 } };
+        lastCatalogReport: 0, clockEpoch: 0, observedGameTime: null, observationContext: null,
+        observationHooksSession: "", observationHooksSeq: 0, lastObservationHookRead: 0,
+        observationFaults: 0, observerImportFailure: "", observationRecordCursor: 0,
+        observationTasksDeferred: 0, observationHookRowsRejected: 0, observationLastRaw: "",
+        flushStats: { writes: 0, catalogWrites: 0, observationWrites: 0, observationWriteFailures: 0,
+            lastChars: 0, maxWriteMs: 0, maxSerializeMs: 0, maxObservationWriteMs: 0, maxObservationSerializeMs: 0 } };
     s.diagnostics = createDiagnosticStore({ now: () => Date.now() });
     function shortPath(value) { return typeof value === "string" ? value.slice(value.lastIndexOf(".") + 1) : value; }
     function canonical(value) { return typeof value === "string" ? value.replace(/_C_\d+/g, "_C") : ""; }
@@ -116,6 +121,31 @@ function start() {
     const configPath = saved + "PBZForewarn.txt";
     s.settings = parseSettings(a.safe(() => readText(configPath), ""));
     s.diagnostics = createDiagnosticStore({ enabled: s.settings.Diagnostics, now: () => Date.now() });
+    const requestedObserving = s.settings.Diagnostics && s.settings.ObserveAttacks;
+    let observing = false, createNativeAttackObserver = null, captureTimelineActions = null;
+    // Missing/invalid optional files must not prevent the proven cue path from
+    // starting, including when observations were explicitly disabled.
+    s.observations = { record: () => false, snapshot: () => ({ enabled: false, events: [] }) };
+    if (requestedObserving) {
+        try {
+            const { createObservationStore } = require("./observation-store");
+            createNativeAttackObserver = require("./native-attack-observer").createNativeAttackObserver;
+            captureTimelineActions = require("./timeline-observation").captureTimelineActions;
+            if (typeof createNativeAttackObserver !== "function" || typeof captureTimelineActions !== "function")
+                throw Error("observer-module-interface-unavailable");
+            s.observations = createObservationStore({ enabled: true, session });
+            if (!s.observations || typeof s.observations.record !== "function" || typeof s.observations.snapshot !== "function")
+                throw Error("observer-store-interface-unavailable");
+            observing = true;
+        } catch (error) { diagnostic("observation-unavailable", { error: String(error), cuePipelineContinues: true }); }
+    }
+    function observe(kind, data) {
+        if (!observing) return;
+        try { s.observations.record(kind, { ...(s.observationContext || {}), ...data }); }
+        catch (_) { s.observationFaults++; } // optional evidence cannot change cue decisions
+    }
+    try { if (observing) s.attackObserver = createNativeAttackObserver(UE, puerts, a, { enabled: true, onRecord: observe }); }
+    catch (error) { observe("observer-status", { status: "startup-failed", error: String(error) }); }
     if (!a.safe(() => UE.BlueprintPathsLibrary.FileExists(configPath), true)) {
         try { writeText(configPath, TEMPLATE); } catch (e) { diagnostic("config-write-error", { error: String(e) }); }
     }
@@ -142,6 +172,15 @@ function start() {
         s.audioEvents.push(entry);
         if (s.audioEvents.length > 256) { s.audioEvents.shift(); diagnostic("audio-queue-limit", { maximum: 256 }, "audio-queue-limit"); }
         if (kind === "cue") {
+            const role = event.meta && event.meta.roleName;
+            observe("warning-cue", { id: event.id, actor: role ? null : event.meta && event.meta.actor,
+                ability: role ? null : event.meta && event.meta.ability, activation: role ? null : event.activation,
+                ownerActorCandidate: event.meta && event.meta.actor, roleActorCandidate: event.meta && event.meta.roleActor,
+                task: event.meta && event.meta.task, timeline: event.timelineKey,
+                action: event.meta && event.meta.action, eventKey: event.eventKey,
+                color: event.color, plannedStart: event.start, observedTimelineTime: event.observedTime,
+                observedRate: event.observedRate, estimatedLeadGameSeconds: event.actualLeadGameSeconds,
+                soundSubmitted: false, source: "existing-0.5-scheduler", usedForScheduling: false });
             if (s.settings.Diagnostics && event.meta) {
                 const id = resourceId(event.meta);
                 if (!s.diagnostics.hasCatalog(id)) s.diagnostics.catalog(resourceDetail(event.meta), id, 2);
@@ -155,6 +194,8 @@ function start() {
             s.stats.cues++; diagnostic("CUE", { seq: entry.seq, ...compactEvent(event) });
         }
         if (kind === "cancel") {
+            observe("warning-withdrawal", { id: event.id, reason: event.reason,
+                termination: event.termination || null, playerHitCauseVerified: false });
             const r = event && s.records.get(event.taskKey);
             if (r) { r.audioIds.delete(event.id); r.naturalAudioIds.delete(event.id); if (event.eventKey) r.audioByEvent.delete(event.eventKey); }
             s.stats.cancels++; diagnostic("CANCEL", { seq: entry.seq, ...compactEvent(event) });
@@ -182,6 +223,27 @@ function start() {
     function flush(force) {
         const now = Date.now();
         if (force || now - s.lastReport >= 5000) {
+            if (observing) {
+                try {
+                    const begin = Date.now(), snapshot = s.observations.snapshot();
+                    const observationReport = { version: VERSION, session, at: now, ...snapshot,
+                        faults: s.observationFaults,
+                        sampling: { maxTimelineTasksPerTick: 1, maxAttackNodesPerTask: 128,
+                            deferredTaskSamples: s.observationTasksDeferred, minimumTaskSampleMs: 200 },
+                        hookImport: { session: s.observationHooksSession, lastSeq: s.observationHooksSeq,
+                            rejectedRows: s.observationHookRowsRejected, importIntervalMs: 250 },
+                        native: s.attackObserver ? s.attackObserver.status() : { status: "unavailable" },
+                        flush: { ...s.flushStats }, interpretation: "observation-only; current cue behavior is retained" };
+                    const body = JSON.stringify(observationReport), writeBegin = Date.now();
+                    s.flushStats.maxObservationSerializeMs = Math.max(s.flushStats.maxObservationSerializeMs, writeBegin - begin);
+                    writeText(saved + "pbzforewarn_observations.json", body);
+                    s.flushStats.maxObservationWriteMs = Math.max(s.flushStats.maxObservationWriteMs, Date.now() - writeBegin);
+                    s.flushStats.observationWrites++;
+                } catch (error) {
+                    s.flushStats.observationWriteFailures++;
+                    diagnostic("observation-write-error", { error: String(error) }, "observation-write-error");
+                }
+            }
             const snapshot = s.diagnostics.snapshot();
             const report = { version: VERSION, session, at: now, stats: s.stats, tasks: s.records.size, actors: s.actors.length,
                 hookHintsSeen: s.stats.hooks, hookBridgeAlive: s.hooksAlive, hookHealth: s.hookHealth,
@@ -417,6 +479,109 @@ function start() {
             capturedInventoryCount: result.inventory.length, recognized: r.events.length,
             reason: r.events.length ? "mapped" : "no-supported-warning-node" }); }
     }
+    function observeTimelineRecord(r, wall) {
+            try {
+                r.lastObservationSample = wall;
+                if (!r.observedPlans) r.observedPlans = new Map();
+                const context = { actor: a.path(r.actor), ability: a.path(r.ability), activation: r.activation,
+                    task: a.path(r.task), timeline: r.timelineKey, recordSerial: r.serial,
+                    taskTimelineTime: a.safe(() => Number(r.task.CurrentTime), null) };
+                const candidates = captureTimelineActions(a, r.timeline, r.task, context, 128);
+                for (const candidate of candidates.plans) {
+                    const signature = JSON.stringify({ ...candidate, taskTimelineTime: null }), key = "attack:" + candidate.eventKey;
+                    if (r.observedPlans.get(key) !== signature) {
+                        r.observedPlans.set(key, signature); observe("attack-plan", candidate);
+                    }
+                }
+                const captureKey = JSON.stringify(candidates.status);
+                if (r.observedCaptureStatus !== captureKey) {
+                    r.observedCaptureStatus = captureKey;
+                    observe("timeline-observer-status", { ...context, ...candidates.status });
+                }
+                for (const event of r.events.slice(0, 128)) {
+                    const execution = r.contexts.get(event.key);
+                    const role = execution && execution.roleName;
+                    const plan = { ...context, actor: role ? null : context.actor,
+                        ability: role ? null : context.ability, activation: role ? null : context.activation,
+                        ownerActorCandidate: context.actor, roleActorCandidate: role ? a.path(execution.actor) : null,
+                        action: event.meta.action, eventKey: event.key,
+                        color: event.color, start: event.start, end: event.end, eligible: event.eligible,
+                        source: "existing-warning-resource", timingBasis: "timeline-coordinates", usedForScheduling: false };
+                    const signature = JSON.stringify({ ...plan, taskTimelineTime: null }), key = "warning:" + event.key;
+                    if (r.observedPlans.get(key) !== signature) {
+                        r.observedPlans.set(key, signature); observe("warning-plan", plan);
+                    }
+                }
+            } catch (error) { observe("timeline-observer-status", { task: a.path(r.task), status: "read-failed", error: String(error) }); }
+    }
+    function sampleTimelineObservations(wall) {
+        if (!observing) return;
+        const records = [...s.records.values()], cursor = s.observationRecordCursor;
+        let sampled = false, deferred = 0;
+        for (let offset = 0; offset < records.length; offset++) {
+            const index = (cursor + offset) % records.length, r = records[index];
+            if (r.ended || !r.present || !a.valid(r.task) || !a.valid(r.ability) || !r.events ||
+                wall - (r.lastObservationSample || 0) < 200) continue;
+            if (sampled) { deferred++; continue; }
+            observeTimelineRecord(r, wall); sampled = true;
+            s.observationRecordCursor = (index + 1) % records.length;
+        }
+        s.observationTasksDeferred += deferred;
+    }
+    function observationHints(wall, world, player) {
+        if (!observing || !s.settings.Hooks || wall - s.lastObservationHookRead < 250) return;
+        s.lastObservationHookRead = wall;
+        const failure = reason => {
+            if (s.observerImportFailure !== reason) observe("observer-hook-status", { status: reason });
+            s.observerImportFailure = reason;
+        };
+        try {
+            const raw = readText(saved + "pbzforewarn_observer_hooks.json");
+            if (!raw) { failure("snapshot-unavailable"); return; }
+            if (raw.length > 2 * 1024 * 1024) { failure("snapshot-too-large"); return; }
+            if (raw === s.observationLastRaw && !s.observerImportFailure) return;
+            const payload = JSON.parse(raw);
+            if (payload.schemaVersion !== 1 || typeof payload.session !== "string" ||
+                !payload.session || payload.session.length > 256 || !Number.isSafeInteger(payload.seq) || payload.seq < 0 ||
+                !Array.isArray(payload.events) || payload.events.length > 512) { failure("snapshot-invalid"); return; }
+            if (payload.active !== true || !Number.isFinite(payload.heartbeat) || Math.abs(wall - payload.heartbeat) > 3000) {
+                failure("snapshot-inactive-or-stale"); return;
+            }
+            if (s.observationHooksSession !== payload.session) {
+                s.observationHooksSession = payload.session; s.observationHooksSeq = 0;
+                observe("observer-hook-session", { hookSession: payload.session, health: payload.health, retention: payload.retention });
+            }
+            for (const item of payload.events) {
+                if (!item || !["timeline-call", "warning-call"].includes(item.kind) ||
+                    !["pre", "post", "call"].includes(item.phase) || !Number.isSafeInteger(item.seq) ||
+                    item.seq < 1 || item.seq > payload.seq) { s.observationHookRowsRejected++; continue; }
+                if (!item || !Number.isSafeInteger(item.seq) || item.seq <= s.observationHooksSeq) continue;
+                if (item.seq !== s.observationHooksSeq + 1) observe("observer-hook-gap", {
+                    expected: s.observationHooksSeq + 1, actual: item.seq, hookSession: payload.session, retention: payload.retention });
+                s.observationHooksSeq = item.seq;
+                const context = item.context || {};
+                const captureWorld = context.world || item.captureWorld || "";
+                const captureMatches = !!captureWorld && captureWorld === a.path(world);
+                // Keep original callback evidence. Current JS clock/player must
+                // never impersonate the time/player of a queued Lua callback.
+                observe(item.kind === "warning-call" ? "native-warning-call" : "timeline-call", {
+                    worldKey: null, player: null, clockEpoch: null,
+                    importedWorldKey: s.worldKey, importedPlayer: a.path(player), importedClockEpoch: s.clockEpoch,
+                    gameTime: null, wallTime: null, importedGameTime: s.gameNow, importedWallTime: wall,
+                    actor: typeof context.actor === "string" ? context.actor : null,
+                    ability: typeof context.ability === "string" ? context.ability : null,
+                    activation: typeof context.activation === "string" || Number.isSafeInteger(context.activation) ? context.activation : null,
+                    task: context.task || null, timeline: context.timeline || null, action: context.action || null,
+                    hookSession: payload.session, hookSeq: item.seq, captureWorld,
+                    captureWorldMatchesImportedWorld: captureMatches, capture: item,
+                    source: "lua-native-call-observer", usedForScheduling: false,
+                    temporalAssociation: "unverified-callback-clock-and-player-context" });
+            }
+            if (s.observerImportFailure) observe("observer-hook-status", { status: "recovered", previous: s.observerImportFailure });
+            s.observerImportFailure = "";
+            s.observationLastRaw = raw;
+        } catch (error) { failure("snapshot-read-failed:" + String(error).slice(0, 160)); }
+    }
     function tick() {
         if (s.stopped || s.ticking) return;
         s.ticking = true;
@@ -447,6 +612,22 @@ function start() {
             const gameNow = a.valid(world) ? UE.KismetSystemLibrary.GetGameTimeInSeconds(world) : 0;
             if (!Number.isFinite(gameNow)) throw Error("non-finite game clock");
             s.gameNow = gameNow;
+            const rewind = s.observedGameTime !== null && gameNow < s.observedGameTime - 0.001;
+            if (!s.observationContext || s.observationContext.worldKey !== wk || rewind) {
+                s.clockEpoch++;
+                for (const record of s.records.values()) record.observedPlans = null;
+                observe("observer-reset", { previousWorldKey: s.observationContext && s.observationContext.worldKey,
+                    nextWorldKey: wk, nextClockEpoch: s.clockEpoch, reason: rewind ? "game-clock-rewind" : "world-or-player-change" });
+            }
+            s.observedGameTime = gameNow;
+            s.observationContext = { worldKey: wk, player: a.path(player), clockEpoch: s.clockEpoch,
+                gameTime: gameNow, wallTime: wall };
+            if (s.attackObserver) {
+                try { s.attackObserver.update({ world, player, worldKey: wk, gameTime: gameNow, wallTime: wall,
+                    paused, clockEpoch: s.clockEpoch }); }
+                catch (error) { observe("observer-status", { status: "update-failed", error: String(error) }); }
+            }
+            observationHints(wall, world, player);
             const samples = [];
             if (!paused) {
                 hookHints(wall, player);
@@ -529,6 +710,10 @@ function start() {
             catch (e) {
                 s.presentation.dispose(); diagnostic("hud-update-error", { error: String(e) }, "hud-update-error");
             }
+            if (!paused) {
+                try { sampleTimelineObservations(wall); }
+                catch (error) { observe("timeline-observer-status", { status: "sampling-failed", error: String(error) }); }
+            }
             flush(false);
         } catch (e) {
             s.stats.errors++; s.paused = true;
@@ -542,12 +727,14 @@ function start() {
     }
     s.shutdown = () => {
         s.stopped = true; clearInterval(s.timer);
+        if (s.attackObserver) { try { s.attackObserver.dispose(); } catch (_) { s.observationFaults++; } }
         s.scheduler.step({ now: 0, wall: Date.now(), paused: true, worldKey: "stop", tasks: [] });
         emit("reset"); s.paused = true; clearRecords(); s.presentation.dispose(); s.audio.dispose(); s.audioEvents.length = 0;
         diagnostic("STOP", { stats: s.stats }); flush(true);
     };
     state = s;
-    log("START", { version: VERSION, session, saved, settings: s.settings, architecture: "timeline + verified-black-action + independent-wwise-bank + optional-lock-filter" });
+    log("START", { version: VERSION, session, saved, settings: s.settings,
+        architecture: "0.5 cue pipeline + independent read-only native observations" });
     flush(true);
     s.timer = setInterval(tick, s.settings.TickMs);
 }

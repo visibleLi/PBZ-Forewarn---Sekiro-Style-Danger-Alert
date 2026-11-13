@@ -11,7 +11,7 @@ const mainSource = fs.readFileSync(path.join(__dirname, '../PBZForewarn/main.js'
 let passed = 0;
 function test(name, body) { body(); passed++; console.log('PASS ' + name); }
 const array = xs => ({ Num: () => xs.length, Get: i => xs[i] });
-function fixture(config) {
+function fixture(config, startup = {}) {
     const env = { wall: 1800000000000, game: 0, paused: false, files: new Map(), logs: [], timers: new Map(),
         nextTimer: 0, objects: new Map(), actors: [], actorsInScan: [], hud: [], failUI: false, failClock: false, failWrite: false, audioEvents: [], audioCalls: [], audioPaused: true, lockedTarget: null, keysDown: new Set() };
     function object(p, values) { const o = Object.assign({ _path: p }, values); env.objects.set(p, o); return o; }
@@ -19,7 +19,7 @@ function fixture(config) {
         ActivatableAbilities: { Items: array([]) }, TickingTasks: array([]), KnownTasks: array([]) }); }
     function delegate() { const callbacks = new Set(); return { callbacks, Add: f => callbacks.add(f), Remove: f => callbacks.delete(f), Fire: () => [...callbacks].forEach(f => f()) }; }
     env.world = object('/World/A'); env.gi = object('/GI'); env.pc = object('/PC', { GetWorld: () => env.world, IsInputKeyDown: key => env.keysDown.has(key.KeyName) });
-    env.player = object('/Player', { AbilitySystemComponent: asc('/Player/ASC') });
+    env.player = object('/Player', { AbilitySystemComponent: asc('/Player/ASC'), GetComponentByClass: () => env.deflect });
     env.addEnemy = function (label, scan = true) {
         const system = asc('/' + label + '/ASC');
         const enemy = object('/' + label, { AbilitySystemComponent: system, distance: 1000,
@@ -54,10 +54,10 @@ function fixture(config) {
             GetGameTimeInSeconds: () => { if (env.failClock) throw Error('clock unavailable'); return env.nanClock ? NaN : env.game; } },
         BlueprintPathsLibrary: { ProjectSavedDir: () => saved, ProjectContentDir: () => 'D:/Mock/ProjectPBZ/Content/', ConvertRelativePathToFull: p => p, FileExists: p => env.files.has(p) },
         EasyCsv: { LoadStringFromLocalFile(p, ref) { ref.value = env.files.get(p) || ''; return env.files.has(p); },
-            SaveStringToFileWithFullPath(body, p) { if (env.failWrite && p.endsWith('_diagnostics.json')) return false; env.files.set(p, body); return true; } },
+            SaveStringToFileWithFullPath(body, p) { if (env.failWrite && p.endsWith('_diagnostics.json') || env.failObservationWrite && p.endsWith('_observations.json')) return false; env.files.set(p, body); return true; } },
         GameplayStatics: { GetPlayerController: () => env.pc, GetPlayerPawn: () => env.player,
             IsGamePaused: () => env.paused, GetAllActorsOfClass: (w, c, ref) => { ref.value = array(env.actorsInScan); } },
-        PBZCharacter_NPC: { StaticClass: () => 'NPC' }, Actor: {}, NewArray: () => array([]), GameplayTag: function () {}, Key: function () {},
+        PBZCharacter_NPC: { StaticClass: () => 'NPC' }, DeflectComponent: { StaticClass: () => 'Deflect' }, Actor: {}, NewArray: () => array([]), GameplayTag: function () {}, Key: function () {},
         FactionUtils: { GetFaction: () => 'enemy', GetFactionRelation: (p, a) => a.friendly ? 1 : 2 }, ETeamAttitude: { Friendly: 1, Hostile: 2 },
         BlueprintGameplayTagLibrary: { Conv_ObjectToGameplayTagAssetInterface: a => a,
             HasAllMatchingGameplayTags: (a, ts) => ts.every(t => a.tags.has(t)), HasAnyMatchingGameplayTags: (a, ts) => ts.some(t => a.tags.has(t)),
@@ -83,10 +83,15 @@ function fixture(config) {
         allows(actor, state) { return state.mode === 'nearby' || state.target === actor; }
     }) };
     class Clock extends Date { static now() { return env.wall; } }
-    const context = vm.createContext({ require: name => ({ ue: UE, puerts, cpp: {}, './core': core, './adapter': adapter,
+    const context = vm.createContext({ require: name => {
+        if (startup.missingModule===name) throw Error('optional module missing');
+        return ({ ue: UE, puerts, cpp: {}, './core': core, './adapter': adapter,
         './presentation': presentation, './wwise-audio': nativeAudio, './wwise-bank-config': require('../PBZForewarn/wwise-bank-config'), './target-filter': targetFilter,
         './diagnostic-store': require('../PBZForewarn/diagnostic-store'),
-        './audio-environment': { createAudioEnvironmentProbe: () => () => ({ status: 'mock' }) } })[name], exports: {}, console: { log: s => env.logs.push(s) }, Date: Clock,
+        './observation-store': startup.badStore ? {createObservationStore(){throw Error('optional store failed');}} : require('../PBZForewarn/observation-store'),
+        './native-attack-observer': require('../PBZForewarn/native-attack-observer'),
+        './timeline-observation': require('../PBZForewarn/timeline-observation'),
+        './audio-environment': { createAudioEnvironmentProbe: () => () => ({ status: 'mock' }) } })[name]; }, exports: {}, console: { log: s => env.logs.push(s) }, Date: Clock,
         setInterval: (fn, ms) => { const id = ++env.nextTimer; env.timers.set(id, { fn, ms }); return id; },
         clearInterval: id => env.timers.delete(id) });
     vm.runInContext(mainSource, context, { filename: 'PBZForewarn/main.js' });
@@ -424,6 +429,131 @@ test('Lua health failures and recovery remain visible in JS diagnostics', () => 
     assert.equal(report.hookHealth.writeFailures,2); assert.equal(report.hookHealth.recoveries,1);
     assert.equal(report.hookHealth.lastErrorStage,'open'); assert.equal(report.hookBridgeAlive,true);
     assert.equal(report.stats.errors,0);
+});
+
+function observations(env) { return JSON.parse(env.files.get(env.saved+'pbzforewarn_observations.json')); }
+function provideNativeFrame(env, handle=1) {
+    env.first.action.GetAbility=()=>env.owner.ability;
+    env.first.action.GetAvatarActor=()=>env.owner.enemy;
+    env.first.action.GetTimeline=()=>env.first.timeline;
+    env.first.action.DeflectBulletType=3;
+    const frame={SourceAction:env.first.action,HitGameTime:1.5,IsDodge:true,IsHit:false};
+    const entries=new Map([[handle,frame]]), keys=[handle];
+    env.deflect={_path:'/Player/Deflect',ReceiveFrames:{Num:()=>entries.size,GetMaxIndex:()=>keys.length,
+        IsValidIndex:i=>entries.has(keys[i]),GetKey:i=>keys[i],Get:key=>entries.get(key)}};
+    return {frame,entries,keys};
+}
+
+test('observation on and off keep identical cue and withdrawal sequences',()=>{
+    const results=[];
+    for(const enabled of [true,false]) {
+        const e=fixture('ObserveAttacks='+(enabled?'1':'0')); provideNativeFrame(e);
+        e.tick(0.3);e.tick(0.7);e.first.task.OnCancelled.Fire();e.tick(0.71);e.mod.stop();
+        results.push(e.audioEvents.map(x=>({kind:x.kind,id:x.id,color:x.color,reason:x.reason})));
+    }
+    assert.deepEqual(results[0],results[1]);
+});
+test('native observations are persisted but cannot generate an unsupported warning',()=>{
+    const e=fixture();provideNativeFrame(e);
+    e.first.action.NiagaraEffect={_path:'/Unknown/OrdinaryEffect'};
+    e.tick(0.7);e.mod.stop();const report=observations(e);
+    assert.equal(e.cues().length,0);assert(report.events.some(x=>x.kind==='native-frame'&&x.typeName==='RedEye'));
+    assert(report.events.some(x=>x.kind==='attack-plan'));assert.equal(report.mode,'observe-only');
+});
+test('same resource in another activation has another observation identity',()=>{
+    const e=fixture();provideNativeFrame(e);e.tick(0.1);
+    e.owner.ability.activation++;e.tick(0.1,250);e.mod.stop();
+    const plans=observations(e).events.filter(x=>x.kind==='attack-plan');
+    assert.equal(new Set(plans.map(x=>x.activation)).size,2);
+});
+test('unchanged action snapshots do not record every compile progress update',()=>{
+    const e=fixture();provideNativeFrame(e);e.tick(0.1);e.tick(0.2,250);e.tick(0.3,250);e.mod.stop();
+    const report=observations(e);
+    assert.equal(report.events.filter(x=>x.kind==='attack-plan').length,1);
+    assert.equal(report.events.filter(x=>x.kind==='warning-plan').length,1);
+});
+test('observation file write failure leaves cues and audio running',()=>{
+    const e=fixture();e.failObservationWrite=true;e.tick(0.7);e.tick(0.8,5100);e.mod.stop();
+    assert.equal(e.cues().length,1);const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
+    assert.equal(report.stats.errors,0);assert(report.flush.observationWriteFailures>0);
+    assert(report.recent.some(x=>x.kind==='observation-write-error'));
+});
+test('diagnostics off disables all optional observation reads and files',()=>{
+    const e=fixture('Diagnostics=0');let reads=0;
+    Object.defineProperty(e.player,'GetComponentByClass',{get(){reads++;throw Error('must not read');}});
+    e.tick(0.7);e.mod.stop();assert.equal(reads,0);assert.equal(e.cues().length,1);
+    assert(!e.files.has(e.saved+'pbzforewarn_observations.json'));
+});
+test('Lua observations preserve callback clock and never use import player as capture identity',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+        session:'observer-lua',seq:1,active:true,heartbeat:e.wall,events:[{seq:1,kind:'timeline-call',phase:'pre',
+            callId:1,gameTime:{status:'read',value:42,source:'GameplayStatics.GetTimeSeconds'},
+            context:{world:'/World/A',ability:'/Ability',actor:'/Enemy',task:'/Task'},params:{StartTimeSeconds:{status:'read',value:2.88}}}]}));
+    e.tick(0.7);e.mod.stop();const entry=observations(e).events.find(x=>x.kind==='timeline-call');
+    assert.equal(entry.capture.gameTime.value,42);assert.equal(entry.player,null);assert.equal(entry.gameTime,null);
+    assert.equal(entry.importedPlayer,'/Player');assert.equal(entry.captureWorldMatchesImportedWorld,true);
+    assert.equal(entry.capture.params.StartTimeSeconds.value,2.88);assert.equal(e.cues().length,1);
+});
+test('stale Lua observation snapshots cannot impersonate current calls',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+        session:'old',seq:1,active:true,heartbeat:e.wall-5000,events:[{seq:1,kind:'warning-call',phase:'call'}]}));
+    e.tick(0.7);e.mod.stop();assert(!observations(e).events.some(x=>x.kind==='native-warning-call'));
+    assert(observations(e).events.some(x=>x.status==='snapshot-inactive-or-stale'));
+});
+test('Lua snapshot sequence gaps are explicit and repeated imports do not duplicate calls',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+        session:'gap',seq:8,active:true,heartbeat:e.wall,events:[{seq:8,kind:'warning-call',phase:'call',context:{world:'/Other'}}]}));
+    e.tick(0.1);e.tick(0.2,100);e.mod.stop();const report=observations(e);
+    assert.equal(report.events.filter(x=>x.kind==='native-warning-call').length,1);
+    assert(report.events.some(x=>x.kind==='observer-hook-gap'&&x.actual===8));
+    assert.equal(report.events.find(x=>x.kind==='native-warning-call').captureWorldMatchesImportedWorld,false);
+});
+test('clock rewind increments observation epoch before native records are reused',()=>{
+    const e=fixture();provideNativeFrame(e);e.game=2;e.tick(0.1);e.game=0;e.tick(0.2);e.mod.stop();
+    const frames=observations(e).events.filter(x=>x.kind==='native-frame');
+    assert.equal(new Set(frames.map(x=>x.clockEpoch)).size,2);
+    assert(observations(e).events.some(x=>x.kind==='observer-reset'&&x.reason==='game-clock-rewind'));
+});
+
+test('missing optional observation modules leave baseline cues operational',()=>{
+    for(const name of ['./observation-store','./native-attack-observer','./timeline-observation']) {
+        const e=fixture(undefined,{missingModule:name});e.tick(0.7);e.mod.stop();
+        assert.equal(e.cues().length,1);assert(!e.files.has(e.saved+'pbzforewarn_observations.json'));
+        assert(e.diagnostics().some(x=>x.includes('observation-unavailable')));
+    }
+});
+test('disabled observations do not even require missing optional files',()=>{
+    const e=fixture('ObserveAttacks=0',{missingModule:'./observation-store'});e.tick(0.7);e.mod.stop();
+    assert.equal(e.cues().length,1);assert(!e.diagnostics().some(x=>x.includes('observation-unavailable')));
+});
+test('observer store construction failure cannot stop cue startup',()=>{
+    const e=fixture(undefined,{badStore:true});e.tick(0.7);e.mod.stop();assert.equal(e.cues().length,1);
+});
+test('invalid Lua rows cannot advance cursor past valid observations',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+        session:'reject',seq:1,active:true,heartbeat:e.wall,events:[
+            {seq:999999,kind:'timeline-call',phase:'pre'},
+            {seq:1,kind:'not-a-call',phase:'post'},
+            {seq:1,kind:'timeline-call',phase:'post',context:{world:'/World/A'}}]}));
+    e.tick(0.7);e.mod.stop();const report=observations(e);
+    assert.equal(report.events.filter(x=>x.kind==='timeline-call').length,1);
+    assert.equal(report.hookImport.lastSeq,1);assert.equal(report.hookImport.rejectedRows,2);
+});
+test('Lua structured activation stays in capture and is not promoted to identity',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+        session:'abi',seq:1,active:true,heartbeat:e.wall,events:[{seq:1,kind:'timeline-call',phase:'pre',
+            context:{world:'/World/A',activation:{status:'read',value:7}}}]}));
+    e.tick(0.7);e.mod.stop();const entry=observations(e).events.find(x=>x.kind==='timeline-call');
+    assert.equal(entry.activation,null);assert.equal(entry.capture.context.activation.value,7);
+});
+test('global observation sampling rotates tasks and exposes deferrals without withholding cues',()=>{
+    const e=fixture();provideNativeFrame(e);
+    const other=e.addEnemy('Other'),second=e.addTask(other,'other');second.action.DeflectBulletType=2;
+    second.task.CurrentTime=0.7;e.tick(0.7);assert.equal(e.cues().length,2);
+    e.tick(0.71);e.mod.stop();const report=observations(e);
+    assert(report.sampling.deferredTaskSamples>=1);assert.equal(report.sampling.maxTimelineTasksPerTick,1);
+    assert(report.events.some(x=>x.kind==='attack-plan'&&x.actor==='/Enemy'));
+    assert(report.events.some(x=>x.kind==='attack-plan'&&x.actor==='/Other'));
 });
 
 console.log('Runtime integration: ' + passed + ' tests passed. Unreal APIs are mocked; no in-game claim.');

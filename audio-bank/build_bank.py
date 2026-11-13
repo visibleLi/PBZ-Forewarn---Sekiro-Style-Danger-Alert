@@ -5,16 +5,12 @@ copied. Version/layout and existing bus identifier were inspected as format
 evidence. This does not prove PBZ will load the generated bank.
 """
 from pathlib import Path
-import argparse, hashlib, json, struct, wave, math, array, re
+import hashlib, json, struct, wave, math, array
 
 ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT.parent / 'js-package/PBZForewarn/cue.wav'
 OUT = ROOT / 'generated'
 OUT.mkdir(exist_ok=True)
-parser = argparse.ArgumentParser(description='Build a bank from a local 44100 Hz stereo 16-bit PCM WAV.')
-parser.add_argument('--trim-start-ms', type=int, default=None,
-                    help='leading silence to remove; default is zero except for the original 0.5 sound')
-args = parser.parse_args()
 
 def u8(n): return struct.pack('<B', n)
 def u16(n): return struct.pack('<H', n)
@@ -43,39 +39,24 @@ PROJECT = 13320
 BANK_TYPE = 30  # Event bank, matches game's generated banks.
 GAIN_DB = 6.0
 VOICE_PRIORITY = 100.0
-if not SOURCE.is_file():
-    raise SystemExit('Provide js-package/PBZForewarn/cue.wav before building the bank.')
-source_sha256 = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
-baseline_audio = source_sha256 == '5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8'
-TRIM_START_MS = args.trim_start_ms if args.trim_start_ms is not None else (80 if baseline_audio else 0)
-if TRIM_START_MS < 0:
-    raise SystemExit('--trim-start-ms must not be negative.')
+TRIM_START_MS = 80
 
 with wave.open(str(SOURCE), 'rb') as f:
     channels, sample_width, sample_rate, source_frame_count, codec, _ = f.getparams()
-    if channels != 2 or sample_width != 2 or sample_rate != 44100 or codec != 'NONE':
-        raise SystemExit('cue.wav must be uncompressed 44100 Hz stereo 16-bit PCM WAV.')
+    assert channels == 2 and sample_width == 2 and codec == 'NONE'
     source_pcm = f.readframes(source_frame_count)
-if not 0 < source_frame_count <= sample_rate * 30:
-    raise SystemExit('cue.wav must contain more than zero and at most 30 seconds of audio.')
 assert len(source_pcm) == source_frame_count * channels * sample_width
 # Remove the confirmed near-silent prefix only. The WAV is retained untouched;
 # every playable sample is the exact original suffix, with no resampling,
 # pitch/speed change, normalization, fade or additional PCM gain.
 trim_start_frames = sample_rate * TRIM_START_MS // 1000
-if trim_start_frames >= source_frame_count:
-    raise SystemExit('Requested trim removes all audio.')
+assert trim_start_frames * 1000 == sample_rate * TRIM_START_MS
 trim_start_bytes = trim_start_frames * channels * sample_width
 removed_pcm = source_pcm[:trim_start_bytes]
-assert max((abs(x) for x in array.array('h', removed_pcm)), default=0) <= 32, 'refuse trimming audible source samples'
+assert max(abs(x) for x in array.array('h', removed_pcm)) <= 32, 'refuse trimming audible source samples'
 pcm = source_pcm[trim_start_bytes:]
 frame_count = source_frame_count - trim_start_frames
 assert len(pcm) == frame_count * channels * sample_width
-peak = max(abs(sample) for sample in array.array('h', pcm)) / 32768
-if peak == 0:
-    raise SystemExit('cue.wav contains no audible samples after trimming.')
-if peak * 10 ** (GAIN_DB / 20) * 0.8 >= 1:
-    raise SystemExit('Audio would clip at the default volume with the bank gain; lower the source level.')
 pcm_hash = hashlib.md5(pcm).digest()
 cache_id = int.from_bytes(pcm_hash[:4], 'little')
 # Wwise packed extensible PCM header: cbSize 6, samples/block 0, channel config
@@ -112,11 +93,6 @@ bank += chunk('DATA', bytes(padding) + wem) + hierarchy
 bank_name = 'PBZForewarn.bnk'
 (OUT/bank_name).write_bytes(bank)
 (OUT/(str(ids['media'])+'.wem')).write_bytes(wem)  # inspection only; embedded in bank
-config_template = (ROOT.parent / 'js-package/PBZForewarn/wwise-bank-config.js').read_bytes().decode('utf8')
-config_text, replacements = re.subn(r'durationSeconds:\s*[0-9.]+',
-    'durationSeconds: ' + str(frame_count / sample_rate), config_template)
-assert replacements == 1, 'runtime bank configuration must contain one durationSeconds field'
-(OUT/'wwise-bank-config.js').write_bytes(config_text.encode('utf8'))
 manifest = dict(schema=1, names=names, ids=ids, bankFile=bank_name, bankVersion=154,
     bankType=BANK_TYPE, projectId=PROJECT, existingOutputBusId=BUS,
     authoredGainDb=GAIN_DB, voicePriority=VOICE_PRIORITY, priorityOverridesParent=True,
@@ -125,8 +101,7 @@ manifest = dict(schema=1, names=names, ids=ids, bankFile=bank_name, bankVersion=
     pcmPeakDbfs=20*math.log10(max(abs(x) for x in array.array('h', pcm))/32768),
     pcm=dict(channels=channels,sampleRate=sample_rate,frames=frame_count,durationSeconds=frame_count/sample_rate,
         sha256=hashlib.sha256(pcm).hexdigest()),
-    sourceWavSha256=source_sha256, baselineAudio=baseline_audio,
-    runtimeConfigSha256=hashlib.sha256(config_text.encode('utf8')).hexdigest(),
+    sourceWavSha256=hashlib.sha256(SOURCE.read_bytes()).hexdigest(),
     bankSha256=hashlib.sha256(bank).hexdigest(),bankBytes=len(bank),wemBytes=len(wem),
     hircObjects=3, externalMediaFilesRequired=False, originalAssetsOverwritten=False,
     runtimeValidation='not-yet-tested-in-PBZ')

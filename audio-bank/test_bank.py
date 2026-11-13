@@ -35,20 +35,17 @@ check('RIFF extent accounts for full media',wem[:4]==b'RIFF' and u32(wem,4)+8==l
 media=chunks(wem,12)
 fmt=struct.unpack('<HHIIHHHHI',media[b'fmt '][1])
 check('packed extensible PCM stereo matches original sample rate',fmt==(65534,2,44100,176400,4,16,6,0,0x3102))
-with wave.open(str(ROOT.parent/'js-package/PBZForewarn/cue.wav')) as f:
-    source_frames=f.getnframes()
-    original=f.readframes(source_frames)
-trim_frames=manifest['trimStartFrames']; trim_bytes=trim_frames*4
+with wave.open(str(ROOT.parent/'js-package/PBZForewarn/cue.wav')) as f: original=f.readframes(f.getnframes())
+trim_frames=3528; trim_bytes=trim_frames*4
 playable=original[trim_bytes:]
-check('requested leading trim preserves frame count without resampling or pitch/speed change',
-      trim_frames==44100*manifest['trimStartMs']//1000 and 0<=trim_frames<source_frames and
-      len(playable)//4==source_frames-trim_frames)
-check('removed prefix is near-silent below minus 60dBFS',max((abs(x) for x in array.array('h',original[:trim_bytes])),default=0)<=32)
+check('only exact leading 80ms is removed without resampling or pitch/speed change',
+      manifest['trimStartMs']==80 and manifest['trimStartFrames']==trim_frames and len(playable)//4==199332)
+check('removed prefix is near-silent below minus 60dBFS',max(abs(x) for x in array.array('h',original[:trim_bytes]))<=32)
 check('embedded PCM is byte-identical to original cue.wav suffix after trim',media[b'data'][1]==playable)
-check('media content hash and playable duration are exact',media[b'hash'][1]==hashlib.md5(playable).digest() and manifest['pcm']['durationSeconds']==len(playable)/176400)
+check('media content hash and playable duration are exact',media[b'hash'][1]==hashlib.md5(playable).digest() and len(playable)/176400==4.52 and manifest['pcm']['durationSeconds']==4.52)
 check('original WAV backup and source PCM hash are preserved',
-      manifest['sourceFrames']==source_frames and manifest['sourcePcmSha256']==hashlib.sha256(original).hexdigest() and
-      manifest['sourceWavSha256']==hashlib.sha256((ROOT.parent/'js-package/PBZForewarn/cue.wav').read_bytes()).hexdigest())
+      manifest['sourceFrames']==202860 and manifest['sourcePcmSha256']==hashlib.sha256(original).hexdigest() and
+      manifest['sourceWavSha256']==hashlib.sha256((ROOT.parent/'js-package/PBZForewarn/cue.wav').read_bytes()).hexdigest()=='5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8')
 hier=parts[b'HIRC'][1]; n=u32(hier); p=4; objects={}
 for _ in range(n):
     kind=hier[p]; length=u32(hier,p+1); data=hier[p+5:p+5+length]
