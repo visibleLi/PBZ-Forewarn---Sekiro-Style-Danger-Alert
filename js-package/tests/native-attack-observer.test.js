@@ -219,4 +219,35 @@ test("parallel tasks sharing a template cannot relabel the source frame's exact 
     assert.equal(record.id, id); assert.equal(record.phase, "changed"); assert.equal(record.task, null);
     assert.equal(record.taskCandidate, "/Task/Second"); assert.equal(record.taskIdentity, "current-task-shared-timeline-candidate-only"); e.observer.dispose();
 });
+test("native float-min placeholder is not exposed as a usable hit deadline",()=>{
+    const e=fixture();e.map=mapOf([[1,e.frame(1,{hit:-3.4028234663852886e38})]]);e.update();const r=e.seen()[0];
+    assert.equal(r.hitGameTime,null);assert.equal(r.reportedHitGameTime,-3.4028234663852886e38);
+    assert.equal(r.hitTimeStatus,'negative-placeholder');assert.equal(r.hitTimeUsableForFutureComparison,false);
+    assert.equal(r.remainingGameSeconds,null);e.observer.dispose();
+});
+test("past native timestamp remains a reported fact and cannot become a future warning deadline",()=>{
+    const e=fixture();e.map=mapOf([[1,e.frame(1,{hit:0.5})]]);e.update();const r=e.seen()[0];
+    assert.equal(r.hitGameTime,0.5);assert.equal(r.remainingGameSeconds,-0.5);
+    assert.equal(r.hitTimeStatus,'past-reported-time-not-impact-verified');assert.equal(r.hitTimeUsableForFutureComparison,false);
+    assert.equal(r.impactVerified,false);e.observer.dispose();
+});
+test("huge positive sentinel and unknown callback epoch never support a future comparison",()=>{
+    const e=fixture();e.map=mapOf([[1,e.frame(1,{hit:3.4028234663852886e38})]]);e.update();
+    assert.equal(e.seen()[0].hitGameTime,null);assert.equal(e.seen()[0].hitTimeStatus,'unsafe-magnitude');
+    e.world=object('/World/Changed');e.fire(e.frame(2,{hit:2}),2);const r=e.seen().at(-1);
+    assert.equal(r.hitGameTime,2);assert.equal(r.hitTimeUsableForFutureComparison,false);
+    assert.equal(r.remainingGameSeconds,null);e.observer.dispose();
+});
+test("bullet references are observable instances without a claim of spawn or persistent danger",()=>{
+    const e=fixture();e.map=mapOf([[1,e.frame(1,{bullet:'/Projectile/One'})],[2,e.frame(2,{bullet:'/Projectile/Two'})]]);e.update();
+    assert.equal(new Set(e.seen().map(x=>x.bullet)).size,2);
+    for(const r of e.seen()){assert.equal(r.bulletInstancePresent,true);assert.equal(r.bulletLifecycleVerified,false);assert.equal(r.bulletDangerEndedVerified,false);}
+    e.map=mapOf();e.update();for(const r of e.ended()){assert.equal(r.cancelled,false);assert.equal(r.bulletDangerEndedVerified,false);}
+    e.observer.dispose();
+});
+test("absent bullet reference does not invent a projectile from an attack type",()=>{
+    const e=fixture();e.map=mapOf([[1,e.frame(1,{noBullet:true,type:4})]]);e.update();const r=e.seen()[0];
+    assert.equal(r.bullet,'');assert.equal(r.bulletReferenceStatus,'not-reported');assert.equal(r.bulletInstancePresent,false);
+    assert(!Object.hasOwn(r,'color'));e.observer.dispose();
+});
 console.log("RESULT " + passed + " native observer scenarios passed. No game access.");

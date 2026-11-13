@@ -94,7 +94,7 @@ function fixture(config, startup = {}) {
         './audio-environment': { createAudioEnvironmentProbe: () => () => ({ status: 'mock' }) } })[name]; }, exports: {}, console: { log: s => env.logs.push(s) }, Date: Clock,
         setInterval: (fn, ms) => { const id = ++env.nextTimer; env.timers.set(id, { fn, ms }); return id; },
         clearInterval: id => env.timers.delete(id) });
-    vm.runInContext(mainSource, context, { filename: 'PBZForewarn/main.js' });
+    vm.runInContext(startup.mainSource || mainSource, context, { filename: 'PBZForewarn/main.js' });
     env.mod = context.exports;
     env.tick = (time, delta = 16) => { env.wall += delta; env.game += delta / 1000;
         if (time !== undefined) env.first.task.CurrentTime = time;
@@ -554,6 +554,120 @@ test('global observation sampling rotates tasks and exposes deferrals without wi
     assert(report.sampling.deferredTaskSamples>=1);assert.equal(report.sampling.maxTimelineTasksPerTick,1);
     assert(report.events.some(x=>x.kind==='attack-plan'&&x.actor==='/Enemy'));
     assert(report.events.some(x=>x.kind==='attack-plan'&&x.actor==='/Other'));
+});
+
+test('bounded2 version is identical in START, diagnostics and observation snapshots',()=>{
+    const e=fixture();e.tick(0.1);e.mod.stop();
+    const start=JSON.parse(e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] START ')).split('START ')[1]);
+    assert.equal(start.version,'0.6.0-observe-bounded.2');
+    assert.equal(observations(e).version,start.version);
+    assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).version,start.version);
+});
+
+test('Lua schema2 paths decode without changing callback clock or cue output',()=>{
+    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:2,
+        version:'0.6.0-observe-bounded.2',session:'lua-v2',seq:1,active:true,heartbeat:e.wall,
+        pathDictionary:{1:'/World/A',2:'/Enemy/Ability',3:'/Enemy/Actor'},
+        health:{writeFailures:2,recoveries:2,currentlyFailing:false},events:[{seq:1,kind:'timeline-call',phase:'pre',callId:1,
+            gameTime:{status:'read',value:42},context:{world:{$path:1},ability:{$path:2},actor:{$path:3}},
+            params:{StartTimeSeconds:{status:'read',value:2.883}}}]}));
+    e.tick(0.7);e.mod.stop();const r=observations(e),call=r.events.find(x=>x.kind==='timeline-call');
+    assert.equal(call.ability,'/Enemy/Ability');assert.equal(call.capture.context.actor,'/Enemy/Actor');
+    assert.equal(call.capture.gameTime.value,42);assert.equal(call.gameTime,null);assert.equal(call.player,null);
+    assert.equal(r.hookImport.health.recoveries,2);assert.equal(e.cues().length,1);
+});
+
+test('real Lua schema2 wire fixture imports string call IDs and structured parameters',()=>{
+    const e=fixture();const fixturePath=path.join(__dirname,'../../hooks-package/tests/observer-schema2-wire-fixture.json');
+    const payload=JSON.parse(fs.readFileSync(fixturePath,'utf8'));payload.heartbeat=e.wall;
+    e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify(payload));e.tick(0.7);e.mod.stop();
+    const r=observations(e),calls=r.events.filter(x=>x.kind==='timeline-call'),focus=r.events.filter(x=>x.kind==='focused-call-summary');
+    assert.equal(calls.length,2);assert.equal(focus.length,1);
+    assert.equal(typeof focus[0].capture.callId,'string');assert.equal(focus[0].capture.first.params.StartTimeSeconds.value,2.883);
+    assert.equal(focus[0].capture.last.taskTime.value,2.9);
+    assert.equal(calls[0].capture.gameTime.value,42.25);assert.equal(calls[0].gameTime,null);assert.equal(calls[0].player,null);
+    assert.equal(calls[0].capture.context.activation.value,3);assert.equal(calls[0].activation,null);
+    assert.equal(r.hookImport.rejectedRows,0);assert.equal(e.cues().length,1);
+});
+
+test('Lua schema2 missing or malformed references cannot advance valid cursor',()=>{
+    for(const reference of [{$path:99},{$path:1,extra:'ambiguous'},{$path:-1}]){
+        const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:2,
+            session:'bad-path',seq:2,active:true,heartbeat:e.wall,pathDictionary:{1:'/World/A'},events:[
+                {seq:1,kind:'timeline-call',phase:'pre',context:{world:reference}},
+                {seq:2,kind:'timeline-call',phase:'post',context:{world:{$path:1}}}]}));
+        e.tick(0.7);e.mod.stop();const r=observations(e);
+        assert.equal(r.events.filter(x=>x.kind==='timeline-call').length,1);
+        assert.equal(r.hookImport.rejectedRows,1);assert.equal(r.hookImport.lastSeq,2);
+        assert(r.events.some(x=>x.kind==='observer-hook-gap'&&x.expected===1&&x.actual===2));assert.equal(e.cues().length,1);
+    }
+});
+
+test('focused Lua summaries survive original event eviction without becoming duplicate execution events',()=>{
+    const e=fixture();const payload={schemaVersion:2,session:'focused',seq:500,active:true,heartbeat:e.wall,
+        pathDictionary:{1:'/Game/FeiZei_SpecialAttack_07',2:'/Game/Enemy'},events:[],
+        focusRetention:{count:1,total:1,dropped:0},focusSummaries:[{callId:'fw-observe-focused:4',kind:'timeline-call',firstSeq:1,lastSeq:2,
+            ability:{$path:1},actor:{$path:2},first:{phase:'pre',params:{StartTimeSeconds:{value:2.883}}},
+            last:{phase:'post',taskTime:{value:2.9}},abiVerified:false}]};
+    e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify(payload));e.tick(0.1);
+    payload.heartbeat=e.wall+300;e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify(payload));e.tick(0.2,300);
+    e.mod.stop();const r=observations(e),focus=r.events.filter(x=>x.kind==='focused-call-summary');
+    assert.equal(focus.length,1);assert.equal(focus[0].capture.first.params.StartTimeSeconds.value,2.883);
+    assert.equal(focus[0].ability,'/Game/FeiZei_SpecialAttack_07');assert.equal(focus[0].gameTime,null);
+    assert.equal(r.events.filter(x=>x.kind==='timeline-call').length,0);assert.equal(r.hookImport.lastSeq,0);
+});
+
+test('late first discovery retains the task position and missed-plan context',()=>{
+    const e=fixture();e.tick(3.71554);e.mod.stop();const r=observations(e);
+    const first=r.events.find(x=>x.kind==='task-lifecycle'&&x.phase==='first-observed');
+    const missed=r.events.find(x=>x.kind==='warning-missed');
+    assert.equal(first.firstObservedTimelineTime,3.71554);assert.equal(first.startTimeVerified,false);
+    assert.equal(missed.recordSerial,first.recordSerial);assert.equal(missed.firstObservedTimelineTime,3.71554);
+    assert.equal(missed.executionVerified,false);assert.equal(e.cues().length,0);
+});
+
+test('task rewind and record replacement retain separate local identities without manufacturing strikes',()=>{
+    const e=fixture();e.tick(0.3);e.tick(0.1);e.owner.ability.activation++;e.tick(0.1,64);e.mod.stop();
+    const r=observations(e),life=r.events.filter(x=>x.kind==='task-lifecycle');
+    const rewind=life.find(x=>x.phase==='timeline-rewind-observed');
+    const firsts=life.filter(x=>x.phase==='first-observed');
+    assert.equal(rewind.previousTimelineTime,0.3);assert.equal(rewind.observationRun,2);
+    assert.equal(firsts.length,2);assert.notEqual(firsts[0].recordSerial,firsts[1].recordSerial);
+    assert.equal(firsts[1].replacesRecordSerial,firsts[0].recordSerial);
+    assert.equal(firsts[1].identityBasis,'local-task-record-not-cross-source-strike-id');
+});
+
+test('task cancellation preserves terminal facts without asserting a projectile became safe',()=>{
+    const e=fixture();e.tick(0.7);e.first.task.OnCancelled.Fire();e.tick(0.72);e.mod.stop();
+    const r=observations(e),ended=r.events.find(x=>x.kind==='task-lifecycle'&&x.phase==='native-task-ended');
+    const cancel=r.events.find(x=>x.kind==='warning-withdrawal');
+    assert.equal(ended.callback,'OnCancelled');assert.equal(ended.dangerEndedVerified,false);
+    assert.equal(cancel.recordSerial,ended.recordSerial);assert.equal(cancel.termination.playerHitCauseVerified,false);
+});
+
+test('native task delegate does not borrow an old world clock after the actor world changes',()=>{
+    const e=fixture();e.tick(0.7);e.owner.enemy.GetWorld=()=>({_path:'/World/New'});e.game=1.2;
+    e.first.task.OnCancelled.Fire();e.mod.stop();const r=observations(e);
+    const ended=r.events.find(x=>x.kind==='task-lifecycle'&&x.phase==='native-task-ended');
+    assert.equal(ended.captureWorld,'/World/New');assert.equal(ended.worldKey,null);assert.equal(ended.clockEpoch,null);
+    assert.equal(ended.gameTime,1.2);assert.equal(ended.callbackContextVerified,false);
+});
+
+test('bounded1 and bounded2 main produce identical cue and audio events across combat transitions',()=>{
+    const previous=fs.readFileSync(path.join(__dirname,'fixtures/bounded1-main.fixture.js'),'utf8');
+    const scenarios=[
+        e=>{e.tick(0.3);e.tick(0.7);e.tick(1.42,720);e.first.task.OnCompleted.Fire();e.tick(1.45);},
+        e=>{e.tick(0.7);e.first.task.OnCancelled.Fire();e.tick(0.71);e.owner.ability.activation++;e.tick(0,64);e.tick(0.7);},
+        e=>{const other=e.addEnemy('Other');const t=e.addTask(other,'other');t.task.CurrentTime=0.7;e.tick(0.7);e.tick(1.42,720);
+            e.owner.ability.activation++;e.tick(0.7,80);e.owner.enemy.distance=9000;e.tick(0.72);},
+        e=>{e.tick(0.7);e.paused=true;e.tick(0.71);e.paused=false;e.tick(0.72);e.world={_path:'/World/New'};e.tick(0.73);},
+        e=>{e.first.action.ActivationRequirements.RequireTags=['ready'];e.tick(0.7);e.owner.asc.tags.add('ready');e.tick(0.8);
+            e.owner.asc.tags.delete('ready');e.tick(0.82);e.tick(0.1);}
+    ];
+    for(const play of scenarios){const outputs=[];for(const source of [previous,mainSource]){
+        const e=fixture(undefined,{mainSource:source});play(e);e.mod.stop();
+        outputs.push(JSON.parse(JSON.stringify(e.audioEvents)));
+    }assert.deepEqual(outputs[1],outputs[0]);}
 });
 
 console.log('Runtime integration: ' + passed + ' tests passed. Unreal APIs are mocked; no in-game claim.');

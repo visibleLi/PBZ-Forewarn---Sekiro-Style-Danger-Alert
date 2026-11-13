@@ -5,8 +5,10 @@ local KEY = "__PBZForewarnObservationHooks_v1"
 local prior = rawget(_G, KEY)
 if type(prior) == "table" then return prior end
 local M = {}; rawset(_G, KEY, M)
+local VERSION = "0.6.0-observe-bounded.2"
 local PREFIX = "[PBZForewarnObserver] "
 local MAX_EVENTS, MAX_BYTES, MAX_DYNAMIC = 512, 393216, 32
+local MAX_PATHS, MAX_PATH_BYTES, MAX_FOCUS = 2048, 131072, 64
 local MAX_LOOKUPS, MAX_ATTEMPTS_PER_PATH = 64, 3
 local PLAY = "/Script/LegoAbility.LegoAbility:PlayTimeline"
 local BYNAME = "/Script/LegoAbility.LegoAbility:PlayTimelineByName"
@@ -16,6 +18,8 @@ local BLACK = BASE .. "GAAction_PowerAttackParticle.GAAction_PowerAttackParticle
 local PARTICLE = BASE .. "GAAction_WeaponParticle.GAAction_WeaponParticle_C"
 local METHODS = {"Received_ActionBegin", "Spawn Particles", "Play Particle"}
 local S = {active=false, stopped=false, seq=0, serial=0, rows={}, bytes=0, dropped=0,
+    pathSerial=0,pathCount=0,pathBytes=0,paths={},pathIds={},focusRows={},focusByCall={},focusBytes=0,
+    focusDropped=0,focusTotal=0,eventKinds={},
     hooks={}, registered={}, backends={}, stacks={}, overflows={}, candidates={}, attempted={}, dynamic=0,
     lookupProfile={timer="os.clock-process-cpu-seconds",notGameClock=true,notWallDuration=true,
         attempts=0,misses=0,cpuClockUnavailable=0,totalCpuSeconds=0,maxCpuSeconds=0,byPath={},calls={}},
@@ -26,6 +30,7 @@ local S = {active=false, stopped=false, seq=0, serial=0, rows={}, bytes=0, dropp
         dynamicLimitReached=0, candidateDrops=0, discoveryFailures=0, publishExceptions=0,
         lookupBudgetDrops=0,lookupBackoffSkips=0,lookupPathExhausted=0,
         discoveryPaused=0,discoveryNoContext=0,snapshotRebuilds=0,
+        pathReferences=0,pathInlineFallbacks=0,focusOversized=0,
         lastErrorStage="", lastError="", currentlyFailing=false}}
 local function log(k,t) print(PREFIX .. k .. " " .. tostring(t) .. "\n") end
 local function finite(x) return type(x)=="number" and x==x and x~=math.huge and x~=-math.huge end
@@ -42,6 +47,95 @@ local function json(x)
     elseif t~="table" then return 'null' end
     local a={}; for k,v in pairs(x) do a[#a+1]=q(k)..':'..json(v) end
     return '{'..table.concat(a,',')..'}'
+end
+-- Paths are interned only while a retained row/summary references them. IDs
+-- never repeat within a session; eviction cannot silently rebind an old ID.
+-- Every retained row is immutable JSON plus scalar reference IDs, not a UObject.
+local function encodePaths(value,refs,depth)
+    if type(value)=="string" and #value>=32 and value:sub(1,1)=="/" then
+        -- The JS bridge validates each dictionary value before importing any
+        -- row. Keep exceptional overlong paths inline so one bad capture can
+        -- be rejected per row without invalidating unrelated valid captures.
+        if #value>4096 then
+            S.health.pathInlineFallbacks=S.health.pathInlineFallbacks+1; return value
+        end
+        local id=S.pathIds[value]
+        if not id then
+            local cost=#q(value)+32
+            if S.pathCount>=MAX_PATHS or S.pathBytes+cost>MAX_PATH_BYTES then
+                S.health.pathInlineFallbacks=S.health.pathInlineFallbacks+1; return value
+            end
+            S.pathSerial=S.pathSerial+1; id=tostring(S.pathSerial)
+            S.paths[id]={value=value,refs=0,bytes=cost}; S.pathIds[value]=id
+            S.pathCount=S.pathCount+1; S.pathBytes=S.pathBytes+cost
+        end
+        if not refs[id] then refs[id]=true; S.paths[id].refs=S.paths[id].refs+1 end
+        S.health.pathReferences=S.health.pathReferences+1
+        return {["$path"]=tonumber(id)}
+    end
+    if type(value)~="table" then return value end
+    if depth>=16 then return {status="unknown",reason="snapshot-depth-limit"} end
+    local out={}; for k,v in pairs(value) do out[k]=encodePaths(v,refs,depth+1) end
+    return out
+end
+local function encodeRow(value)
+    local refs={}; local body=json(encodePaths(value,refs,0))
+    return {seq=value.seq or value.lastSeq,json=body,refs=refs}
+end
+local function releaseRow(row)
+    for id in pairs(row.refs) do
+        local p=S.paths[id]; p.refs=p.refs-1
+        if p.refs==0 then
+            S.pathIds[p.value]=nil; S.paths[id]=nil
+            S.pathCount=S.pathCount-1; S.pathBytes=S.pathBytes-p.bytes
+        end
+    end
+end
+local function dropEvent()
+    local first=table.remove(S.rows,1)
+    if not first then return false end
+    S.bytes=S.bytes-#first.json; S.dropped=S.dropped+1; releaseRow(first); return true
+end
+local function dropFocus()
+    local first=table.remove(S.focusRows,1)
+    if not first then return false end
+    S.focusByCall[first.callId]=nil; S.focusBytes=S.focusBytes-#first.json
+    S.focusDropped=S.focusDropped+1; releaseRow(first); return true
+end
+local function focusName(event)
+    local name=event.context and event.context.ability or ""
+    return name:find("FeiZei_SpecialAttack_07",1,true)
+        or (name:find("YuCong",1,true) and name:find("Wuli_Attack_01_B",1,true))
+        or name:find("Vessel_Vagrant_RangeAttack_Throw_02",1,true)
+end
+local function updateFocus(event)
+    if not focusName(event) then return end
+    local c=event.context
+    local point={phase=event.phase,gameTime=event.gameTime,atWallMs=event.atWallMs,
+        task=c.task,taskTime=c.taskTime,timeline=c.timeline,params=event.params,matching=event.matching}
+    local prior=S.focusByCall[event.callId]
+    local summary=prior and prior.value or {callId=event.callId,kind=event.kind,hookPath=event.hookPath,
+        firstSeq=event.seq,first=point,ability=c.ability,actor=c.actor,activation=c.activation,
+        captureWorld=c.captureWorld,action=c.action,actionClass=c.actionClass,effect=c.effect,
+        taskCorrelation=c.taskCorrelation,attackAssociation="unknown",abiVerified=false,
+        interpretation="focused-call-summary; not-per-strike-identity-or-hit-confirmation"}
+    summary.lastSeq=event.seq; summary.last=point; summary.callbackSemantics=event.callbackSemantics
+    if prior then S.focusBytes=S.focusBytes-#prior.json; releaseRow(prior) end
+    local row=encodeRow(summary); row.callId=event.callId; row.value=summary
+    if #row.json>16384 then
+        S.health.focusOversized=S.health.focusOversized+1; releaseRow(row)
+        if prior then
+            S.focusByCall[event.callId]=nil
+            for i,r in ipairs(S.focusRows) do if r==prior then table.remove(S.focusRows,i); break end end
+            S.focusDropped=S.focusDropped+1
+        end
+        return
+    end
+    if prior then
+        for i,r in ipairs(S.focusRows) do if r==prior then S.focusRows[i]=row; break end end
+    else S.focusRows[#S.focusRows+1]=row; S.focusTotal=S.focusTotal+1 end
+    S.focusByCall[event.callId]=row; S.focusBytes=S.focusBytes+#row.json
+    while #S.focusRows>MAX_FOCUS do dropFocus() end
 end
 local function err(stage,why)
     S.health.lastErrorStage=stage; S.health.lastError=tostring(why):sub(1,256)
@@ -215,18 +309,30 @@ local function paramsFor(hook,args)
 end
 local function append(event)
     S.seq=S.seq+1; event.seq=S.seq
-    local row=json(event)
-    if #row>16384 then S.dropped=S.dropped+1; err("oversized-event",#row); return end
-    S.rows[#S.rows+1]={seq=S.seq,json=row}; S.bytes=S.bytes+#row
-    while #S.rows>MAX_EVENTS or S.bytes>MAX_BYTES do
-        local first=table.remove(S.rows,1); S.bytes=S.bytes-#first.json; S.dropped=S.dropped+1
+    S.eventKinds[event.kind]=(S.eventKinds[event.kind] or 0)+1
+    local row=encodeRow(event)
+    if #row.json>16384 then
+        S.dropped=S.dropped+1; releaseRow(row); err("oversized-event",#row.json); return
+    end
+    S.rows[#S.rows+1]=row; S.bytes=S.bytes+#row.json
+    updateFocus(event)
+    while #S.rows>MAX_EVENTS do dropEvent() end
+    while S.bytes+S.focusBytes+S.pathBytes+2*(#S.rows+#S.focusRows)+32>MAX_BYTES do
+        -- Focused calls survive ordinary traffic; their own limit is explicit.
+        if not dropEvent() and not dropFocus() then break end
     end
     S.revision=S.revision+1
 end
 local function rebuild()
     if S.frame.seq==S.seq then return end
     local rows={}; for i,r in ipairs(S.rows) do rows[i]=r.json end
-    S.frame={seq=S.seq,json='['..table.concat(rows,',')..']',firstSeq=S.rows[1] and S.rows[1].seq or 0,dropped=S.dropped}
+    local focus={}; for i,r in ipairs(S.focusRows) do focus[i]=r.json end
+    local dictionary={}; for id,p in pairs(S.paths) do dictionary[id]=p.value end
+    S.frame={seq=S.seq,json='['..table.concat(rows,',')..']',dictionary=json(dictionary),
+        focus='['..table.concat(focus,',')..']',firstSeq=S.rows[1] and S.rows[1].seq or 0,dropped=S.dropped,
+        eventBytes=S.bytes,focusBytes=S.focusBytes,pathBytes=S.pathBytes,pathCount=S.pathCount,
+        focusCount=#S.focusRows,focusTotal=S.focusTotal,focusDropped=S.focusDropped,
+        retainedBytes=S.bytes+S.focusBytes+S.pathBytes+2*(#S.rows+#S.focusRows)+32,eventKinds=json(S.eventKinds)}
     S.health.snapshotRebuilds=S.health.snapshotRebuilds+1
 end
 local function candidate(classPath,action)
@@ -398,10 +504,18 @@ local function publish(stopping)
     local recovering=health.currentlyFailing
     health.currentlyFailing=false; health.recoveries=health.recoveries+(recovering and 1 or 0)
     health.registered=#S.hooks; health.dynamicRegistered=S.dynamic
-    local payload='{"schemaVersion":1,"session":'..q(S.session)..',"seq":'..frame.seq
+    local payload='{"schemaVersion":2,"version":'..q(VERSION)..',"session":'..q(S.session)..',"seq":'..frame.seq
         ..',"heartbeat":'..(stopping and '0' or tostring(second*1000))..',"active":'..tostring(not stopping and S.active)
-        ..',"retention":'..json({maxEvents=MAX_EVENTS,maxBytes=MAX_BYTES,firstSeq=frame.firstSeq,lastSeq=frame.seq,dropped=frame.dropped})
-        ..',"health":'..json(health)..',"lookupProfile":'..json(S.lookupProfile)..',"events":'..frame.json..'}\n'
+        ..',"retention":'..json({maxEvents=MAX_EVENTS,maxBytes=MAX_BYTES,firstSeq=frame.firstSeq,lastSeq=frame.seq,dropped=frame.dropped,
+            scope="events-plus-path-dictionary-plus-focus-summaries; metadata-extra",retainedBytes=frame.retainedBytes or 32,
+            eventBytes=frame.eventBytes or 0,pathBytes=frame.pathBytes or 0,pathCount=frame.pathCount or 0,
+            maxPaths=MAX_PATHS,maxPathBytes=MAX_PATH_BYTES})
+        ..',"focusRetention":'..json({maxRecords=MAX_FOCUS,count=frame.focusCount or 0,total=frame.focusTotal or 0,
+            dropped=frame.focusDropped or 0,bytes=frame.focusBytes or 0,priority="retained-before-ordinary-events",
+            interpretation="three-named-investigation-cases; not-full-history"})
+        ..',"health":'..json(health)..',"lookupProfile":'..json(S.lookupProfile)
+        ..',"eventKinds":'..(frame.eventKinds or '{}')..',"pathDictionary":'..(frame.dictionary or '{}')
+        ..',"focusSummaries":'..(frame.focus or '[]')..',"events":'..frame.json..'}\n'
     local f,why=io.open(S.output,"wb")
     local ok,wrote,closeOK,closed=true,nil,true,nil
     if f then ok,wrote=pcall(f.write,f,payload); closeOK,closed=pcall(f.close,f) end
@@ -439,8 +553,8 @@ function M.stop()
 end
 function M.status()
     local h={}; for k,v in pairs(S.health) do h[k]=v end
-    return {active=S.active,stopped=S.stopped,seq=S.seq,registered=#S.hooks,dynamicRegistered=S.dynamic,
-        retained=#S.rows,dropped=S.dropped,health=h}
+    return {version=VERSION,schemaVersion=2,active=S.active,stopped=S.stopped,seq=S.seq,registered=#S.hooks,dynamicRegistered=S.dynamic,
+        retained=#S.rows,dropped=S.dropped,focusRetained=#S.focusRows,focusDropped=S.focusDropped,health=h}
 end
 local function enabled(config)
     local f=io.open(config,"rb"); if not f then return true end

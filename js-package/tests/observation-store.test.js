@@ -274,4 +274,170 @@ test("analysis limits cannot exceed their hard caps", () => {
     const s = createObservationStore({ maxCorrelationComparisons: 999999, maxCorrelationRows: 9999 }).snapshot();
     assert.equal(s.analysis.maxComparisons, 8192); assert.equal(s.analysis.maxRows, 256);
 });
+function checkEvidence(snapshot) {
+    const e = snapshot.evidence;
+    assert(e.retention.bytes <= e.retention.maxBytes);
+    assert(e.retention.dictionaryBytes <= e.retention.maxDictionaryBytes);
+    assert(e.records.length <= e.retention.maxRecords);
+    assert.equal(e.retention.recordBytes, Buffer.byteLength(JSON.stringify(e.records)));
+    assert.equal(e.retention.dictionaryBytes, Buffer.byteLength(JSON.stringify(e.dictionary)));
+    for (const record of e.records) for (const id of Object.values(record.refs || {}))
+        assert.equal(typeof e.dictionary[id], "string", "every retained dictionary reference must resolve");
+    return e;
+}
+test("compact priority evidence survives a long stream of low priority plans", () => {
+    const s = createObservationStore({ maxBytes: 2048 });
+    s.record("warning-cue", { ...identity, id: "important", color: "black", gameTime: 4 });
+    for (let i = 0; i < 9000; i++) s.record("attack-plan", { ...identity, task: "/Task/" + i, eventKey: "hit/" + i,
+        attackSemantics: { timing: { PreHitPointDuration: { value: 0.35, status: "read" } } } });
+    const snapshot = s.snapshot(), e = checkEvidence(snapshot);
+    assert.equal(snapshot.events.some(x => x.id === "important"), false);
+    assert.equal(e.records.some(x => x.id === "important"), true);
+    assert.equal(e.counters.kindCounts["attack-plan"], 9000);
+    assert(e.counters.evicted > 0);
+});
+test("stable plan duplicates do not displace distinct attacks or lifecycle events", () => {
+    const s = createObservationStore();
+    for (let i = 0; i < 1000; i++) s.record("warning-plan", { ...identity, eventKey: "one", start: 0.5, end: 1 });
+    s.record("warning-plan", { ...identity, eventKey: "two", start: 0.6, end: 1.1 });
+    s.record("warning-plan", { ...identity, activation: 2, eventKey: "one", start: 0.5, end: 1 });
+    for (const phase of ["first-observed", "timeline-rewind-observed", "record-retired"])
+        s.record("task-lifecycle", { ...identity, phase, recordSerial: 4 });
+    const e = checkEvidence(s.snapshot());
+    assert.equal(e.counters.deduplicated, 999); assert.equal(e.records.length, 6);
+    assert.equal(e.records.filter(x => x.kind === "task-lifecycle").length, 3);
+});
+test("incomplete identity and repeated cues never silently deduplicate", () => {
+    const s = createObservationStore();
+    for (let i = 0; i < 2; i++) {
+        s.record("warning-plan", { ...identity, clockEpoch: null, eventKey: "same" });
+        s.record("warning-cue", { ...identity, id: "same", color: "red" });
+    }
+    const e = checkEvidence(s.snapshot()); assert.equal(e.records.length, 4); assert.equal(e.counters.deduplicated, 0);
+});
+test("changed timing semantics or unreadable sampling states remain distinct evidence", () => {
+    const s = createObservationStore();
+    for (const value of [0.1, 0.2]) s.record("attack-plan", { ...identity, eventKey: "same",
+        attackSemantics: { timing: { RuntimePreHitPointDuration: { status: "read", value } } } });
+    for (const unreadable of [0, 1]) s.record("timeline-observer-status", { ...identity, scanned: 3, unreadable });
+    const e = checkEvidence(s.snapshot()); assert.equal(e.records.length, 4);
+});
+test("dictionary storage and UTF8 budgets remain exact through repeated eviction", () => {
+    const s = createObservationStore({ maxEvidenceBytes: 4096, maxEvidenceDictionaryBytes: 2000, maxEvidenceRecords: 5 });
+    for (let i = 0; i < 100; i++) {
+        s.record("warning-cue", { ...identity, actor: "/敌人/" + i, ability: "/技能/" + i, id: "danger/" + i, color: "black" });
+        if (i % 7 === 0) checkEvidence(s.snapshot());
+    }
+    const e = checkEvidence(s.snapshot()); assert(e.counters.evicted > 0);
+    const used = new Set(e.records.flatMap(x => Object.values(x.refs || {})).map(String));
+    assert.equal(Object.keys(e.dictionary).length, used.size);
+});
+test("past snapshots remain readable and detached after dictionary IDs expire", () => {
+    const s = createObservationStore({ maxEvidenceRecords: 1 });
+    s.record("warning-cue", { actor: "/old", id: "old" });
+    const before = s.snapshot().evidence, ref = before.records[0].refs.actor;
+    s.record("warning-cue", { actor: "/new", id: "new" });
+    const after = checkEvidence(s.snapshot());
+    assert.equal(before.dictionary[ref], "/old"); assert.equal(after.dictionary[ref], undefined);
+    assert.throws(() => { before.dictionary[ref] = "/modified"; }, TypeError);
+});
+test("dictionary exhaustion cannot evict protected danger records for sampling noise", () => {
+    const s = createObservationStore({ maxEvidenceDictionaryEntries: 1 });
+    s.record("warning-cue", { actor: "/protected", id: "p" });
+    s.record("attack-plan", { actor: "/other", action: "/another" });
+    const e = checkEvidence(s.snapshot());
+    assert.equal(e.records.length, 1); assert.equal(e.records[0].id, "p"); assert(e.counters.dictionaryDrops > 0);
+});
+test("impossible large evidence does not erase useful retained evidence", () => {
+    const s = createObservationStore({ maxEvidenceBytes: 2500, maxEvidenceDictionaryBytes: 800 });
+    s.record("warning-cue", { actor: "/protected", id: "p" });
+    s.record("task-lifecycle", { actor: "/" + "x".repeat(3000), phase: "first-observed" });
+    const e = checkEvidence(s.snapshot());
+    assert.equal(e.records.length, 1); assert.equal(e.records[0].id, "p"); assert.equal(e.counters.oversized, 1);
+});
+test("important compact evidence can survive rejection by the raw history byte limit", () => {
+    const s = createObservationStore({ maxBytes: 500 });
+    assert.equal(s.record("warning-missed", { ...identity, time: 4, start: 2, end: 3, unrelated: "x".repeat(2000) }), false);
+    const e = checkEvidence(s.snapshot());
+    assert.equal(e.records[0].kind, "warning-missed"); assert.equal(e.records[0].time, 4);
+    assert.equal(e.counters.kindCounts["warning-missed"], 1);
+});
+test("focused Lua summaries retain scoped call IDs, first and last start offsets and unknown clocks", () => {
+    const s = createObservationStore();
+    s.record("focused-call-summary", { actor: "/enemy", ability: "/skill", hookSession: "lua-session-A", hookSeq: 9,
+        clockEpoch: null, capture: { callId: "call-4", firstSeq: 8, lastSeq: 9, hookPath: "/Function/PlayTimeline", abiVerified: false,
+            activation: { status: "read", value: 2 },
+            first: { phase: "pre", task: "/old/task", taskTime: { status: "read", value: 2 },
+                params: { StartTimeSeconds: { status: "read", value: 2.8 } } },
+            last: { phase: "post", task: "/new/task", taskTime: { status: "read", value: 2.8 } } } });
+    const e = checkEvidence(s.snapshot()), r = e.records[0];
+    assert.equal(r.hookSession, "lua-session-A"); assert.equal(r.capture.callId, "call-4");
+    assert.equal(r.capture.first.params.StartTimeSeconds.value, 2.8);
+    assert.equal(e.dictionary[r.refs["capture.last.task"]], "/new/task");
+    assert.equal(r.clockEpoch, null); assert.equal(r.capture.abiVerified, false);
+});
+test("lifecycle summaries preserve local identity and timestamps without synthesizing hit evidence", () => {
+    const s = createObservationStore();
+    s.record("task-lifecycle", { ...identity, phase: "first-observed", observationRun: 3, recordSerial: 7,
+        firstObservedTimelineTime: 3.7, firstObservedGameTime: 20, firstObservedWallTime: 1234,
+        discoverySource: "ticking-tasks", identityBasis: "local-task-only" });
+    const r = checkEvidence(s.snapshot()).records[0];
+    assert.equal(r.firstObservedTimelineTime, 3.7); assert.equal(r.observationRun, 3);
+    assert.equal(r.identityBasis, "local-task-only"); assert.equal(r.confirmedHit, undefined);
+});
+test("cumulative kind statistics cannot grow without bound through arbitrary kind names", () => {
+    const s = createObservationStore({ maxEvidenceRecords: 4 });
+    for (let i = 0; i < 1000; i++) s.record("kind" + i, { value: i });
+    const e = checkEvidence(s.snapshot());
+    assert.equal(Object.keys(e.counters.kindCounts).length, 64); assert.equal(e.counters.kindOverflow, 936);
+});
+test("disabled observation keeps both histories empty without reading caller values", () => {
+    const s = createObservationStore({ enabled: false });
+    s.record("warning-cue", new Proxy({}, { ownKeys() { throw new Error("must not read"); } }));
+    const e = checkEvidence(s.snapshot()); assert.equal(e.records.length, 0); assert.equal(e.counters.observed, 0);
+});
+test("ordinary task churn cannot evict earlier danger cues or the focused starting evidence", () => {
+    const s = createObservationStore({ maxEvidenceBytes: 8192 });
+    s.record("warning-cue", { ...identity, id: "important", color: "black" });
+    s.record("task-lifecycle", { ...identity, ability: "/Enemy/GA_FeiZei_SpecialAttack_07", phase: "first-observed", taskTimelineTime: 3.7 });
+    for (let i = 0; i < 2000; i++) s.record("task-lifecycle", { ...identity, task: "/Task/" + i, phase: "first-observed" });
+    const e = checkEvidence(s.snapshot());
+    assert(e.records.some(x => x.id === "important"));
+    assert(e.records.some(x => x.taskTimelineTime === 3.7)); assert(e.counters.evicted > 0);
+});
+test("a rewind observation run does not deduplicate the replayed plan", () => {
+    const s = createObservationStore();
+    for (const observationRun of [0, 1]) s.record("warning-plan", { ...identity, observationRun, eventKey: "same", start: 1, end: 2 });
+    const e = checkEvidence(s.snapshot()); assert.equal(e.records.length, 2); assert.equal(e.counters.deduplicated, 0);
+});
+test("native placeholder timing and unverified bullet lifecycle survive compact projection", () => {
+    const s = createObservationStore();
+    s.record("native-frame", { ...identity, hitGameTime: null, reportedHitGameTime: -3.4e38,
+        hitTimeUsableForFutureComparison: false, bullet: "/Bullet/asset-or-instance", bulletReferenceStatus: "asset-reference",
+        bulletInstancePresent: false, bulletLifecycleVerified: false, bulletDangerEndedVerified: false });
+    const r = checkEvidence(s.snapshot()).records[0];
+    assert.equal(r.reportedHitGameTime, -3.4e38); assert.equal(r.hitGameTime, null);
+    assert.equal(r.hitTimeUsableForFutureComparison, false); assert.equal(r.bulletDangerEndedVerified, false);
+});
+test("truncated paths are omitted rather than presented as complete dictionary identities", () => {
+    const s = createObservationStore();
+    s.record("timeline-call", { actor: "/" + "x".repeat(5000), capture: { hookPath: "/" + "y".repeat(5000),
+        context: { ability: "/" + "z".repeat(5000) } } });
+    const e = checkEvidence(s.snapshot());
+    assert.equal(e.records[0].refs, undefined); assert.equal(Object.keys(e.dictionary).length, 0);
+    assert.equal(e.counters.omittedPaths, 3); assert.equal(e.records[0].sanitizedValues, 3);
+});
+test("compact facts retain the fields needed to explain late discovery and a seek",()=>{
+    const s=createObservationStore();
+    s.record('warning-cue',{...identity,id:'cue',plannedStart:2.75,observedTimelineTime:2.42,
+        estimatedLeadGameSeconds:0.33,soundSubmitted:false});
+    s.record('task-lifecycle',{...identity,phase:'forward-discontinuity-candidate',deltaTimelineTime:2,
+        deltaGameTime:0.016,cause:'unknown-seek-rate-or-sampling',replacesRecordSerial:7,startTimeVerified:false});
+    s.record('warning-missed',{...identity,generation:645,executionVerified:false,interpretation:'not-confirmed-miss'});
+    const records=checkEvidence(s.snapshot()).records;
+    assert.equal(records[0].plannedStart,2.75);assert.equal(records[0].estimatedLeadGameSeconds,0.33);
+    assert.equal(records[0].soundSubmitted,false);assert.equal(records[1].deltaGameTime,0.016);
+    assert.equal(records[1].cause,'unknown-seek-rate-or-sampling');assert.equal(records[1].replacesRecordSerial,7);
+    assert.equal(records[2].generation,645);assert.equal(records[2].executionVerified,false);
+});
 console.log("RESULT " + passed + " observation store scenarios passed.");

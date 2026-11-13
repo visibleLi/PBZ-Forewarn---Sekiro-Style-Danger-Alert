@@ -1,5 +1,6 @@
 -- PBZForewarn 0.6: discovery hooks plus optional read-only observations.
 -- This entry point never launches a process or writes an audio signal.
+local VERSION = "0.6.0-observe-bounded.2"
 local prefix = "[PBZForewarnHooks] "
 local function report(message) print(prefix .. message .. "\n") end
 local info = debug.getinfo(1, "S")
@@ -48,7 +49,7 @@ if not unloadInstalled then report("UNLOAD_UNAVAILABLE " .. tostring(unloadWhy))
 if type(module) ~= "table" or type(module.status) ~= "function" then
     report("ENTRY_FAILED bridge returned no status API"); return
 end
-report("ENTRY_READY hooks only; Wwise audio is handled by Forewarn JS")
+report("ENTRY_READY version=" .. VERSION .. "; hooks only; Wwise audio is handled by Forewarn JS")
 -- Observation is independent: failure must not disable the proven v1 hints.
 local observerLoaded, observerChunk, observerError = pcall(loadfile, directory .. "\\observation-hooks.lua")
 if not observerLoaded or type(observerChunk) ~= "function" then
@@ -59,4 +60,4 @@ if type(observerResult) == "table" then observer = observerResult end
 if not observerStarted or type(observer) ~= "table" or type(observer.status) ~= "function" then
     report("OBSERVER_UNAVAILABLE " .. tostring(observerResult)); return
 end
-report("OBSERVER_READY read-only evidence; no attack decisions")
+report("OBSERVER_READY version=" .. VERSION .. "; read-only evidence; no attack decisions")

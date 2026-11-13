@@ -95,20 +95,30 @@ function createNativeAttackObserver(UE, puerts, adapter, options = {}) {
         const semantics = probeAttackSemantics(typeView).deflect;
         const hit = read(frame, "HitGameTime"), bullet = read(frame, "Bullet");
         const stamp = { ...base(), ...(captureClock || {}) };
+        const plausibleHit = finite(hit) && hit >= 0 && hit <= Number.MAX_SAFE_INTEGER;
+        const clockKnown = finite(stamp.gameTime) && stamp.gameTime >= 0 && Number.isSafeInteger(stamp.clockEpoch) && stamp.clockEpoch >= 0;
+        const remaining = plausibleHit && clockKnown ? hit - stamp.gameTime : null;
+        const bulletValid = valid(bullet), bulletPath = bulletValid ? path(bullet) : "";
         return { ...stamp, handle, action: path(action), actor: path(actor), ability: path(ability), activation,
             // A shared timeline resource does not identify which concurrent
             // play task created this frame. Keep the current task as a candidate
             // only; correlation must not mistake it for exact task ownership.
             task: null, taskCandidate: taskMatches ? path(currentTask) : null,
             taskIdentity: taskMatches ? "current-task-shared-timeline-candidate-only" : "unavailable-or-unmatched",
-            timeline: timelinePath, bullet: path(bullet),
+            timeline: timelinePath, bullet: bulletPath,
+            bulletReferenceStatus: bulletValid ? "instance-reference-read" : bullet ? "invalid-or-unreadable-reference" : "not-reported",
+            bulletInstancePresent: bulletValid, bulletLifecycleVerified: false, bulletDangerEndedVerified: false,
+            bulletEvidence: "native-frame-reference-not-proof-of-spawn-impact-or-persistent-danger",
             typeValue: semantics.value, typeName: semantics.name, typeConflict: semantics.conflict,
             typeCandidates: semantics.candidates,
-            hitGameTime: finite(hit) ? hit : null,
-            hitTimeStatus: !finite(hit) ? "non-finite-or-unreadable" : hit < 0 ? "negative-placeholder" : "finite-not-impact-verified",
+            hitGameTime: plausibleHit ? hit : null, reportedHitGameTime: finite(hit) ? hit : null,
+            hitTimeStatus: !finite(hit) ? "non-finite-or-unreadable" : hit < 0 ? "negative-placeholder" :
+                !plausibleHit ? "unsafe-magnitude" : !clockKnown ? "clock-context-unavailable" :
+                remaining < 0 ? "past-reported-time-not-impact-verified" : "finite-not-impact-verified",
+            hitTimeUsableForFutureComparison: plausibleHit && clockKnown && remaining >= 0,
             isDodge: typeof read(frame, "IsDodge") === "boolean" ? read(frame, "IsDodge") : null,
             isHit: typeof read(frame, "IsHit") === "boolean" ? read(frame, "IsHit") : null,
-            remainingGameSeconds: finite(hit) && hit >= 0 && finite(stamp.gameTime) ? hit - stamp.gameTime : null,
+            remainingGameSeconds: remaining,
             timingBasis: "engine-game-time-not-wall-time", impactVerified: false, cancelled: false };
     }
     function observe(frame, handle, source, seen, captureClock) {
@@ -142,7 +152,8 @@ function createNativeAttackObserver(UE, puerts, adapter, options = {}) {
                 firstGameTime: value.gameTime, firstWallTime: value.wallTime, firstSource: source, sources: new Set() };
             records.set(handle, prior);
         }
-        const state = JSON.stringify([value.hitGameTime, value.hitTimeStatus, value.isHit, value.isDodge,
+        const state = JSON.stringify([value.hitGameTime, value.reportedHitGameTime, value.hitTimeStatus, value.isHit, value.isDodge,
+            value.bulletReferenceStatus,
             value.typeValue, value.typeName, value.typeConflict, value.typeCandidates, value.taskCandidate]);
         const newSource = !prior.sources.has(source);
         prior.sources.add(source);

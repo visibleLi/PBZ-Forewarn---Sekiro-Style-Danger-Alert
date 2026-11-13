@@ -99,9 +99,26 @@ def fresh(before=''):
     lua.globals().M=mod
     return lua,mod
 
-def data(lua):
+def data(lua, raw=False):
     writes=lua.globals().T.writes
-    return json.loads(writes[len(writes)]['body'])
+    value=json.loads(writes[len(writes)]['body'])
+    if raw or value.get('schemaVersion') != 2:
+        return value
+    dictionary=value.get('pathDictionary', {})
+    def decode(node):
+        if isinstance(node, list):
+            return [decode(item) for item in node]
+        if isinstance(node, dict):
+            if '$path' in node:
+                assert set(node)=={'$path'} and isinstance(node['$path'], int) and node['$path']>0
+                path=dictionary[str(node['$path'])]
+                assert isinstance(path,str) and path.startswith('/')
+                return path
+            return {key:decode(item) for key,item in node.items()}
+        return node
+    value['events']=decode(value['events'])
+    value['focusSummaries']=decode(value['focusSummaries'])
+    return value
 
 z,m=fresh()
 check(len(z.globals().T.hooks)==0,'setup queues registration without touching UE from the loading thread')
@@ -167,6 +184,47 @@ z,m=fresh();z.execute("game();a,task,actor,tl=ability();for i=1,270 do invoke(BY
 p=data(z)
 check(p['seq']==540 and len(p['events'])<=512 and p['retention']['dropped']>0,'retention is bounded with monotonic sequence and explicit lost-history count')
 check(p['retention']['firstSeq']==p['events'][0]['seq'] and p['retention']['lastSeq']==540,'snapshot first and last sequence identify gaps without claiming complete history')
+check(p['schemaVersion']==2 and p['version']=='0.6.0-observe-bounded.2' and m.status()['version']==p['version'],
+    'Lua snapshot and status identify the actual bounded.2 version')
+raw=data(z,raw=True)
+check(raw['retention']['retainedBytes']<=raw['retention']['maxBytes'] and raw['retention']['pathBytes']<=raw['retention']['maxPathBytes'],
+    'serialized events, interned paths and focused summaries share an explicit combined byte budget')
+
+z,m=fresh();z.execute("game();a,task,actor,tl=ability('FeiZei_SpecialAttack_07_'..string.rep('A',80));invoke(BYNAME,'pre',a,param('Main'),param(1.2),param(0),param(2.883));task.CurrentTime=2.9;invoke(BYNAME,'post',a,param('Main'),param(1.2),param(0),param(2.883));b,bt,ba,btl=ability('Ordinary_'..string.rep('B',80));for i=1,1200 do invoke(BYNAME,'pre',b,param('Main'),param(1),param(0),param(0));invoke(BYNAME,'post',b,param('Main'),param(1),param(0),param(0))end;maintenance();publish()")
+p=data(z);raw=data(z,raw=True)
+check(p['seq']==2402 and p['retention']['dropped']>0 and len(p['focusSummaries'])==1,
+    'a named investigation call survives thousands of ordinary captures outside the general event window')
+focus=p['focusSummaries'][0]
+check(focus['firstSeq']==1 and focus['lastSeq']==2 and focus['first']['params']['StartTimeSeconds']['value']==2.883
+    and focus['last']['taskTime']['value']==2.9 and not focus['abiVerified'],
+    'focused pre/post summary preserves original offset and post task position without claiming ABI verification')
+check(p['eventKinds']['timeline-call']==2402 and p['focusRetention']['total']==1,
+    'cumulative event and focused-call counts survive event eviction without counting phases as independent casts')
+check(raw['pathDictionary'] and any(isinstance(e['hookPath'],dict) and '$path' in e['hookPath'] for e in raw['events']),
+    'repeated resource paths are stored once and referenced explicitly in event rows')
+check(p['retention']['retainedBytes']<=393216 and len(json.dumps(raw).encode())<450000,
+    'long capture stream remains bounded including dictionary and focus records')
+
+z,m=fresh();z.execute("game();for i=1,90 do local a=ability('FeiZei_SpecialAttack_07_'..i..string.rep('C',80));invoke(BYNAME,'pre',a,param('Main'),param(1),param(0),param(i));invoke(BYNAME,'post',a,param('Main'),param(1),param(0),param(i))end;maintenance();publish()")
+p=data(z)
+check(p['focusRetention']['count']<=64 and p['focusRetention']['total']==90 and p['focusRetention']['dropped']>=26,
+    'focus preservation has its own finite call capacity and explicit eviction count')
+check(p['retention']['retainedBytes']<=393216,
+    'focus pressure cannot escape the shared byte budget')
+
+z,m=fresh();z.execute("game();for i=1,1400 do local a=ability('Ordinary_'..i..string.rep('D',80));invoke(BYNAME,'pre',a,param('Main'),param(1),param(0),param(0));invoke(BYNAME,'post',a,param('Main'),param(1),param(0),param(0))end;maintenance();publish()")
+p=data(z);raw=data(z,raw=True)
+check(raw['retention']['pathCount']<=raw['retention']['maxPaths'] and raw['retention']['pathBytes']<=131072,
+    'unique long paths cannot grow the shared dictionary indefinitely')
+check(p['retention']['retainedBytes']<=393216 and p['events'][-1]['seq']==2800,
+    'path references remain resolvable after dictionary reclamation and long unique-task churn')
+
+z,m=fresh();z.execute("game();a,task,actor,tl=ability();actor.GetFullName=function()requireGame();return 'PBZCharacter_NPC /Game/'..string.rep('X',5000)end;invoke(BYNAME,'pre',a,param('Main'),param(1),param(0),param(0));b,bt,ba,btl=ability('Normal');invoke(BYNAME,'pre',b,param('Main'),param(1),param(0),param(0));maintenance();publish()")
+p=data(z);raw=data(z,raw=True)
+check(len(raw['events'])==2 and all(len(value)<=4096 for value in raw['pathDictionary'].values())
+    and isinstance(raw['events'][0]['context']['actor'],str) and len(raw['events'][0]['context']['actor'])>4096
+    and m.status()['health']['pathInlineFallbacks']>0 and p['events'][1]['context']['actor']=='/Game/Test.Enemy_Normal',
+    'an overlong path stays inline and cannot poison dictionary validation for unrelated normal captures')
 
 z,m=fresh();z.execute("game();a,task,actor,tl=ability();local items={};for i=1,40 do items[i]={Action=warning(a,task,actor,'/Game/Test.WarningClass_'..i)}end;tl.Actions=arr(items);invoke(PLAY,'pre',a,param(tl),param(1),param(0),param(0),param(''));invoke(PLAY,'post',a,param(tl),param(1),param(0),param(0),param(''));T.allLoaded=true;for i=1,40 do T.now=T.now+1;maintenance()end;publish()")
 check(m.status()['dynamicRegistered']==32 and m.status()['health']['dynamicLimitReached']>0,'runtime action-class discovery respects maximum 32 dynamic hooks')

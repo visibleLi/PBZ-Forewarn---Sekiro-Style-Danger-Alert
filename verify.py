@@ -55,11 +55,11 @@ bank_config = subprocess.run([args.node, '-e', 'process.stdout.write(JSON.string
 assert json.loads(bank_config.stdout) == {'eventId': bank_manifest['ids']['event'], 'bankId': bank_manifest['ids']['bank'],
                                          'durationSeconds': bank_manifest['pcm']['durationSeconds'],
                                          'authoredGainDb': bank_manifest['authoredGainDb'], 'voicePriority': bank_manifest['voicePriority']}
-report = {'version': '0.6.0-observe-bounded.1', 'distributionName': 'PBZForewarn-0.6.0-observe-bounded.1',
+report = {'version': '0.6.0-observe-bounded.2', 'distributionName': 'PBZForewarn-0.6.0-observe-bounded.2',
           'checks': sum(x['checks'] for x in suites), 'suites': suites,
           'javascriptSyntax': 'passed', 'originalWavSha256': wav_hash,
           'bankSha256': bank_manifest['bankSha256'], 'sourcePcmSha256': bank_manifest['sourcePcmSha256'],
           'playablePcmSha256': bank_manifest['pcm']['sha256'], 'audioTrimStartMs': bank_manifest['trimStartMs'],
-          'scope': 'Offline mocked UE/Puerts/UE4SS and binary bank checks. Bounded Lua observer has a separate short user in-game test; no FG/RTSS fix, full multi-phase Boss validation, in-game Wwise bank load audit, or coverage certification.'}
+          'scope': 'Offline mocked UE/Puerts/UE4SS, real Lua wire-fixture integration and binary bank checks. Predecessor bounded.1 completed a user long run; this new bounded.2 candidate is not in-game verified. No FG/RTSS fix or coverage certification.'}
 (OUT/'summary.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf8')
 print(json.dumps(report, ensure_ascii=False, indent=2))

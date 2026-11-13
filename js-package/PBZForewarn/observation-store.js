@@ -249,6 +249,228 @@ function correlations(events, limits) {
     return { rows: result, statuses, planCorrelations, analysis };
 }
 
+// A second, bounded evidence lane preserves small facts from a long session.
+// Its references describe objects, not confirmed strike identities or outcomes.
+function createEvidenceStore(options) {
+    const maxBytes = limit(options.maxEvidenceBytes, 256 * 1024, 384 * 1024);
+    const maxRecords = limit(options.maxEvidenceRecords, 1024, 1536);
+    const maxDictionaryBytes = Math.min(maxBytes, limit(options.maxEvidenceDictionaryBytes, 96 * 1024, 128 * 1024));
+    const maxDictionaryEntries = limit(options.maxEvidenceDictionaryEntries, 768, 1024);
+    const queues = [new Map(), new Map(), new Map(), new Map()];
+    const dictionary = new Map(), paths = new Map(), dedupe = new Map();
+    const totals = Object.create(null), kinds = Object.create(null);
+    let bytes = 2, dictionaryBytes = 2, nextId = 0, size = 0;
+    const counters = { observed: 0, accepted: 0, evicted: 0, deduplicated: 0, rejected: 0,
+        priorityProtectedDrops: 0, oversized: 0, dictionaryDrops: 0, omittedPaths: 0, kindOverflow: 0 };
+    const priorities = [0, 1, 2, 3].map(() => ({ accepted: 0, evicted: 0, rejected: 0, count: 0 }));
+    const pathFields = ["worldKey", "player", "actor", "ability", "action", "task", "timeline", "effect", "bullet",
+        "component", "ownerActorCandidate", "roleActorCandidate", "captureWorld", "boundWorld"];
+    const scalarFields = ["id", "eventKey", "attackId", "activation", "clockEpoch", "recordSerial", "handle", "source", "reason",
+        "phase", "color", "eligible", "typeName", "typeValue", "typeConflict", "hitTimeStatus", "impactVerified",
+        "perHitIdentityVerified", "executableBranchConfirmed", "roleActorUnresolved", "usedForScheduling",
+        "wallTime", "at", "gameTime", "firstWallTime", "firstGameTime", "hitGameTime", "reportedHitGameTime", "hitTimeUsableForFutureComparison", "remainingGameSeconds",
+        "bulletReferenceStatus", "bulletInstancePresent", "bulletLifecycleVerified", "bulletDangerEndedVerified",
+        "start", "end", "time", "taskTimelineTime", "firstObservedTimelineTime", "firstObservedGameTime", "firstObservedWallTime",
+        "previousTimelineTime", "currentTimelineTime", "observationRun", "discoverySource", "identityBasis", "hookSession", "hookSeq",
+        "startOffset", "startTimeSeconds", "observedRate", "event", "status", "terminationSource",
+        "plannedStart", "observedTimelineTime", "estimatedLeadGameSeconds", "soundSubmitted", "generation",
+        "authoredStartTime", "triggerTimeOffset", "endTriggerTimeOffset", "deltaTimelineTime", "deltaGameTime", "cause",
+        "replacesRecordSerial", "startTimeVerified", "executionVerified", "interpretation", "clockSource", "playerHitCauseVerified",
+        "callbackContextVerified", "callbackContextReason", "timingBasis", "temporalAssociation", "scanned", "truncated", "unreadable", "layers"];
+    function countKind(kind) {
+        if (Object.hasOwn(totals, kind)) { totals[kind]++; return; }
+        if (Object.keys(totals).length < 64) { totals[kind] = 1; kinds[kind] = { retained: 0, evicted: 0, deduplicated: 0, rejected: 0 }; }
+        else counters.kindOverflow++;
+    }
+    function priority(kind, event) {
+        if (["warning-cue", "warning-withdrawal", "warning-missed", "missed", "focused-call-summary"].includes(kind)) return 3;
+        if (["task-lifecycle", "native-task-start", "timeline-start"].includes(kind)) {
+            const ability = typeof event.ability === "string" ? event.ability : "";
+            const focus = ability.includes("FeiZei_SpecialAttack_07") || ability.includes("Vessel_Vagrant_RangeAttack_Throw_02") ||
+                (ability.includes("YuCong") && ability.includes("Wuli_Attack_01_B"));
+            return focus ? 3 : 2;
+        }
+        if (["warning-plan", "native-warning-call"].includes(kind)) return 2;
+        return kind.startsWith("native-frame") || kind === "timeline-call" ? 1 : 0;
+    }
+    function retainPath(value, refs) {
+        if (typeof value !== "string" || !value || UNKNOWN.test(value)) return null;
+        let entry = paths.get(value);
+        if (!entry) {
+            const id = ++nextId, entryBytes = utf8Bytes(JSON.stringify(String(id))) + 1 + utf8Bytes(JSON.stringify(value));
+            entry = { id, value, refs: 0, bytes: entryBytes };
+            dictionaryBytes += entryBytes + (dictionary.size ? 1 : 0); dictionary.set(id, entry); paths.set(value, entry);
+        }
+        entry.refs++; refs.push(entry.id); return entry.id;
+    }
+    function release(refs) {
+        for (const id of refs) {
+            const entry = dictionary.get(id);
+            if (!entry || --entry.refs > 0) continue;
+            dictionary.delete(id); paths.delete(entry.value);
+            dictionaryBytes -= entry.bytes + (dictionary.size ? 1 : 0);
+        }
+    }
+    function remove(item) {
+        queues[item.priority].delete(item.record.seq); size--;
+        bytes -= item.bytes + (size ? 1 : 0); release(item.refs);
+        if (item.key) dedupe.delete(item.key);
+        counters.evicted++; priorities[item.priority].count--; priorities[item.priority].evicted++;
+        if (kinds[item.record.kind]) { kinds[item.record.kind].retained--; kinds[item.record.kind].evicted++; }
+    }
+    function oldestAtMost(p) {
+        for (let i = 0; i <= p; i++) if (queues[i].size) return queues[i].values().next().value;
+        return null;
+    }
+    const scalar = value => value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+    function record(event) {
+        counters.observed++; countKind(event.kind);
+        const p = priority(event.kind, event), refs = [], r = { seq: event.seq, kind: event.kind, priority: p }, pathRefs = Object.create(null);
+        const issues = event.sanitization || [];
+        function ref(field, value, sourcePath = field) {
+            if (issues.some(x => x.path === sourcePath && /truncat|non-json|non-finite/.test(x.reason))) { counters.omittedPaths++; return; }
+            const id = retainPath(value, refs); if (id !== null) pathRefs[field] = id;
+        }
+        for (const field of pathFields) ref(field, event[field]);
+        for (const field of scalarFields) if (Object.hasOwn(event, field) && scalar(event[field])) {
+            if (["eventKey", "attackId"].includes(field) && typeof event[field] === "string" && event[field].length > 128) ref(field, event[field]);
+            else r[field] = event[field];
+        }
+        const capture = event.capture, context = capture && capture.context;
+        if (capture) {
+            r.capture = {};
+            for (const key of ["phase", "thread", "matching", "callbackSemantics", "callId", "atWallMs"])
+                if (scalar(capture[key]) && capture[key] !== undefined) r.capture[key] = capture[key];
+            ref("hookPath", capture.hookPath, "capture.hookPath");
+            if (capture.gameTime) r.capture.gameTime = Object.freeze({ ...capture.gameTime });
+            if (context) {
+                for (const field of ["actor", "ability", "action", "task", "timeline", "world", "captureWorld", "effect"])
+                    ref("capture." + field, context[field], "capture.context." + field);
+                for (const field of ["activation", "taskTime"])
+                    if (context[field]) r.capture[field] = Object.freeze({ ...context[field] });
+                for (const field of ["nativeExecutionConfirmed", "taskCorrelation", "warningResourceMatched", "attackAssociation"])
+                    if (scalar(context[field]) && context[field] !== undefined) r.capture[field] = context[field];
+            }
+            if (capture.params) {
+                r.capture.params = {};
+                for (const key of ["status", "source", "abiVerified", "StartTimeSeconds", "PlayRate", "PreviousTimlineName", "SyncPoint",
+                    "BeginTime", "ElapsedTime", "TotalDuration"]) {
+                    const value = capture.params[key];
+                    if (scalar(value) && value !== undefined) r.capture.params[key] = value;
+                    else if (value && scalar(value.value)) r.capture.params[key] = Object.freeze({ status: value.status, value: value.value });
+                }
+                const timeline = capture.params.Timeline;
+                if (timeline && typeof timeline.value === "string") ref("param.Timeline", timeline.value, "capture.params.Timeline.value");
+            }
+            if (event.kind === "focused-call-summary") {
+                for (const field of ["firstSeq", "lastSeq", "taskCorrelation", "attackAssociation", "abiVerified", "interpretation"])
+                    if (scalar(capture[field]) && capture[field] !== undefined) r.capture[field] = capture[field];
+                for (const field of ["ability", "actor", "action", "captureWorld", "effect"]) ref("capture." + field, capture[field]);
+                if (capture.activation) r.capture.activation = Object.freeze({ ...capture.activation });
+                for (const side of ["first", "last"]) {
+                    const point = capture[side]; if (!point) continue;
+                    const out = {};
+                    for (const key of ["phase", "atWallMs", "matching"]) if (scalar(point[key]) && point[key] !== undefined) out[key] = point[key];
+                    for (const key of ["gameTime", "taskTime"]) if (point[key]) out[key] = Object.freeze({ ...point[key] });
+                    for (const key of ["task", "timeline"]) ref("capture." + side + "." + key, point[key]);
+                    if (point.params) {
+                        out.params = {};
+                        for (const key of ["StartTimeSeconds", "PlayRate", "SyncPoint", "PreviousTimlineName", "BeginTime", "ElapsedTime", "TotalDuration"])
+                            if (point.params[key] && scalar(point.params[key].value)) out.params[key] = Object.freeze({ ...point.params[key] });
+                        Object.freeze(out.params);
+                    }
+                    r.capture[side] = Object.freeze(out);
+                }
+            }
+            Object.freeze(r.capture.params); Object.freeze(r.capture);
+        }
+        if (event.attackSemantics) {
+            const a = event.attackSemantics, attack = {};
+            if (a.timing) for (const key of ["BulletDuration", "PreHitPointDuration", "RuntimePreHitPointDuration"])
+                if (a.timing[key]) attack[key] = Object.freeze({ ...a.timing[key] });
+            if (a.arrays) for (const key of ["StartBulletTimes", "EndBulletTimes", "SendFrameTimes"]) {
+                const value = a.arrays[key]; if (!value) continue;
+                attack[key] = Object.freeze({ status: value.status, length: value.length,
+                    values: Array.isArray(value.values) ? Object.freeze(value.values.slice(0, 8)) : null,
+                    truncated: value.truncated === true || (value.values?.length || 0) > 8 });
+            }
+            if (Object.keys(attack).length) r.attack = Object.freeze(attack);
+        }
+        if (event.termination) {
+            r.termination = {};
+            for (const key of ["source", "taskValid", "abilityValid", "abilityActive", "abilityEnding", "lastTimelineTime", "currentTimelineTime",
+                "lastProgressAgoMs", "naturalWarningEndsSeen", "callback", "playerHitCauseVerified"])
+                if (scalar(event.termination[key]) && event.termination[key] !== undefined) r.termination[key] = event.termination[key];
+            ref("termination.task", event.termination.task); ref("termination.ability", event.termination.ability);
+            Object.freeze(r.termination);
+        }
+        if (issues.length) r.sanitizedValues = issues.length;
+        if (Object.keys(pathRefs).length) r.refs = Object.freeze(pathRefs);
+        // Deduplicate stable plans/status facts only. Never combine cue attempts,
+        // callbacks, misses, or lifecycle transitions by their nearby timestamp.
+        let key = null;
+        const stable = ["attack-plan", "warning-plan", "timeline-observer-status", "native-observer-status"].includes(event.kind);
+        const hasScope = pathRefs.worldKey && pathRefs.player && pathRefs.actor && pathRefs.ability && pathRefs.task &&
+            identity(event.activation) !== null && identity(event.clockEpoch) !== null;
+        if (stable && hasScope) {
+            const fields = [event.kind, pathRefs, event.clockEpoch, event.activation, event.recordSerial, event.observationRun,
+                event.eventKey, event.attackId, event.handle, event.start, event.end, event.eligible,
+                event.typeName, event.typeValue, event.reason, event.status, event.scanned, event.truncated, event.unreadable, r.attack];
+            // Missing action/event identity cannot collapse two attack nodes.
+            if (!PLAN_KINDS.has(event.kind) || pathRefs.action || identity(event.eventKey) !== null) key = JSON.stringify(fields);
+        }
+        if (key && dedupe.has(key)) {
+            release(refs); counters.deduplicated++; if (kinds[event.kind]) kinds[event.kind].deduplicated++; return;
+        }
+        Object.freeze(r);
+        const recordBytes = utf8Bytes(JSON.stringify(r));
+        // Reject a record that cannot fit even on its own before evicting useful
+        // history. Repeated references count only once in the dictionary cost.
+        const uniqueRefs = [...new Set(refs)];
+        const ownDictionaryBytes = 2 + uniqueRefs.reduce((sum, id) => sum + dictionary.get(id).bytes, 0) + Math.max(0, uniqueRefs.length - 1);
+        if (recordBytes + 2 + ownDictionaryBytes > maxBytes || ownDictionaryBytes > maxDictionaryBytes || uniqueRefs.length > maxDictionaryEntries) {
+            if (ownDictionaryBytes > maxDictionaryBytes || uniqueRefs.length > maxDictionaryEntries) counters.dictionaryDrops++;
+            counters.oversized++; counters.rejected++; priorities[p].rejected++;
+            if (kinds[event.kind]) kinds[event.kind].rejected++;
+            release(refs); return;
+        }
+        function overBudget() { return size >= maxRecords || bytes + recordBytes + (size ? 1 : 0) + dictionaryBytes > maxBytes ||
+            dictionaryBytes > maxDictionaryBytes || dictionary.size > maxDictionaryEntries; }
+        while (overBudget()) {
+            const old = oldestAtMost(p); if (!old) break; remove(old);
+        }
+        if (overBudget()) {
+            const dictionaryFull = dictionaryBytes > maxDictionaryBytes || dictionary.size > maxDictionaryEntries;
+            if (dictionaryFull) counters.dictionaryDrops++;
+            if (recordBytes + dictionaryBytes + 2 > maxBytes) counters.oversized++;
+            if (size && !oldestAtMost(p)) counters.priorityProtectedDrops++;
+            release(refs); counters.rejected++; priorities[p].rejected++;
+            if (kinds[event.kind]) kinds[event.kind].rejected++;
+            return;
+        }
+        const item = { record: r, refs, bytes: recordBytes, priority: p, key };
+        bytes += recordBytes + (size ? 1 : 0); size++;
+        queues[p].set(r.seq, item); if (key) dedupe.set(key, item);
+        counters.accepted++; priorities[p].accepted++; priorities[p].count++;
+        if (kinds[event.kind]) kinds[event.kind].retained++;
+    }
+    function snapshot() {
+        const records = []; for (const q of queues) for (const item of q.values()) records.push(item.record);
+        records.sort((a, b) => a.seq - b.seq);
+        const dict = Object.create(null); for (const [id, entry] of dictionary) dict[id] = entry.value;
+        return { schemaVersion: 1, mode: "compact-observation-evidence", records, dictionary: Object.freeze(dict),
+            referenceFormat: "record.refs values are dictionary IDs; absent identity remains unknown",
+            counters: { ...counters, kindCounts: { ...totals }, kinds: Object.fromEntries(Object.entries(kinds).map(([k, v]) => [k, { ...v }])) },
+            retention: { count: size, maxRecords, recordBytes: bytes, dictionaryBytes, bytes: bytes + dictionaryBytes,
+                maxBytes, byteScope: "records-array-plus-dictionary-object-json; metadata-excluded",
+                dictionaryEntries: dictionary.size, maxDictionaryEntries, maxDictionaryBytes,
+                priorities: priorities.map(x => ({ ...x })), firstSeq: records[0]?.seq ?? null, lastSeq: records.at(-1)?.seq ?? null,
+                completeHistory: counters.evicted === 0 && counters.rejected === 0 && counters.deduplicated === 0 },
+            interpretation: "compact retained facts only; cumulative kind counts are not coverage or confirmed hits" };
+    }
+    return { record, snapshot };
+}
+
 function createObservationStore(options = {}) {
     const enabled = options.enabled !== false;
     const session = typeof options.session === "string" ? options.session.slice(0, 256) : "";
@@ -258,7 +480,7 @@ function createObservationStore(options = {}) {
         maxCorrelationComparisons: limit(options.maxCorrelationComparisons, DEFAULTS.maxCorrelationComparisons, MAXIMUM.maxCorrelationComparisons),
         maxCorrelationRows: limit(options.maxCorrelationRows, DEFAULTS.maxCorrelationRows, MAXIMUM.maxCorrelationRows)
     };
-    const items = [];
+    const items = [], evidence = createEvidenceStore(options);
     let bytes = 2, seq = 0;
     const counts = { attempted: 0, accepted: 0, disabled: 0, rejected: 0, sanitizedValues: 0, evicted: 0, oversized: 0 };
     function record(kind, data) {
@@ -276,6 +498,7 @@ function createObservationStore(options = {}) {
         if (issues.length) event.sanitization = Object.freeze(issues.map(x => Object.freeze(x)));
         counts.sanitizedValues += issues.length;
         Object.freeze(event);
+        evidence.record(event);
         const size = utf8Bytes(JSON.stringify(event));
         if (size + 2 > maxBytes) { counts.oversized++; counts.rejected++; return false; }
         while (items.length && (items.length >= maxRecords || bytes + size + 1 > maxBytes)) {
@@ -293,7 +516,7 @@ function createObservationStore(options = {}) {
             summary: { kindCounts: kinds, ...links.statuses, planCorrelations: links.planCorrelations,
                 completeHistory: enabled && counts.disabled === 0 && counts.evicted === 0 && counts.rejected === 0,
                 interpretation: "candidate-correlations-only; no coverage rate or confirmed hits" },
-            correlations: links.rows, analysis: links.analysis };
+            correlations: links.rows, analysis: links.analysis, evidence: evidence.snapshot() };
     }
     return { record, snapshot };
 }

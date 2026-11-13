@@ -70,4 +70,11 @@ test("two nodes sharing the same action preserve node identity", () => {
     const r = captureTimelineActions(adapter, timeline([event(a), event(a, { StartTime: 2 })]), task);
     assert.equal(r.plans.length, 2); assert.notEqual(r.plans[0].eventKey, r.plans[1].eventKey);
 });
+test("authored event time and trigger offsets remain separate from a late first sample",()=>{
+    const p=captureTimelineActions(adapter,timeline([event(action('/A',{DeflectType:3}),
+        {StartTime:2.7526,TriggerTimeOffset:0.1,EndTriggerTimeOffset:0.2})]),task,
+        {firstObservedTimelineTime:3.7155,observationRun:2}).plans[0];
+    assert.equal(p.authoredStartTime,2.7526);assert.equal(p.triggerTimeOffset,0.1);assert.equal(p.endTriggerTimeOffset,0.2);
+    assert.equal(p.firstObservedTimelineTime,3.7155);assert.equal(p.observationRun,2);assert.equal(p.usedForScheduling,false);
+});
 console.log("RESULT " + passed + " timeline observation scenarios passed");

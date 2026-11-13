@@ -9,12 +9,12 @@ const bankConfig = require("./wwise-bank-config");
 const { createAudioEnvironmentProbe } = require("./audio-environment");
 const { createTargetFilter } = require("./target-filter");
 const { createDiagnosticStore } = require("./diagnostic-store");
-const VERSION = "0.6.0-observe.1";
+const VERSION = "0.6.0-observe-bounded.2";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
     Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, OnlyLockedTarget: false, SoundOn: true, SoundVolume: 0.8,
     FontPath: "/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font" };
-const TEMPLATE = "# PBZForewarn 0.6 observation trial; restart game after changes\n" +
+const TEMPLATE = "# PBZForewarn 0.6.0-observe-bounded.2; restart game after changes\n" +
     "# Extra cue lead in GAME seconds (ms input); original warning is unchanged.\n" +
     "LeadMs=350\nRangeCm=3500\nBlackOn=1\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\n";
 let state = null;
@@ -48,6 +48,7 @@ function start() {
         observationHooksSession: "", observationHooksSeq: 0, lastObservationHookRead: 0,
         observationFaults: 0, observerImportFailure: "", observationRecordCursor: 0,
         observationTasksDeferred: 0, observationHookRowsRejected: 0, observationLastRaw: "",
+        observationProfiles: {}, observationHookHealth: null, observationHookFocus: null, observationFocusSeqs: new Map(),
         flushStats: { writes: 0, catalogWrites: 0, observationWrites: 0, observationWriteFailures: 0,
             lastChars: 0, maxWriteMs: 0, maxSerializeMs: 0, maxObservationWriteMs: 0, maxObservationSerializeMs: 0 } };
     s.diagnostics = createDiagnosticStore({ now: () => Date.now() });
@@ -144,6 +145,77 @@ function start() {
         try { s.observations.record(kind, { ...(s.observationContext || {}), ...data }); }
         catch (_) { s.observationFaults++; } // optional evidence cannot change cue decisions
     }
+    function profileObservation(name, fn) {
+        if (!observing) return;
+        const begin = Date.now();
+        try { return fn(); }
+        finally {
+            const elapsed = Math.max(0, Date.now() - begin);
+            const p = s.observationProfiles[name] || (s.observationProfiles[name] = { calls: 0, totalWallMs: 0, maxWallMs: 0, over8Ms: 0 });
+            p.calls++; p.totalWallMs += elapsed; p.maxWallMs = Math.max(p.maxWallMs, elapsed);
+            if (elapsed > 8) p.over8Ms++;
+        }
+    }
+    function taskObservationContext(r) {
+        if (!observing || !r) return {};
+        try {
+            const t = r.observationLifecycle || {};
+            return { actor: t.actor || a.path(r.actor), ability: t.ability || a.path(r.ability), activation: r.activation,
+                task: t.task || a.path(r.task), timeline: r.timelineKey, recordSerial: r.serial,
+                observationRun: t.run || 1, identityBasis: "local-task-record-not-cross-source-strike-id",
+                firstObservedTimelineTime: t.firstTimelineTime ?? null, firstObservedGameTime: t.firstGameTime ?? null,
+                firstObservedWallTime: t.firstWallTime ?? null, discoverySource: r.source,
+                taskTimelineTime: a.safe(() => { const n = Number(r.task.CurrentTime); return Number.isFinite(n) ? n : null; }, null) };
+        } catch (_) { s.observationFaults++; return {}; }
+    }
+    function observeTask(r, phase, extra = {}) {
+        if (!observing || !r) return;
+        try { observe("task-lifecycle", { ...taskObservationContext(r), phase, ...extra, usedForScheduling: false }); }
+        catch (_) { s.observationFaults++; }
+    }
+    function taskCallbackClock(r) {
+        // A delegate can fire between JS updates or across a world boundary.
+        // Keep fresh callback time separate from the previous update's binding.
+        const world = a.safe(() => r.actor.GetWorld(), null), worldPath = a.path(world);
+        const game = a.safe(() => UE.KismetSystemLibrary.GetGameTimeInSeconds(r.actor), NaN);
+        const expectedWorld = s.observationContext && s.observationContext.worldKey.split("|")[0];
+        const same = !!worldPath && worldPath === expectedWorld && Number.isFinite(game) &&
+            (s.observedGameTime === null || game >= s.observedGameTime - 0.001);
+        return { worldKey: same ? s.worldKey : null, clockEpoch: same ? s.clockEpoch : null,
+            player: same ? s.observationContext.player : null, gameTime: Number.isFinite(game) ? game : null,
+            wallTime: Date.now(), captureWorld: worldPath || null, callbackContextVerified: same,
+            clockSource: Number.isFinite(game) ? "task-delegate-engine-time" : "task-delegate-clock-unavailable",
+            temporalAssociation: same ? "same-world-no-observed-rewind" : "unverified-task-delegate-context" };
+    }
+    function beginTaskObservation(r, now, replacedSerial) {
+        if (!observing) return;
+        try {
+            const n = a.safe(() => Number(r.task.CurrentTime), NaN);
+            r.observationLifecycle = { run: 1, actor: a.path(r.actor), ability: a.path(r.ability), task: a.path(r.task),
+                firstTimelineTime: Number.isFinite(n) ? n : null, firstGameTime: s.gameNow, firstWallTime: now,
+                previousTimelineTime: Number.isFinite(n) ? n : null, previousGameTime: s.gameNow };
+            observeTask(r, "first-observed", { replacesRecordSerial: replacedSerial || null,
+                startTimeVerified: false, interpretation: "first-discovery-is-not-proof-of-task-start" });
+        } catch (_) { s.observationFaults++; }
+    }
+    function observeTaskProgress(r, current) {
+        if (!observing || !Number.isFinite(current) || !r.observationLifecycle) return;
+        try {
+            const t = r.observationLifecycle, previous = t.previousTimelineTime;
+            if (previous !== null) {
+                const delta = current - previous, deltaGame = s.gameNow - t.previousGameTime;
+                if (delta < -0.001) {
+                    t.run++;
+                    observeTask(r, "timeline-rewind-observed", { previousTimelineTime: previous, currentTimelineTime: current,
+                        deltaTimelineTime: delta, deltaGameTime: deltaGame, cause: "unknown-restart-or-seek" });
+                } else if (delta > 0.15 && deltaGame >= 0 && delta > deltaGame * 3 + 0.1) {
+                    observeTask(r, "forward-discontinuity-candidate", { previousTimelineTime: previous, currentTimelineTime: current,
+                        deltaTimelineTime: delta, deltaGameTime: deltaGame, cause: "unknown-seek-rate-or-sampling" });
+                }
+            }
+            t.previousTimelineTime = current; t.previousGameTime = s.gameNow;
+        } catch (_) { s.observationFaults++; }
+    }
     try { if (observing) s.attackObserver = createNativeAttackObserver(UE, puerts, a, { enabled: true, onRecord: observe }); }
     catch (error) { observe("observer-status", { status: "startup-failed", error: String(error) }); }
     if (!a.safe(() => UE.BlueprintPathsLibrary.FileExists(configPath), true)) {
@@ -173,7 +245,7 @@ function start() {
         if (s.audioEvents.length > 256) { s.audioEvents.shift(); diagnostic("audio-queue-limit", { maximum: 256 }, "audio-queue-limit"); }
         if (kind === "cue") {
             const role = event.meta && event.meta.roleName;
-            observe("warning-cue", { id: event.id, actor: role ? null : event.meta && event.meta.actor,
+            observe("warning-cue", { ...taskObservationContext(s.records.get(event.taskKey)), id: event.id, actor: role ? null : event.meta && event.meta.actor,
                 ability: role ? null : event.meta && event.meta.ability, activation: role ? null : event.activation,
                 ownerActorCandidate: event.meta && event.meta.actor, roleActorCandidate: event.meta && event.meta.roleActor,
                 task: event.meta && event.meta.task, timeline: event.timelineKey,
@@ -194,7 +266,7 @@ function start() {
             s.stats.cues++; diagnostic("CUE", { seq: entry.seq, ...compactEvent(event) });
         }
         if (kind === "cancel") {
-            observe("warning-withdrawal", { id: event.id, reason: event.reason,
+            observe("warning-withdrawal", { ...taskObservationContext(s.records.get(event.taskKey)), id: event.id, reason: event.reason,
                 termination: event.termination || null, playerHitCauseVerified: false });
             const r = event && s.records.get(event.taskKey);
             if (r) { r.audioIds.delete(event.id); r.naturalAudioIds.delete(event.id); if (event.eventKey) r.audioByEvent.delete(event.eventKey); }
@@ -212,6 +284,11 @@ function start() {
             emit("cancel", e);
         },
         onDiagnostic: (kind, data) => {
+            if (kind === "missed") observe("warning-missed", {
+                ...taskObservationContext(s.records.get(data.taskKey)), eventKey: data.eventKey,
+                generation: data.generation, reason: data.reason, start: data.start, end: data.end, time: data.time,
+                action: data.meta && data.meta.action, color: data.meta && data.meta.color,
+                executionVerified: false, interpretation: "past-plan-window-does-not-prove-executed-attack-was-missed" });
             if (kind === "missed" && data.reason === "ineligible-through-window") {
                 s.stats.conditionsNotMet++;
                 if (data.meta && data.meta.previewOnly === true) s.stats.previewOnlySkipped++;
@@ -231,7 +308,9 @@ function start() {
                         sampling: { maxTimelineTasksPerTick: 1, maxAttackNodesPerTask: 128,
                             deferredTaskSamples: s.observationTasksDeferred, minimumTaskSampleMs: 200 },
                         hookImport: { session: s.observationHooksSession, lastSeq: s.observationHooksSeq,
-                            rejectedRows: s.observationHookRowsRejected, importIntervalMs: 250 },
+                            rejectedRows: s.observationHookRowsRejected, importIntervalMs: 250,
+                            health: s.observationHookHealth, focus: s.observationHookFocus },
+                        profiles: { scope: "observation-wall-clock-steps-not-total-frame-time", steps: s.observationProfiles },
                         native: s.attackObserver ? s.attackObserver.status() : { status: "unavailable" },
                         flush: { ...s.flushStats }, interpretation: "observation-only; current cue behavior is retained" };
                     const body = JSON.stringify(observationReport), writeBegin = Date.now();
@@ -305,8 +384,8 @@ function start() {
         record.audioIds.clear(); record.audioByEvent.clear();
         record.naturalAudioIds.clear();
     }
-    function clearRecords() {
-        for (const r of s.records.values()) detach(r);
+    function clearRecords(reason = "context-reset") {
+        for (const r of s.records.values()) { observeTask(r, "observation-boundary", { reason, dangerEndedVerified: false }); detach(r); }
         s.records.clear(); s.naturalCompletions.clear();
     }
     function hookHints(now, player) {
@@ -373,7 +452,10 @@ function start() {
         if (!tp || !ap || !actorPath || !timelineKey) return;
         const key = actorPath + "|" + ap + "|" + tp, activation = a.activation(ability);
         let r = s.records.get(key);
+        let replacedSerial = null;
         if (r && (r.task !== task || r.activation !== activation || r.timelineKey !== timelineKey)) {
+            replacedSerial = r.serial;
+            observeTask(r, "record-replaced", { nextActivation: activation, nextTimeline: timelineKey, dangerEndedVerified: false });
             cancelRecordAudio(r, "task-generation-changed"); detach(r); s.records.delete(key); r = null;
         }
         if (!r) {
@@ -384,12 +466,15 @@ function start() {
                 witnessed: taskInfo.source === "native-start-hint", lastProgress: now,
                 lastObserved: a.safe(() => Number(task.CurrentTime), NaN), serial: ++s.nextRecord };
             s.records.set(key, r); s.stats.tasks++;
+            beginTaskObservation(r, now, replacedSerial);
             for (const name of ["OnCompleted", "OnCancelled"]) {
                 try {
                     const delegate = task[name];
                     if (!delegate || typeof delegate.Add !== "function" || typeof delegate.Remove !== "function") continue;
                     const callback = () => {
                         r.ended = true; r.endKind = name; r.endedTime = a.safe(() => Number(task.CurrentTime), NaN);
+                        if (observing) observeTask(r, "native-task-ended", { ...taskCallbackClock(r), callback: name,
+                            termination: termination(r), dangerEndedVerified: false });
                         if (name === "OnCompleted") {
                             s.naturalCompletions.add(r.key);
                             if (s.naturalCompletions.size > 1024) s.naturalCompletions.delete(s.naturalCompletions.values().next().value);
@@ -405,6 +490,7 @@ function start() {
             diagnostic("task-found", { actor: actorPath, ability: ap, task: tp, timeline: timelineKey, activation, source: taskInfo.source });
         }
         if (r.ended && Number(task.CurrentTime) < r.endedTime - 0.001) {
+            observeTask(r, "ended-task-reopened", { previousEndTime: r.endedTime, cause: "observed-time-rewind-not-proven-new-strike" });
             r.ended = false; r.endKind = ""; s.naturalCompletions.delete(key); diagnostic("task-restarted", { task: tp });
         }
         r.stamp = stamp; r.lastSeen = now; r.present = true;
@@ -444,6 +530,7 @@ function start() {
             // Only confirmed ending/invalid objects remove this generation.
             if (!r.present && (r.ended || !a.valid(r.task) || !a.valid(r.ability) ||
                 a.safe(() => r.ability.bIsActive, null) === false || a.safe(() => r.ability.bIsAbilityEnding, false))) {
+                observeTask(r, "record-retired", { termination: termination(r), dangerEndedVerified: false });
                 if (r.endKind !== "OnCompleted") cancelRecordAudio(r, "task-no-longer-active");
                 detach(r); s.records.delete(key);
             }
@@ -483,7 +570,7 @@ function start() {
             try {
                 r.lastObservationSample = wall;
                 if (!r.observedPlans) r.observedPlans = new Map();
-                const context = { actor: a.path(r.actor), ability: a.path(r.ability), activation: r.activation,
+                const context = { ...taskObservationContext(r), actor: a.path(r.actor), ability: a.path(r.ability), activation: r.activation,
                     task: a.path(r.task), timeline: r.timelineKey, recordSerial: r.serial,
                     taskTimelineTime: a.safe(() => Number(r.task.CurrentTime), null) };
                 const candidates = captureTimelineActions(a, r.timeline, r.task, context, 128);
@@ -541,21 +628,55 @@ function start() {
             if (raw.length > 2 * 1024 * 1024) { failure("snapshot-too-large"); return; }
             if (raw === s.observationLastRaw && !s.observerImportFailure) return;
             const payload = JSON.parse(raw);
-            if (payload.schemaVersion !== 1 || typeof payload.session !== "string" ||
+            if (![1, 2].includes(payload.schemaVersion) || typeof payload.session !== "string" ||
                 !payload.session || payload.session.length > 256 || !Number.isSafeInteger(payload.seq) || payload.seq < 0 ||
                 !Array.isArray(payload.events) || payload.events.length > 512) { failure("snapshot-invalid"); return; }
+            const dictionary = payload.schemaVersion === 2 ? payload.pathDictionary : null;
+            if (payload.schemaVersion === 2 && (!dictionary || typeof dictionary !== "object" || Array.isArray(dictionary) ||
+                Object.keys(dictionary).length > 2048 || Object.entries(dictionary).some(([key, value]) =>
+                    !/^[1-9]\d*$/.test(key) || typeof value !== "string" || value.length > 4096 || value[0] !== "/"))) {
+                failure("snapshot-dictionary-invalid"); return;
+            }
+            function decodeRow(input) {
+                let nodes = 0, chars = 0;
+                function visit(value, depth) {
+                    if (++nodes > 2048 || depth > 16) throw Error("expanded-row-budget");
+                    if (typeof value === "string") {
+                        chars += value.length; if (chars > 65536 || value.length > 4096) throw Error("expanded-row-strings");
+                        return value;
+                    }
+                    if (value === null || typeof value !== "object") return value;
+                    const keys = Object.keys(value);
+                    if (Object.prototype.hasOwnProperty.call(value, "$path")) {
+                        if (keys.length !== 1 || !Number.isSafeInteger(value.$path) || value.$path < 1 ||
+                            !dictionary || !Object.prototype.hasOwnProperty.call(dictionary, String(value.$path))) throw Error("unresolved-path-reference");
+                        return visit(dictionary[String(value.$path)], depth + 1);
+                    }
+                    if (keys.length > 128) throw Error("expanded-row-fields");
+                    if (Array.isArray(value)) return value.map(x => visit(x, depth + 1));
+                    const result = Object.create(null);
+                    for (const key of keys) result[key] = visit(value[key], depth + 1);
+                    return result;
+                }
+                return visit(input, 0);
+            }
             if (payload.active !== true || !Number.isFinite(payload.heartbeat) || Math.abs(wall - payload.heartbeat) > 3000) {
                 failure("snapshot-inactive-or-stale"); return;
             }
             if (s.observationHooksSession !== payload.session) {
                 s.observationHooksSession = payload.session; s.observationHooksSeq = 0;
+                s.observationFocusSeqs.clear();
                 observe("observer-hook-session", { hookSession: payload.session, health: payload.health, retention: payload.retention });
             }
-            for (const item of payload.events) {
+            s.observationHookHealth = payload.health || null;
+            s.observationHookFocus = payload.focusRetention || null;
+            for (let item of payload.events) {
                 if (!item || !["timeline-call", "warning-call"].includes(item.kind) ||
                     !["pre", "post", "call"].includes(item.phase) || !Number.isSafeInteger(item.seq) ||
                     item.seq < 1 || item.seq > payload.seq) { s.observationHookRowsRejected++; continue; }
                 if (!item || !Number.isSafeInteger(item.seq) || item.seq <= s.observationHooksSeq) continue;
+                try { if (payload.schemaVersion === 2) item = decodeRow(item); }
+                catch (_) { s.observationHookRowsRejected++; continue; }
                 if (item.seq !== s.observationHooksSeq + 1) observe("observer-hook-gap", {
                     expected: s.observationHooksSeq + 1, actual: item.seq, hookSession: payload.session, retention: payload.retention });
                 s.observationHooksSeq = item.seq;
@@ -576,6 +697,25 @@ function start() {
                     captureWorldMatchesImportedWorld: captureMatches, capture: item,
                     source: "lua-native-call-observer", usedForScheduling: false,
                     temporalAssociation: "unverified-callback-clock-and-player-context" });
+            }
+            if (payload.schemaVersion === 2 && Array.isArray(payload.focusSummaries) && payload.focusSummaries.length <= 64) {
+                for (let focus of payload.focusSummaries) {
+                    const validCallId = focus && (typeof focus.callId === "string" && focus.callId.length > 0 && focus.callId.length <= 256 ||
+                        Number.isSafeInteger(focus.callId) && focus.callId > 0);
+                    if (!validCallId || !Number.isSafeInteger(focus.lastSeq) || focus.lastSeq < 1 || focus.lastSeq > payload.seq) {
+                        s.observationHookRowsRejected++; continue;
+                    }
+                    if ((s.observationFocusSeqs.get(focus.callId) || 0) >= focus.lastSeq) continue;
+                    try { focus = decodeRow(focus); } catch (_) { s.observationHookRowsRejected++; continue; }
+                    observe("focused-call-summary", { worldKey: null, player: null, clockEpoch: null, gameTime: null, wallTime: null,
+                        importedWorldKey: s.worldKey, importedPlayer: a.path(player), importedClockEpoch: s.clockEpoch,
+                        importedWallTime: wall, actor: typeof focus.actor === "string" ? focus.actor : null,
+                        ability: typeof focus.ability === "string" ? focus.ability : null,
+                        hookSession: payload.session, hookSeq: focus.lastSeq, capture: focus,
+                        source: "lua-focused-summary-not-new-call", usedForScheduling: false });
+                    s.observationFocusSeqs.set(focus.callId, focus.lastSeq);
+                    if (s.observationFocusSeqs.size > 128) s.observationFocusSeqs.delete(s.observationFocusSeqs.keys().next().value);
+                }
             }
             if (s.observerImportFailure) observe("observer-hook-status", { status: "recovered", previous: s.observerImportFailure });
             s.observerImportFailure = "";
@@ -623,11 +763,11 @@ function start() {
             s.observationContext = { worldKey: wk, player: a.path(player), clockEpoch: s.clockEpoch,
                 gameTime: gameNow, wallTime: wall };
             if (s.attackObserver) {
-                try { s.attackObserver.update({ world, player, worldKey: wk, gameTime: gameNow, wallTime: wall,
-                    paused, clockEpoch: s.clockEpoch }); }
+                try { profileObservation("native-update", () => s.attackObserver.update({ world, player, worldKey: wk, gameTime: gameNow, wallTime: wall,
+                    paused, clockEpoch: s.clockEpoch })); }
                 catch (error) { observe("observer-status", { status: "update-failed", error: String(error) }); }
             }
-            observationHints(wall, world, player);
+            profileObservation("lua-import", () => observationHints(wall, world, player));
             const samples = [];
             if (!paused) {
                 hookHints(wall, player);
@@ -640,6 +780,7 @@ function start() {
                             continue;
                         }
                         const current = Number(r.task.CurrentTime);
+                        observeTaskProgress(r, current);
                         if (Number.isFinite(current) && current !== r.lastObserved) {
                             r.lastProgress = wall; r.lastObserved = current;
                             if (r.witnessed) r.present = true;
@@ -711,7 +852,7 @@ function start() {
                 s.presentation.dispose(); diagnostic("hud-update-error", { error: String(e) }, "hud-update-error");
             }
             if (!paused) {
-                try { sampleTimelineObservations(wall); }
+                try { profileObservation("timeline-sample", () => sampleTimelineObservations(wall)); }
                 catch (error) { observe("timeline-observer-status", { status: "sampling-failed", error: String(error) }); }
             }
             flush(false);
