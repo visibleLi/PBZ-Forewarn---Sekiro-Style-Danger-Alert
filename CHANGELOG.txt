@@ -1,16 +1,59 @@
-PBZForewarn 0.6.0-trial.1 — 试用记录
+PBZForewarn 0.6.0-preview — 累积功能预览
 
-- 以observe-bounded.2为开发基础，沿用0.5的调度、危字与Wwise音效。
-- 仅为QiShu_Huo的火环与突进收招试接RedEye=3补充，不全局开放所有红眼或不可格挡动作。
-- 严格匹配角色/技能/动作类，并在触发前复核类型；未知、冲突或条件不符时不报。
-- 标准来源在同节点优先；补充转标准共用节点身份，不重复发危，不把不同节点按同色强行合并。
-- 有界观察保留来源、任务和时间证据；新增规则可用SemanticFallback=0关闭。
-- 构建只打运行目录与一份中英README，Source不带音频、测试依赖或可执行文件。
-- 新规则尚待实机验证，当前候选不继承0.5的四BOSS实测结论。
+- 在0.5已发布基础上提供红蓝黑危字、游戏内Wwise音效、无锁/锁定过滤和Alt+F9试听。
+- QiShu_Huo火环与突进收招两条补充红危；trial.1及后续实机均有触发。
+- YuZan Skill_03转圈施法增加黑色系前置危与独立提前量，实机已多次触发。
+- 施法危送达后，只有观察到同一敌人cast→side Main→同激活Success才收掉后续额外黑危字声。
+- 阶段不明、取消、未送达或竞争时保留原Success黑危；游戏原黑光和攻击不变。
+- 保留有界只读观察与诊断，帮助定位覆盖缺口；不自动上传任何日志。
+- 本预览不等于全招覆盖；YuCong短黑光、已发弹体生命周期、多声音并发和部分条件拒绝仍是限制。
+- 推荐通过PBZ Mod Manager安装，需PBZModLoader和PBZ专用UE4SS；包内README含手动安装与回滚。
 
-- Builds on observe-bounded.2 with the existing scheduler, presentation and Wwise audio modules.
-- Tries two strict QiShu_Huo RedEye rules; preserves node identity across source changes.
-- Keeps evidence bounded and source archives audio/runtime-free; new combat behaviour remains unvalidated.
+PBZForewarn 0.6.0-trial.4 — YuZan两阶段提醒收口
+
+- 保留trial.3的YuZan施法前置黑色系危和独立提前量。
+- 同一敌人实际发出施法危后，只有连续观察到L/R Main，再观察到同激活Success，才抑制该Success的额外黑危字声。
+- 两个阶段不是引擎父子ID；日志标为observed-stage-handoffs，不能当作已证明的单击身份。
+- 多任务歧义、阶段断档、激活变化、世界变化、前置取消或未送达时保留原黑危兜底。
+- 不全局屏蔽Success或黑危；游戏原黑光不变，其他BOSS和独立招式不受影响。
+- 新增cast-followup.js、策略和集成回归；本候选尚未实机验证。
+
+PBZForewarn 0.6.0-trial.3 — YuZan施法前置提醒
+
+- 严格按角色、技能、Main分支、动作类、AOE资源识别YuZan施法，新增黑色系危与现有游戏内音效。
+- YuZanCastWarning独立开关；YuZanCastLeadMs独立提前量，默认350ms，参照施法资源计划节点。
+- 原Success黑危保留为后续阶段；不把跑开后没有后续攻击称为施法误报。
+- 复用标签、锁定、距离、敌对和取消流程；逐tick复核新增来源，不改原时间轴或特效。
+- 保留零时长节点；未增加法术、普通不可挡或PowerAttack的全局分类。
+- 新增cast-warning.js及脱敏计划样本、集成回归；本候选尚未实机验证。
+
+PBZForewarn 0.6.0-trial.2-observe.6 — YuZan施法候选去重
+
+- 每次任务激活的每种法术资源、每个施法阶段只记录一次候选。
+- 不改变危提示、音效或调度；本版仍不新增自动危。
+- 保留observe.5的cast/control-success阶段和分支前后能力记录。
+
+PBZForewarn 0.6.0-trial.2-observe.5 — YuZan法术链观察
+
+- 保留observe.4的两条QiShu_Huo补充和通用只读识别；本版不新增自动危。
+- 任务从Main切换到Success时记录前后时间轴，明确未证明命中成功。
+- 将YuZan的NS_YuZan_Warning_AOE_101和NS_YuZan_Warning_Big_101按技能和资源双匹配保留为法术预警候选。
+- 法术预警候选只记录技能、动作、资源和时间，cueEnabled=false，不按名称直接发危。
+- 黑危仍沿用0.5/observe.4的原提示节点调度；Success分支内的黑危不等于施法起手预警。
+
+PBZForewarn 0.6.0-trial.2-observe.4 — 通用识别观察
+
+- 保留trial.1已实机确认的QiShu_Huo火环、突进收招两条补充。
+- 新增严格的红眼/蓝眼分类层；只接受无冲突的RedEye=3、BlueEye=2。
+- 通用候选默认关闭发危，记录动作类、原提示节点、时间字段、类型及原生来招证据。
+- DurationBulletWithDeflect只建立观察策略，未登记可发危的时间策略。
+- 多敌人在场时每200ms轮询最多4个活动时间轴；通用候选和原生红蓝来招优先保留。
+- 不再把原提示动作复制成通用攻击计划；原提示与独立攻击计划分栏记录。
+- 每个任务记录 scanned/typed/timed/standard/generic/ignored 计数，便于定位无计划原因。
+- 观察日志仍受有界容量和优先级保护，不能据此宣称全招覆盖或已确认命中。
+
+- Retains the tested QiShu_Huo rules. Generic classification is evidence-only in this build.
+- No generic cue timing policy is enabled; native frame timing remains separate from plan time.
 
 PBZForewarn 0.5 — 发布记录
 

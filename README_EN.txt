@@ -1,12 +1,18 @@
-PBZForewarn 0.6.0-trial.1
+PBZForewarn 0.6.0-preview
 
 Adds coloured “危” glyphs and in-game Wwise audio for supported red, blue and black warnings.
-This trial keeps the 0.5 scheduling, presentation and audio modules, adds bounded.2 observation,
-and tries two scoped QiShu_Huo red rules: fire ring and assault end.
+0.6.0-preview is a cumulative preview on the released 0.5: all ordinary red, blue and black
+warnings remain, plus the tested QiShu_Huo supplements and YuZan cast warning.
+It retains the scoped black cast warning for YuZan's Skill_03.Main AOE marker.
+After a delivered cast cue, observed side-Main and same-activation Success, only the
+later extra presentation is suppressed. Missing stages or failed delivery keep the fallback.
+This is an observed handoff, not an engine parent ID or proof of control.
+This preview keeps the 0.5 scheduling, presentation and audio modules, adds bounded observation,
+and includes two scoped QiShu_Huo red rules: fire ring and assault end.
 Captured plans contain RedEye=3, but the old warning-resource recognizer did not schedule them.
 The new rules check actor, ability, action class and unambiguous type. They do not enable all RedEye attacks.
 A standard warning takes precedence on the same node. Switching that node's source keeps its identity.
-Distinct nodes are not merged merely by colour or nearby timing. This trial still needs in-game testing.
+Distinct nodes are not merged merely by colour or nearby timing. This is not full-move coverage.
 
 Requirements and installation
 PBZModLoader and PBZ-specific UE4SS are mandatory. The 0.5 tested versions were PBZModLoader 2.1.0
@@ -22,10 +28,13 @@ Settings
 %LOCALAPPDATA%/ProjectPBZ/Saved/PBZForewarn.txt. Existing values stay; missing keys use defaults.
 LeadMs=350 requests earlier notice relative to the original warning node, or action-plan start for the supplement.
 Larger values request earlier cues; no guaranteed lead before impact or full coverage is claimed.
-SemanticFallback=0 disables the two new rules, leaving the observation version's normal cue path.
+YuZanCastWarning=1 enables the cast cue and conservative followup policy; 0 restores original two-stage behavior.
+YuZanCastLeadMs=350 independently targets notice before the AOE resource marker, not before impact/control.
+The glyph ends at the point marker; audio follows existing tail/cancellation rules. Missing keys use defaults.
+SemanticFallback=0 disables only the two QiShu rules; the YuZan rule has its own switch.
 OnlyLockedTarget=1 requires a confirmed lock; 0 supports unlocked play. SoundVolume is local volume (0–2).
 ObserveAttacks and Diagnostics enable bounded read-only evidence. Restart after edits.
-To return to the released 0.5 build, remove this trial and reinstall the original package.
+To return to the released 0.5 build, remove this preview and reinstall the original package.
 
 Build from source
 Git and Source ZIPs exclude WAV/BNK/WEM. Supply audio you have rights to use at
@@ -36,13 +45,15 @@ Using Python 3.12 and Node.js 24, run from the source root:
   python audio-bank/build_bank.py
   python verify.py --node <path-to-node-or-node-on-PATH>
   python package.py
-Default output: dist/PBZForewarn-0.6.0-trial.1.zip. Add --source to also create an audio-free Source ZIP.
+Default output: dist/PBZForewarn-0.6.0-preview.zip. Add --source to also create an audio-free Source ZIP.
 Only ProjectPBZ, platform and one bilingual README are installed. PACKAGE_CHECK.json stays outside the ZIP.
 Edits to source, docs or audio invalidate verification. See DEVELOPMENT.md for the full workflow.
 
 Validation and feedback
-0.5 had a four-boss Steam build26367565 test. This does not validate the new trial or its lead times.
-The captured build is metadata, not an enforced version lock. Full coverage, WeGame and locked-only mode remain unvalidated.
+0.5 had a four-boss Steam build26367565 test. The 0.6 candidate subsequently exercised
+QiShu_Huo, YuZan and ordinary-warning samples, including 24 accepted audio requests
+in the final trial.4 session. This is not full-move, WeGame or exhaustive locked-only validation.
+The captured build is metadata, not an enforced version lock.
 After reproduction, preserve the five pbzforewarn_*.json snapshots in Saved, loader.log and UE4SS.log,
 plus the boss/move/time. New starts/reloads replace snapshots. No automatic upload occurs.
 

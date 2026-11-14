@@ -1,0 +1,1201 @@
+{
+  "provenance": "Sanitized from trial.1 in-game observations and retained resource catalog; no player identity or personal paths.",
+  "build": "26367565",
+  "items": [
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_Attack_2HitSword_C_2147392639.Main.LGAAction_DurationBulletWithDeflect_1",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_Attack_2HitSword_C_2147392639",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_Attack_2HitSword_C_2147392639.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/FemaleDoll/Ability/FemaleDoll_Sword/BulletData/BulletData_FemaleDoll_Weaponless_Attack_2HitSword_01.BulletData_FemaleDoll_Weaponless_Attack_2HitSword_01:PBZ_SweepTraceBullet_2147377664",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 942.8903952371329,
+      "hitGameTime": 943.1880968045443,
+      "reportedHitGameTime": 943.1880968045443,
+      "remainingGameSeconds": 0.29770156741142273,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_Attack_2HitSword_C_2147392639.Main.LGAAction_DurationBulletWithDeflect_1",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_Attack_2HitSword_C_2147392639",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_Attack_2HitSword_C_2147392639.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/FemaleDoll/Ability/FemaleDoll_Sword/BulletData/BulletData_FemaleDoll_Weaponless_Attack_2HitSword_01.BulletData_FemaleDoll_Weaponless_Attack_2HitSword_01:PBZ_SweepTraceBullet_2147377664",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 942.8903952371329,
+      "hitGameTime": 943.1880968045443,
+      "reportedHitGameTime": 943.1880968045443,
+      "remainingGameSeconds": 0.29770156741142273,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Dodge.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645",
+      "activation": "3",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/Common/B_Common_RemoteRedEyeAlert.B_Common_RemoteRedEyeAlert:BP_PBZ_OverlapBullet_C_2147377628",
+      "typeValue": 3,
+      "typeName": "RedEye",
+      "typeConflict": false,
+      "gameTime": 943.0212124381214,
+      "hitGameTime": 943.7808402571827,
+      "reportedHitGameTime": 943.7808402571827,
+      "remainingGameSeconds": 0.7596278190612793,
+      "isDodge": true,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645",
+      "activation": "3",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/Common/B_Common_RemoteRedEyeAlert.B_Common_RemoteRedEyeAlert:BP_PBZ_OverlapBullet_C_2147377628",
+      "typeValue": 3,
+      "typeName": "RedEye",
+      "typeConflict": false,
+      "gameTime": 943.0212124381214,
+      "hitGameTime": 943.7808402571827,
+      "reportedHitGameTime": 943.7808402571827,
+      "remainingGameSeconds": 0.7596278190612793,
+      "isDodge": true,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame-ended",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_Attack_2HitSword_C_2147392639.Main.LGAAction_DurationBulletWithDeflect_1",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_Attack_2HitSword_C_2147392639",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_Attack_2HitSword_C_2147392639.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/FemaleDoll/Ability/FemaleDoll_Sword/BulletData/BulletData_FemaleDoll_Weaponless_Attack_2HitSword_01.BulletData_FemaleDoll_Weaponless_Attack_2HitSword_01:PBZ_SweepTraceBullet_2147377664",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 943.2004038374871,
+      "hitGameTime": 943.1880968045443,
+      "reportedHitGameTime": 943.1880968045443,
+      "remainingGameSeconds": 0.02966606616973877,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame-ended",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645",
+      "activation": "3",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/Common/B_Common_RemoteRedEyeAlert.B_Common_RemoteRedEyeAlert:BP_PBZ_OverlapBullet_C_2147377628",
+      "typeValue": 3,
+      "typeName": "RedEye",
+      "typeConflict": false,
+      "gameTime": 943.2726214360446,
+      "hitGameTime": 943.7808402571827,
+      "reportedHitGameTime": 943.7808402571827,
+      "remainingGameSeconds": 0.5804364196956158,
+      "isDodge": true,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647.GA_Vessel_Man_MidAttack_03_C_2147393472.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647.GA_Vessel_Man_MidAttack_03_C_2147393472",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647.GA_Vessel_Man_MidAttack_03_C_2147393472.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/021_Vessel_Man/Ability/BulletData/BD_Vessel_Man_MidAttack_03.BD_Vessel_Man_MidAttack_03:PBZ_SweepTraceBullet_2147377582",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 943.4072004952468,
+      "hitGameTime": 943.7048150696792,
+      "reportedHitGameTime": 943.7048150696792,
+      "remainingGameSeconds": 0.29761457443237305,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647.GA_Vessel_Man_MidAttack_03_C_2147393472.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647.GA_Vessel_Man_MidAttack_03_C_2147393472",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647.GA_Vessel_Man_MidAttack_03_C_2147393472.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/021_Vessel_Man/Ability/BulletData/BD_Vessel_Man_MidAttack_03.BD_Vessel_Man_MidAttack_03:PBZ_SweepTraceBullet_2147377582",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 943.4072004952468,
+      "hitGameTime": 943.7048150696792,
+      "reportedHitGameTime": 943.7048150696792,
+      "remainingGameSeconds": 0.29761457443237305,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame-ended",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647.GA_Vessel_Man_MidAttack_03_C_2147393472.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647.GA_Vessel_Man_MidAttack_03_C_2147393472",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Man_C_2147393647.GA_Vessel_Man_MidAttack_03_C_2147393472.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/021_Vessel_Man/Ability/BulletData/BD_Vessel_Man_MidAttack_03.BD_Vessel_Man_MidAttack_03:PBZ_SweepTraceBullet_2147377582",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 943.7578297504224,
+      "hitGameTime": 943.7048150696792,
+      "reportedHitGameTime": 943.7048150696792,
+      "remainingGameSeconds": 0.0014575198292732239,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_SpecialAttack_06_C_2147392638.Main.LGAAction_DurationBulletWithDeflect_1",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_SpecialAttack_06_C_2147392638",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_SpecialAttack_06_C_2147392638.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/041_Bandit/Ability/BulletData/BD_Bandit_Skill_11_01.BD_Bandit_Skill_11_01:PBZ_SweepTraceBullet_2147377274",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 945.2408814351074,
+      "hitGameTime": 945.4928885619156,
+      "reportedHitGameTime": 945.4928885619156,
+      "remainingGameSeconds": 0.2520071268081665,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_SpecialAttack_06_C_2147392638.Main.LGAAction_DurationBulletWithDeflect_1",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_SpecialAttack_06_C_2147392638",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_SpecialAttack_06_C_2147392638.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/041_Bandit/Ability/BulletData/BD_Bandit_Skill_11_01.BD_Bandit_Skill_11_01:PBZ_SweepTraceBullet_2147377274",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 945.2408814351074,
+      "hitGameTime": 945.4928885619156,
+      "reportedHitGameTime": 945.4928885619156,
+      "remainingGameSeconds": 0.2520071268081665,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame-ended",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_SpecialAttack_06_C_2147392638.Main.LGAAction_DurationBulletWithDeflect_1",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_SpecialAttack_06_C_2147392638",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_FemaleDoll_Sword_SpecialAttack_06_C_2147392638.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/041_Bandit/Ability/BulletData/BD_Bandit_Skill_11_01.BD_Bandit_Skill_11_01:PBZ_SweepTraceBullet_2147377274",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 945.2885030354373,
+      "hitGameTime": 945.4928885619156,
+      "reportedHitGameTime": 945.4928885619156,
+      "remainingGameSeconds": 0.2520071268081665,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_Hun_BEd_ZhanMa_M_01_C_2147376328.ExecutionTimeline.GAA_DelayDeflectProjectileBullet_C_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_Hun_BEd_ZhanMa_M_01_C_2147376328",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_Hun_BEd_ZhanMa_M_01_C_2147376328.ExecutionTimeline",
+      "bullet": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Bullet_Common_Head_C_2147376251",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 952.133189945016,
+      "hitGameTime": null,
+      "reportedHitGameTime": -3.3999999521443642e+38,
+      "remainingGameSeconds": null,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "negative-placeholder",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_Hun_BEd_ZhanMa_M_01_C_2147376328.ExecutionTimeline.GAA_DelayDeflectProjectileBullet_C_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_Hun_BEd_ZhanMa_M_01_C_2147376328",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_Hun_BEd_ZhanMa_M_01_C_2147376328.ExecutionTimeline",
+      "bullet": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Bullet_Common_Head_C_2147376251",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 952.133189945016,
+      "hitGameTime": null,
+      "reportedHitGameTime": -3.3999999521443642e+38,
+      "remainingGameSeconds": null,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "negative-placeholder",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame-ended",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_Hun_BEd_ZhanMa_M_01_C_2147376328.ExecutionTimeline.GAA_DelayDeflectProjectileBullet_C_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_Hun_BEd_ZhanMa_M_01_C_2147376328",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_FemaleDoll_Sword_C_2147392767.GA_Hun_BEd_ZhanMa_M_01_C_2147376328.ExecutionTimeline",
+      "bullet": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Bullet_Common_Head_C_2147376251",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 952.2295771450736,
+      "hitGameTime": null,
+      "reportedHitGameTime": -3.3999999521443642e+38,
+      "remainingGameSeconds": null,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "negative-placeholder",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/022_Vessel_Elder/Ability/Elder_Normal/BulletData/BulletData_Vessel_Elder_HeavyAttack_02_01.BulletData_Vessel_Elder_HeavyAttack_02_01:PBZ_SweepTraceBullet_2147375213",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 961.3365771700628,
+      "hitGameTime": 961.6127267410047,
+      "reportedHitGameTime": 961.6127267410047,
+      "remainingGameSeconds": 0.27614957094192505,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/022_Vessel_Elder/Ability/Elder_Normal/BulletData/BulletData_Vessel_Elder_HeavyAttack_02_01.BulletData_Vessel_Elder_HeavyAttack_02_01:PBZ_SweepTraceBullet_2147375213",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 961.3365771700628,
+      "hitGameTime": 961.6127267410047,
+      "reportedHitGameTime": 961.6127267410047,
+      "remainingGameSeconds": 0.27614957094192505,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/022_Vessel_Elder/Ability/Elder_Normal/BulletData/BulletData_Vessel_Elder_HeavyAttack_02_01.BulletData_Vessel_Elder_HeavyAttack_02_01:PBZ_SweepTraceBullet_2147375213",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 961.5683437702246,
+      "hitGameTime": 961.6127267410047,
+      "reportedHitGameTime": 961.6127267410047,
+      "remainingGameSeconds": 0.0443829707801342,
+      "isDodge": false,
+      "isHit": true,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame-ended",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Vessel_Elder_HeavyAttack_02_C_2147392972.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/022_Vessel_Elder/Ability/Elder_Normal/BulletData/BulletData_Vessel_Elder_HeavyAttack_02_01.BulletData_Vessel_Elder_HeavyAttack_02_01:PBZ_SweepTraceBullet_2147375213",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 961.5683437702246,
+      "hitGameTime": 961.6127267410047,
+      "reportedHitGameTime": 961.6127267410047,
+      "remainingGameSeconds": 0.0443829707801342,
+      "isDodge": false,
+      "isHit": true,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Hun_BEd_ZhanMa_M_01_C_2147374911.ExecutionTimeline.GAA_DelayDeflectProjectileBullet_C_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Hun_BEd_ZhanMa_M_01_C_2147374911",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Hun_BEd_ZhanMa_M_01_C_2147374911.ExecutionTimeline",
+      "bullet": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Bullet_Common_Head_C_2147374829",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 967.0198438134976,
+      "hitGameTime": null,
+      "reportedHitGameTime": -3.3999999521443642e+38,
+      "remainingGameSeconds": null,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "negative-placeholder",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Hun_BEd_ZhanMa_M_01_C_2147374911.ExecutionTimeline.GAA_DelayDeflectProjectileBullet_C_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Hun_BEd_ZhanMa_M_01_C_2147374911",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Hun_BEd_ZhanMa_M_01_C_2147374911.ExecutionTimeline",
+      "bullet": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Bullet_Common_Head_C_2147374829",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 967.0198438134976,
+      "hitGameTime": null,
+      "reportedHitGameTime": -3.3999999521443642e+38,
+      "remainingGameSeconds": null,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "negative-placeholder",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame-ended",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Hun_BEd_ZhanMa_M_01_C_2147374911.ExecutionTimeline.GAA_DelayDeflectProjectileBullet_C_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Hun_BEd_ZhanMa_M_01_C_2147374911",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Elder_Poison_C_2147393068.GA_Hun_BEd_ZhanMa_M_01_C_2147374911.ExecutionTimeline",
+      "bullet": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Bullet_Common_Head_C_2147374829",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 967.167133313138,
+      "hitGameTime": null,
+      "reportedHitGameTime": -3.3999999521443642e+38,
+      "remainingGameSeconds": null,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "negative-placeholder",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/019_Vessel_Vagrant/Ability/BulletData/BD_Vessel_Vagrant_LightAttack_01.BD_Vessel_Vagrant_LightAttack_01:PBZ_SweepTraceBullet_2147373778",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 986.6324998610653,
+      "hitGameTime": 986.9023148291744,
+      "reportedHitGameTime": 986.9023148291744,
+      "remainingGameSeconds": 0.26981496810913086,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/019_Vessel_Vagrant/Ability/BulletData/BD_Vessel_Vagrant_LightAttack_01.BD_Vessel_Vagrant_LightAttack_01:PBZ_SweepTraceBullet_2147373778",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 986.6324998610653,
+      "hitGameTime": 986.9023148291744,
+      "reportedHitGameTime": 986.9023148291744,
+      "remainingGameSeconds": 0.26981496810913086,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/019_Vessel_Vagrant/Ability/BulletData/BD_Vessel_Vagrant_LightAttack_01.BD_Vessel_Vagrant_LightAttack_01:PBZ_SweepTraceBullet_2147373778",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 986.9023523614742,
+      "hitGameTime": 986.9023148291744,
+      "reportedHitGameTime": 986.9023148291744,
+      "remainingGameSeconds": -3.7532299757003784e-05,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "past-reported-time-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/019_Vessel_Vagrant/Ability/BulletData/BD_Vessel_Vagrant_LightAttack_01.BD_Vessel_Vagrant_LightAttack_01:PBZ_SweepTraceBullet_2147373778",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 986.990243958775,
+      "hitGameTime": 986.9023148291744,
+      "reportedHitGameTime": 986.9023148291744,
+      "remainingGameSeconds": -0.0879291296005249,
+      "isDodge": false,
+      "isHit": true,
+      "hitTimeStatus": "past-reported-time-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame-ended",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_LightAttack_01_C_2147392729.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/019_Vessel_Vagrant/Ability/BulletData/BD_Vessel_Vagrant_LightAttack_01.BD_Vessel_Vagrant_LightAttack_01:PBZ_SweepTraceBullet_2147373778",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 986.990243958775,
+      "hitGameTime": 986.9023148291744,
+      "reportedHitGameTime": 986.9023148291744,
+      "remainingGameSeconds": -0.0879291296005249,
+      "isDodge": false,
+      "isHit": true,
+      "hitTimeStatus": "past-reported-time-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Dodge.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645",
+      "activation": "5",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/Common/B_Common_RemoteRedEyeAlert.B_Common_RemoteRedEyeAlert:BP_PBZ_OverlapBullet_C_2147373636",
+      "typeValue": 3,
+      "typeName": "RedEye",
+      "typeConflict": false,
+      "gameTime": 988.2488191598095,
+      "hitGameTime": 988.9875333779491,
+      "reportedHitGameTime": 988.9875333779491,
+      "remainingGameSeconds": 0.7387142181396484,
+      "isDodge": true,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645",
+      "activation": "5",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/Common/B_Common_RemoteRedEyeAlert.B_Common_RemoteRedEyeAlert:BP_PBZ_OverlapBullet_C_2147373636",
+      "typeValue": 3,
+      "typeName": "RedEye",
+      "typeConflict": false,
+      "gameTime": 988.2488191598095,
+      "hitGameTime": 988.9875333779491,
+      "reportedHitGameTime": 988.9875333779491,
+      "remainingGameSeconds": 0.7387142181396484,
+      "isDodge": true,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame-ended",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main.LGAAction_DurationBulletWithDeflect_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645",
+      "activation": "5",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Vessel_Vagrant_RangeAttack_Throw_02_C_2147392645.Main",
+      "bullet": "/PBZCombatAsset/ActorData/Mobs/Common/B_Common_RemoteRedEyeAlert.B_Common_RemoteRedEyeAlert:BP_PBZ_OverlapBullet_C_2147373636",
+      "typeValue": 3,
+      "typeName": "RedEye",
+      "typeConflict": false,
+      "gameTime": 988.8552203611471,
+      "hitGameTime": 988.9875333779491,
+      "reportedHitGameTime": 988.9875333779491,
+      "remainingGameSeconds": 0.17354841902852058,
+      "isDodge": true,
+      "isHit": false,
+      "hitTimeStatus": "finite-not-impact-verified",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "event:GameplayEvent.Ability.Action.Deflect.Frame.Deflect.Defender",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Hun_BEd_ZhanMa_M_01_C_2147373233.ExecutionTimeline.GAA_DelayDeflectProjectileBullet_C_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Hun_BEd_ZhanMa_M_01_C_2147373233",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Hun_BEd_ZhanMa_M_01_C_2147373233.ExecutionTimeline",
+      "bullet": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Bullet_Common_Head_C_2147373207",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 997.2764921816997,
+      "hitGameTime": null,
+      "reportedHitGameTime": -3.3999999521443642e+38,
+      "remainingGameSeconds": null,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "negative-placeholder",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Hun_BEd_ZhanMa_M_01_C_2147373233.ExecutionTimeline.GAA_DelayDeflectProjectileBullet_C_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Hun_BEd_ZhanMa_M_01_C_2147373233",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Hun_BEd_ZhanMa_M_01_C_2147373233.ExecutionTimeline",
+      "bullet": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Bullet_Common_Head_C_2147373207",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 997.2764921816997,
+      "hitGameTime": null,
+      "reportedHitGameTime": -3.3999999521443642e+38,
+      "remainingGameSeconds": null,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "negative-placeholder",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "kind": "native-frame-ended",
+      "source": "receive-map",
+      "action": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Hun_BEd_ZhanMa_M_01_C_2147373233.ExecutionTimeline.GAA_DelayDeflectProjectileBullet_C_0",
+      "actor": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859",
+      "ability": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Hun_BEd_ZhanMa_M_01_C_2147373233",
+      "activation": "1",
+      "timeline": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Monster_Vessel_Vagrant_C_2147392859.GA_Hun_BEd_ZhanMa_M_01_C_2147373233.ExecutionTimeline",
+      "bullet": "/Game/Maps/B04_05/PBZ_Zhengdaodaying_WP.PBZ_Zhengdaodaying_WP:PersistentLevel.BP_Bullet_Common_Head_C_2147373207",
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "gameTime": 997.3715111832134,
+      "hitGameTime": null,
+      "reportedHitGameTime": -3.3999999521443642e+38,
+      "remainingGameSeconds": null,
+      "isDodge": false,
+      "isHit": false,
+      "hitTimeStatus": "negative-placeholder",
+      "impactVerified": false,
+      "bulletReferenceStatus": "instance-reference-read",
+      "bulletLifecycleVerified": false,
+      "bulletDangerEndedVerified": false
+    },
+    {
+      "ability": "GA_Vessel_Vagrant_RangeAttack_Throw_02_C",
+      "action": "GAAction_WeaponParticle_BlueRedEye_C_0",
+      "actionClass": "/PBZCombatAsset/Prototypes/Actions/GAAction_WeaponParticle_BlueRedEye.GAAction_WeaponParticle_BlueRedEye_C",
+      "key": "main/14",
+      "color": "red",
+      "start": 0.7193976640701294,
+      "end": 0.9197296632264624,
+      "typeValue": null,
+      "typeName": null,
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_Vessel_Vagrant_RangeAttack_Throw_02_C",
+      "action": "GAA_DelayDeflectProjectileBullet_C_4",
+      "actionClass": "/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C",
+      "key": "main/9",
+      "color": null,
+      "start": 0.7085654735565186,
+      "end": 1.8926404548619757,
+      "typeValue": 0,
+      "typeName": "CantDeflect",
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_Vessel_Vagrant_RangeAttack_Throw_02_C",
+      "action": "GAA_DelayDeflectProjectileBullet_C_3",
+      "actionClass": "/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C",
+      "key": "main/10",
+      "color": null,
+      "start": 0.7151910066604614,
+      "end": 1.899065987970971,
+      "typeValue": 0,
+      "typeName": "CantDeflect",
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_Vessel_Vagrant_RangeAttack_Throw_02_C",
+      "action": "GAA_DelayDeflectProjectileBullet_C_2",
+      "actionClass": "/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C",
+      "key": "main/12",
+      "color": null,
+      "start": 0.7158757448196411,
+      "end": 1.8999507261250983,
+      "typeValue": 0,
+      "typeName": "CantDeflect",
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_Vessel_Vagrant_RangeAttack_Throw_02_C",
+      "action": "GAA_DelayDeflectProjectileBullet_C_1",
+      "actionClass": "/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C",
+      "key": "main/13",
+      "color": null,
+      "start": 0.7172716856002808,
+      "end": 1.9011466669107904,
+      "typeValue": 0,
+      "typeName": "CantDeflect",
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_Vessel_Vagrant_RangeAttack_Throw_02_C",
+      "action": "GAA_DelayDeflectProjectileBullet_C_0",
+      "actionClass": "/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C",
+      "key": "main/15",
+      "color": null,
+      "start": 0.7200639247894287,
+      "end": 1.9039391445185174,
+      "typeValue": 0,
+      "typeName": "CantDeflect",
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_Vessel_Vagrant_RangeAttack_Throw_02_C",
+      "action": "LGAAction_DurationBulletWithDeflect_0",
+      "actionClass": "/Script/PBZCombatAsset.LGAAction_DurationBulletWithDeflect",
+      "key": "main/21",
+      "color": null,
+      "start": 0.8996522426605225,
+      "end": 1.980419023129798,
+      "typeValue": 3,
+      "typeName": "RedEye",
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "read",
+          "value": 0.03333330154418945
+        },
+        "PreHitPointDuration": {
+          "status": "read",
+          "value": 0.7599999904632568
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "read",
+          "value": 1.064000129699707
+        }
+      }
+    },
+    {
+      "ability": "GA_FemaleDoll_Sword_GP_02_C",
+      "action": "GAAction_WeaponParticleFrame_C_0",
+      "actionClass": "/SGameCombatSystem/Weapon/Action/GAAction_WeaponParticleFrame.GAAction_WeaponParticleFrame_C",
+      "key": "main/5",
+      "color": null,
+      "start": 0.1364695280790329,
+      "end": 0.1364695280790329,
+      "typeValue": null,
+      "typeName": null,
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_FemaleDoll_Sword_GP_02_C",
+      "action": "GAAction_WeaponParticleFrame_C_1",
+      "actionClass": "/SGameCombatSystem/Weapon/Action/GAAction_WeaponParticleFrame.GAAction_WeaponParticleFrame_C",
+      "key": "main/9",
+      "color": null,
+      "start": 0.33456674218177795,
+      "end": 0.33456674218177795,
+      "typeValue": null,
+      "typeName": null,
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_FemaleDoll_Sword_GP_02_C",
+      "action": "GAAction_WeaponParticle_C_1",
+      "actionClass": "/SGameCombatSystem/Weapon/Action/GAAction_WeaponParticle.GAAction_WeaponParticle_C",
+      "key": "main/11",
+      "color": null,
+      "start": 0.33713698387145996,
+      "end": 0.7599039077758789,
+      "typeValue": null,
+      "typeName": null,
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_FemaleDoll_Sword_GP_02_C",
+      "action": "GAAction_WeaponParticleFrame_C_2",
+      "actionClass": "/SGameCombatSystem/Weapon/Action/GAAction_WeaponParticleFrame.GAAction_WeaponParticleFrame_C",
+      "key": "main/13",
+      "color": null,
+      "start": 0.34309858083724976,
+      "end": 0.34309858083724976,
+      "typeValue": null,
+      "typeName": null,
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_FemaleDoll_Sword_GP_02_C",
+      "action": "GAAction_WeaponParticle_BlueRedEye_C_2",
+      "actionClass": "/PBZCombatAsset/Prototypes/Actions/GAAction_WeaponParticle_BlueRedEye.GAAction_WeaponParticle_BlueRedEye_C",
+      "key": "main/12",
+      "color": "blue",
+      "start": 0.088034987449646,
+      "end": 0.35598097911133664,
+      "typeValue": null,
+      "typeName": null,
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_FemaleDoll_Sword_GP_02_C",
+      "action": "GAAction_WeaponParticleFrame_C_1",
+      "actionClass": "/SGameCombatSystem/Weapon/Action/GAAction_WeaponParticleFrame.GAAction_WeaponParticleFrame_C",
+      "key": "main/9",
+      "color": null,
+      "start": 0.016592063009738922,
+      "end": 0.016592063009738922,
+      "typeValue": null,
+      "typeName": null,
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_FemaleDoll_Sword_GP_02_C",
+      "action": "LGAAction_DurationBulletWithDeflect_0",
+      "actionClass": "/Script/PBZCombatAsset.LGAAction_DurationBulletWithDeflect",
+      "key": "main/22",
+      "color": null,
+      "start": 0.28608056902885437,
+      "end": 0.6736977100372314,
+      "typeValue": 2,
+      "typeName": "BlueEye",
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "read",
+          "value": 0.15084469318389893
+        },
+        "PreHitPointDuration": {
+          "status": "read",
+          "value": 0.30000001192092896
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "read",
+          "value": 0.3121947944164276
+        }
+      }
+    },
+    {
+      "ability": "GA_FemaleDoll_Sword_GP_02_C",
+      "action": "GAAction_WeaponParticleFrame_C_2",
+      "actionClass": "/SGameCombatSystem/Weapon/Action/GAAction_WeaponParticleFrame.GAAction_WeaponParticleFrame_C",
+      "key": "main/23",
+      "color": null,
+      "start": 0.5407810211181641,
+      "end": 0.5407810211181641,
+      "typeValue": null,
+      "typeName": null,
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "missing"
+        },
+        "PreHitPointDuration": {
+          "status": "missing"
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "missing"
+        }
+      }
+    },
+    {
+      "ability": "GA_FemaleDoll_Sword_Attack_2HitSword_C",
+      "action": "LGAAction_DurationBulletWithDeflect_1",
+      "actionClass": "/Script/PBZCombatAsset.LGAAction_DurationBulletWithDeflect",
+      "key": "main/12",
+      "color": null,
+      "start": 0.55013507604599,
+      "end": 0.9877247976328363,
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "read",
+          "value": 0.10557937622070312
+        },
+        "PreHitPointDuration": {
+          "status": "read",
+          "value": 0.30000001192092896
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "read",
+          "value": 0.3849000334739685
+        }
+      }
+    },
+    {
+      "ability": "GA_FemaleDoll_Sword_Attack_2HitSword_C",
+      "action": "LGAAction_DurationBulletWithDeflect_0",
+      "actionClass": "/Script/PBZCombatAsset.LGAAction_DurationBulletWithDeflect",
+      "key": "main/19",
+      "color": null,
+      "start": 1.0477176904678345,
+      "end": 1.484337641093589,
+      "typeValue": 1,
+      "typeName": "Normal",
+      "typeConflict": false,
+      "timing": {
+        "BulletDuration": {
+          "status": "read",
+          "value": 0.09247708320617676
+        },
+        "PreHitPointDuration": {
+          "status": "read",
+          "value": 0.30000001192092896
+        },
+        "RuntimePreHitPointDuration": {
+          "status": "read",
+          "value": 0.39028140902519226
+        }
+      }
+    }
+  ]
+}

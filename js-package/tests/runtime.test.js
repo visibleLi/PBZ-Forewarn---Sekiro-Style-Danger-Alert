@@ -12,7 +12,7 @@ let passed = 0;
 function test(name, body) { body(); passed++; console.log('PASS ' + name); }
 const array = xs => ({ Num: () => xs.length, Get: i => xs[i] });
 function fixture(config, startup = {}) {
-    const env = { wall: 1800000000000, game: 0, paused: false, files: new Map(), logs: [], timers: new Map(),
+    const env = { wall: 1800000000000, game: 0, paused: false, files: new Map(), logs: [], timers: new Map(), failCues: [],
         nextTimer: 0, objects: new Map(), actors: [], actorsInScan: [], hud: [], failUI: false, failClock: false, failWrite: false, audioEvents: [], audioCalls: [], audioPaused: true, lockedTarget: null, keysDown: new Set() };
     function object(p, values) { const o = Object.assign({ _path: p }, values); env.objects.set(p, o); return o; }
     function asc(p) { return object(p, { tags: new Set(), bValid: true, HasMatchingGameplayTag(t) { return this.tags.has(t.TagName); },
@@ -67,6 +67,7 @@ function fixture(config, startup = {}) {
     const puerts = { $ref: value => ({ value }), $unref: ref => ref.value, argv: { getByName: () => env.gi } };
     const presentation = { createPresentation: () => ({ update(w, active, paused) {
         if (env.failUI) throw Error('mock layout failure'); env.hud.push({ active, paused });
+        return paused ? [] : [...new Set(active.map(x => x.color))].map(c => active.find(x => x.color === c));
     }, dispose() { env.disposed = (env.disposed || 0) + 1; } }) };
     const nativeAudio = { createNativeAudio: (ue, a, settings, diag, options) => {
         env.audioEvents = []; env.audioPaused = true; env.bankPath = options.bankPath; env.bankRelativePath = options.bankRelativePath; env.bankConfig = options.bank;
@@ -88,6 +89,7 @@ function fixture(config, startup = {}) {
         return ({ ue: UE, puerts, cpp: {}, './core': core, './adapter': adapter,
         './presentation': presentation, './wwise-audio': nativeAudio, './wwise-bank-config': require('../PBZForewarn/wwise-bank-config'), './target-filter': targetFilter,
         './diagnostic-store': require('../PBZForewarn/diagnostic-store'),
+        './cast-followup': require('../PBZForewarn/cast-followup'),
         './observation-store': startup.badStore ? {createObservationStore(){throw Error('optional store failed');}} : require('../PBZForewarn/observation-store'),
         './native-attack-observer': require('../PBZForewarn/native-attack-observer'),
         './timeline-observation': require('../PBZForewarn/timeline-observation'),
@@ -547,14 +549,16 @@ test('Lua structured activation stays in capture and is not promoted to identity
     e.tick(0.7);e.mod.stop();const entry=observations(e).events.find(x=>x.kind==='timeline-call');
     assert.equal(entry.activation,null);assert.equal(entry.capture.context.activation.value,7);
 });
-test('global observation sampling rotates tasks and exposes deferrals without withholding cues',()=>{
+test('global observation sampling covers multiple tasks without withholding cues',()=>{
     const e=fixture();provideNativeFrame(e);
-    const other=e.addEnemy('Other'),second=e.addTask(other,'other');second.action.DeflectBulletType=2;
-    second.task.CurrentTime=0.7;e.tick(0.7);assert.equal(e.cues().length,2);
+    const extras=[];for(let i=0;i<5;i++){const other=e.addEnemy('Other'+i),task=e.addTask(other,'other'+i);
+        task.action.DeflectBulletType=2;task.task.CurrentTime=0.7;extras.push(task);}
+    e.tick(0.7);assert.equal(e.cues().length,6);
     e.tick(0.71);e.mod.stop();const report=observations(e);
-    assert(report.sampling.deferredTaskSamples>=1);assert.equal(report.sampling.maxTimelineTasksPerTick,1);
+    assert(report.sampling.deferredTaskSamples>=1);assert.equal(report.sampling.maxTimelineTasksPerTick,4);
+    assert.equal(report.sampling.fairRotationByRecord,true);
     assert(report.events.some(x=>x.kind==='attack-plan'&&x.actor==='/Enemy'));
-    assert(report.events.some(x=>x.kind==='attack-plan'&&x.actor==='/Other'));
+    assert(report.events.filter(x=>x.kind==='attack-plan'&&String(x.actor).startsWith('/Other')).length>=3);
 });
 
 test('QiShu semantic fallback creates a red cue while leaving the action read-only',()=>{
@@ -693,10 +697,43 @@ test('QiShu semantic fallback can be disabled without changing normal warning be
     e.mod.stop();
 });
 
+test('a Main-to-Success switch is retained as a branch observation without another cue',()=>{
+    const e=fixture('GenericAttack=0');
+    e.owner.enemy._path='/Game/Test.BP_Monster_FemaleVessel_YuZan_C_1';
+    e.owner.ability._path='/Game/Test.GA_YuZan_Skill_03_A_R_Start_C_1';
+    const mainTimeline={...e.first.timeline,_path:'/Game/Test.Ability.Main'};
+    const successTimeline={...e.first.timeline,_path:'/Game/Test.Ability.Success'};
+    e.first.task.Timeline=mainTimeline;e.first.task.CurrentTime=0.3;e.tick(0.3);
+    e.owner.ability.activation++;e.first.task.Timeline=successTimeline;e.first.task.CurrentTime=0;e.tick(0,64);
+    const before=e.cues().length;e.tick(0.1,250);assert.equal(e.cues().length,before);
+    e.mod.stop();const report=observations(e);const transition=report.events.find(x=>x.kind==='timeline-branch-transition');
+    assert(transition);assert.equal(transition.phase,'main-to-success');
+    assert.match(transition.previousTimeline,/\.Main$/);assert.match(transition.nextTimeline,/\.Success$/);
+    assert.match(transition.previousAbility,/GA_YuZan_Skill_03_A_R_Start_C_/);
+    assert.match(transition.nextAbility,/GA_YuZan_Skill_03_A_R_Start_C_/);
+    assert.equal(transition.branchConfirmed,false);
+});
+test('YuZan spell-warning resources remain cue-disabled observations',()=>{
+    const e=fixture();
+    e.owner.ability._path='/Game/Test.GA_YuZan_Skill_03_C_1';
+    e.first.action.NiagaraEffect._path='/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101';
+    e.tick(0.1,250);e.mod.stop();
+    const report=observations(e);
+    const spell=report.events.find(x=>x.kind==='spell-warning-observation');
+    assert(spell);assert.equal(spell.spellPhase,'cast');
+    assert.equal(spell.cueEnabled,false);assert.equal(e.cues().length,0);
+});
+test('one spell-warning observation is retained per task and phase',()=>{
+    const e=fixture();
+    e.owner.ability._path='/Game/Test.GA_YuZan_Skill_03_C_1';
+    e.first.action.NiagaraEffect._path='/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101';
+    e.tick(0.1,250);e.tick(0.2,250);e.tick(0.3,250);e.mod.stop();
+    assert.equal(observations(e).events.filter(x=>x.kind==='spell-warning-observation').length,1);
+});
 test('trial version is identical in START, diagnostics and observation snapshots',()=>{
     const e=fixture();e.tick(0.1);e.mod.stop();
     const start=JSON.parse(e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] START ')).split('START ')[1]);
-    assert.equal(start.version,'0.6.0-trial.1');
+    assert.equal(start.version,'0.6.0-preview');
     assert.equal(observations(e).version,start.version);
     assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).version,start.version);
 });
@@ -807,4 +844,194 @@ test('bounded1 and bounded2 main produce identical cue and audio events across c
     }assert.deepEqual(outputs[1],outputs[0]);}
 });
 
+function yuzanCastRuntime(config) {
+    const e=fixture(config), {RULE}=require('../PBZForewarn/cast-warning');
+    e.owner.enemy._path='/World/BP_Monster_FemaleVessel_YuZan_C_1';
+    e.owner.ability._path=e.owner.enemy._path+'.GA_YuZan_Skill_03_C_1';
+    e.first.timeline._path=e.owner.ability._path+'.Main';
+    e.first.action.GetClass=()=>({_path:RULE.actionClass});
+    e.first.action.NiagaraEffect._path=RULE.effectPath;
+    e.first.event={...e.first.event,StartTime:0.7387645244598389,duration:0};
+    e.first.timeline.Actions=array([e.first.event]);
+    return e;
+}
+test('YuZan cast emits one black danger before AOE marker with explicit source and intact point timing',()=>{
+    const e=yuzanCastRuntime('LeadMs=0\nYuZanCastLeadMs=350');
+    e.tick(0,20);e.tick(0.3,300);assert.equal(e.cues().length,0);
+    e.tick(0.4,100);assert.equal(e.cues().length,1);assert.equal(e.cues()[0].color,'black');
+    assert.equal(e.hud.at(-1).active[0].meta.castWarning.ruleId,'yuzan-skill03-cast');
+    e.tick(0.5,100);e.tick(0.75,250);assert.equal(e.cues().length,1);assert.equal(e.hud.at(-1).active.length,0);
+    assert.equal(e.first.event.duration,0);assert.equal(e.first.event.StartTime,0.7387645244598389);
+    e.mod.stop();const report=observations(e),cue=report.events.find(x=>x.kind==='warning-cue');
+    assert.equal(cue.source,'cast-warning');assert.equal(cue.castRule,'yuzan-skill03-cast');
+    assert.equal(cue.spellPhase,'cast');assert.equal(cue.executionVerified,false);
+    assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.castCues,1);
+    const compact=report.evidence.records.find(x=>x.kind==='warning-cue');assert.equal(compact.castRule,cue.castRule);
+});
+test('cast switches and observation-off path are independent and preserve existing config files',()=>{
+    for(const config of ['YuZanCastWarning=0','BlackOn=0','OnlyLockedTarget=1']){
+        const e=yuzanCastRuntime(config);e.tick(0.4);assert.equal(e.cues().length,0);e.mod.stop();
+        assert.equal(e.files.get(e.saved+'PBZForewarn.txt'),config);
+    }
+    const e=yuzanCastRuntime('Diagnostics=0\nObserveAttacks=0\nSemanticFallback=0');e.tick(0.4);
+    assert.equal(e.cues().length,1);e.mod.stop();
+    assert(!e.files.has(e.saved+'pbzforewarn_observations.json'));
+    const cfg=e.mod.parseSettings('YuZanCastLeadMs=9999\nYuZanCastWarning=false');
+    assert.equal(cfg.YuZanCastLeadMs,1000);assert.equal(cfg.YuZanCastWarning,false);
+});
+test('cast tag requirements remain live and blocked conditions cannot generate a cue',()=>{
+    const e=yuzanCastRuntime();e.first.action.ActivationRequirements.RequireTags=['cast-ready'];
+    e.tick(0.4);assert.equal(e.cues().length,0);e.owner.asc.tags.add('cast-ready');e.tick(0.45);
+    assert.equal(e.cues().length,1);e.owner.asc.tags.delete('cast-ready');e.tick(0.5);
+    assert.equal(e.cancels().length,1);e.owner.asc.tags.add('cast-ready');e.tick(0.55);
+    assert.equal(e.cues().length,1);e.mod.stop();
+});
+test('cast resource and timeline are rechecked within the compile interval',()=>{
+    for(const change of [e=>e.first.action.NiagaraEffect._path='/Wrong/FX',
+        e=>e.first.task.Timeline={...e.first.timeline,_path:e.owner.ability._path+'.Success'},
+        e=>e.first.action.GetClass=()=>({_path:'/Wrong/Class'})]){
+        const e=yuzanCastRuntime();e.tick(0.1,100);change(e);e.tick(0.4,16);
+        assert.equal(e.cues().length,0);e.mod.stop();
+    }
+});
+test('real cast cancellation stops its sound and a new activation can warn again',()=>{
+    const e=yuzanCastRuntime();e.tick(0.4);const id=e.cues()[0].id;
+    e.first.task.OnCancelled.Fire();e.tick(0.45);assert(e.cancels().some(x=>x.id===id));
+    e.owner.ability.activation++;e.first.task.CurrentTime=0;e.tick(0,64);e.tick(0.4,400);
+    assert.equal(e.cues().length,2);assert.notEqual(e.cues()[1].id,id);e.mod.stop();
+});
+test('later Success black node stays independent from a cast cue',()=>{
+    const {BLACK_ACTION_CLASS}=require('../PBZForewarn/attack-recognition');
+    const e=yuzanCastRuntime();e.tick(0.4);assert.equal(e.cues().length,1);
+    e.first.task.OnCompleted.Fire();e.tick(0.8);
+    const ability={...e.owner.ability,_path:e.owner.enemy._path+'.GA_YuZan_Skill_03_A_L_Start_C_1',tasks:[]};
+    const owner={...e.owner,ability};const t=e.addTask(owner,'success',{start:1.5493558645,duration:0.265,
+        actionClass:BLACK_ACTION_CLASS,effectName:'NS_AttackAlert_Post_001'});
+    t.timeline._path=ability._path+'.Success';t.task.CurrentTime=1.3;
+    e.owner.asc.ActivatableAbilities.Items=array([{ActiveCount:1,NonReplicatedInstances:array([ability]),ReplicatedInstances:array([])}]);
+    e.tick(0.8,250);assert.equal(e.cues().length,2);
+    assert.notEqual(e.cues()[0].id,e.cues()[1].id);e.mod.stop();
+    const cues=observations(e).events.filter(x=>x.kind==='warning-cue');
+    assert.equal(cues[0].source,'cast-warning');assert.equal(cues[1].source,'existing-0.5-scheduler');
+});
+test('two YuZan enemies remain separate and a confirmed lock filters cast cues',()=>{
+    const e=yuzanCastRuntime('OnlyLockedTarget=1');
+    e.lockedTarget=e.owner.enemy;e.tick(0.4);assert.equal(e.cues().length,1);e.mod.stop();
+    const x=yuzanCastRuntime();const o=x.addEnemy('Other');
+    o.enemy._path='/World/BP_Monster_FemaleVessel_YuZan_C_2';
+    o.ability._path=o.enemy._path+'.GA_YuZan_Skill_03_C_2';
+    const t=x.addTask(o,'secondcast',{start:0.7387645244598389,duration:0});
+    t.timeline._path=o.ability._path+'.Main';t.action.GetClass=x.first.action.GetClass;
+    t.action.NiagaraEffect._path=x.first.action.NiagaraEffect._path;t.task.CurrentTime=0.4;
+    x.tick(0.4);assert.equal(x.cues().length,2);assert.notEqual(x.cues()[0].id,x.cues()[1].id);x.mod.stop();
+});
+test('cast disabled still leaves ordinary warning nodes operating',()=>{
+    const e=fixture('YuZanCastWarning=0\nYuZanCastLeadMs=0');e.tick(0.7);
+    assert.equal(e.cues().length,1);assert.equal(e.cues()[0].color,'red');e.mod.stop();
+});
+test('cast with unreadable requirements or a non-YuZan owner never falls back to unconditional warning',()=>{
+    for(const change of [e=>e.first.action.ActivationRequirements=null,
+        e=>e.owner.enemy._path='/World/BP_Monster_Other_C_1',
+        e=>e.owner.enemy.friendly=true,
+        e=>e.owner.enemy.distance=9000]){
+        const e=yuzanCastRuntime();change(e);e.tick(0.4);assert.equal(e.cues().length,0);e.mod.stop();
+    }
+});
+test('cast pause or range loss withdraws once and stale tasks do not replay on resume',()=>{
+    const e=yuzanCastRuntime();e.tick(0.4);const id=e.cues()[0].id;
+    e.paused=true;e.tick(0.45);e.paused=false;e.tick(0.5);
+    assert.equal(e.cues().length,1);assert.equal(e.cancels().filter(x=>x.id===id).length,1);e.mod.stop();
+    const x=yuzanCastRuntime();x.tick(0.4);x.owner.enemy.distance=9000;x.tick(0.5);
+    assert.equal(x.cancels().length,1);x.mod.stop();
+});
+function followupStages(e,side='L'){
+    const {BLACK_ACTION_CLASS}=require('../PBZForewarn/attack-recognition');
+    const ability={...e.owner.ability,_path:e.owner.enemy._path+'.GA_YuZan_Skill_03_A_'+side+'_Start_C_1',tasks:[],activation:1};
+    const owner={...e.owner,ability};
+    const main=e.addTask(owner,'stage-main',{start:9});main.timeline._path=ability._path+'.Main';main.timeline.Actions=array([]);
+    const success=e.addTask(owner,'stage-success',{start:1.5493558645,duration:0.265,
+        actionClass:BLACK_ACTION_CLASS,effectName:'NS_AttackAlert_Post_001'});
+    success.timeline._path=ability._path+'.Success';success.action._path=success.timeline._path+'.GAAction_PowerAttackParticle_C_0';
+    return {ability,main,success,
+        mainNow(){e.owner.ability.bIsActive=false;ability.tasks=[main.task];ability.ActiveTasks=array(ability.tasks);
+            e.owner.asc.ActivatableAbilities.Items=array([{ActiveCount:1,NonReplicatedInstances:array([ability]),ReplicatedInstances:array([])}]);
+            main.task.CurrentTime=0.3;e.tick(0.8,64);},
+        successNow(){main.task.OnCancelled.Fire();ability.tasks=[success.task];ability.ActiveTasks=array(ability.tasks);
+            e.owner.asc.ActivatableAbilities.Items=array([{ActiveCount:1,NonReplicatedInstances:array([ability]),ReplicatedInstances:array([])}]);
+            success.task.CurrentTime=1.3;e.tick(0.8,64);}
+    };
+}
+test('a witnessed cast to side-Main to same-activation Success suppresses one extra black cue with an audit trail',()=>{
+    for(const side of ['L','R']){
+        const e=yuzanCastRuntime();e.tick(0.4);e.tick(0.8,400);e.first.task.OnCompleted.Fire();
+        const stages=followupStages(e,side);stages.mainNow();stages.successNow();e.tick(0.8,250);e.mod.stop();
+        assert.equal(e.cues().length,1);assert.equal(e.cues()[0].color,'black');
+        const diag=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
+        assert.equal(diag.stats.followupSuppressed,1);assert.equal(diag.stats.conditionsNotMet,0);
+        const report=observations(e),suppressed=report.evidence.records.filter(x=>x.kind==='warning-suppressed');
+        assert.equal(suppressed.length,1);assert.equal(suppressed[0].castCueId,e.cues()[0].id);
+        assert.equal(suppressed[0].source,'cast-followup-policy');assert.equal(suppressed[0].priority,3);
+    }
+});
+test('cast disabled or cancelled preserves the Success warning fallback',()=>{
+    for(const mode of ['disabled','cancelled']){
+        const e=yuzanCastRuntime(mode==='disabled'?'YuZanCastWarning=0':undefined);
+        e.tick(0.4);
+        if(mode==='cancelled')e.first.task.OnCancelled.Fire();else e.first.task.OnCompleted.Fire();
+        const stages=followupStages(e);stages.mainNow();stages.successNow();e.mod.stop();
+        const report=observations(e);assert(report.events.some(x=>x.kind==='warning-cue'&&x.source==='existing-0.5-scheduler'));
+        assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.followupSuppressed,0);
+    }
+});
+test('a missing intermediate Main or changed followup activation cannot suppress a Success cue',()=>{
+    for(const mode of ['gap','activation']){
+        const e=yuzanCastRuntime();e.tick(0.4);e.tick(0.8,400);e.first.task.OnCompleted.Fire();
+        const stages=followupStages(e);
+        if(mode==='activation'){stages.mainNow();stages.ability.activation++;}
+        else e.owner.ability.bIsActive=false;
+        stages.successNow();e.mod.stop();
+        assert.equal(e.cues().length,2);
+        assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.followupSuppressed,0);
+    }
+});
+test('stage policy also works with observations disabled',()=>{
+    const e=yuzanCastRuntime('Diagnostics=0\nObserveAttacks=0');e.tick(0.4);e.tick(0.8,400);e.first.task.OnCompleted.Fire();
+    const stages=followupStages(e);stages.mainNow();stages.successNow();e.mod.stop();
+    assert.equal(e.cues().length,1);assert(!e.files.has(e.saved+'pbzforewarn_observations.json'));
+});
+test('cast delivery acknowledgement is granted only after a rendered glyph or accepted audio',()=>{
+    // The policy is private runtime state; an accepted cast request that cannot
+    // be rendered or played must not suppress the later standard fallback.
+    const e=yuzanCastRuntime();
+    e.tick(0.4);assert.equal(e.cues().length,1);
+    // In this deterministic mock the rendered list and accepted audio both
+    // arrive; a separate unit test below exercises the rejected-delivery path.
+    e.tick(0.8,400);e.first.task.OnCompleted.Fire();e.tick(0.8,64);
+    const stages=followupStages(e);stages.mainNow();stages.successNow();e.mod.stop();
+    assert.equal(e.cues().length,1);
+    assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.followupSuppressed,1);
+});
+test('failed sound and failed HUD delivery leave the later standard cue active',()=>{
+    const e=yuzanCastRuntime('GlyphOn=0');
+    e.failUI=true;e.tick(0.4);assert.equal(e.cues().length,1);
+    e.failUI=false;e.tick(0.8,400);e.first.task.OnCompleted.Fire();e.tick(0.8,64);
+    const stages=followupStages(e);stages.mainNow();stages.successNow();e.mod.stop();
+    assert.equal(e.cues().length,2);
+    assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.followupSuppressed,0);
+});
+test('a different live cast invalidates the chain before a cue window and preserves later fallback',()=>{
+    const e=yuzanCastRuntime();e.tick(0.4);e.tick(0.8,400);e.first.task.OnCompleted.Fire();
+    const stages=followupStages(e);
+    e.owner.ability.activation=2;e.first.task.CurrentTime=0.1;e.first.action.NiagaraEffect._path='/Other/FX';
+    e.owner.asc.ActivatableAbilities.Items=array([{ActiveCount:1,NonReplicatedInstances:array([e.owner.ability]),ReplicatedInstances:array([])}]);
+    e.tick(0.8,64);stages.successNow();e.mod.stop();assert.equal(e.cues().length,2);
+});
+test('cast cue limits suppress only the current chain',()=>{
+    for(const limit of ['BlackOn=0','OnlyLockedTarget=1','RangeCm=500']){
+        const e=yuzanCastRuntime(limit);if(limit==='OnlyLockedTarget=1')e.lockedTarget={_path:'/Other'};
+        if(limit==='RangeCm=500')e.owner.enemy.distance=1000;e.tick(0.4);e.tick(0.8,400);e.first.task.OnCompleted.Fire();
+        const stages=followupStages(e);stages.mainNow();stages.successNow();e.mod.stop();
+        assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.followupSuppressed,0);
+    }
+});
 console.log('Runtime integration: ' + passed + ' tests passed. Unreal APIs are mocked; no in-game claim.');

@@ -322,6 +322,56 @@ test("changed timing semantics or unreadable sampling states remain distinct evi
     for (const unreadable of [0, 1]) s.record("timeline-observer-status", { ...identity, scanned: 3, unreadable });
     const e = checkEvidence(s.snapshot()); assert.equal(e.records.length, 4);
 });
+test("scan counters survive compact retention with their explanatory fields",()=>{
+    const s=createObservationStore();
+    s.record("timeline-observer-status",{...identity,scanned:35,typed:0,timed:0,
+        standard:1,generic:0,ignored:34,truncated:false,unreadable:0,layers:1});
+    const row=checkEvidence(s.snapshot()).records[0];
+    assert.equal(row.kind,"timeline-observer-status");assert.equal(row.scanned,35);
+    assert.equal(row.typed,0);assert.equal(row.timed,0);assert.equal(row.standard,1);
+    assert.equal(row.generic,0);assert.equal(row.ignored,34);
+    assert.equal(row.priority,2);
+});
+test("main-to-success transition keeps both timeline identities without claiming a hit",()=>{
+    const s=createObservationStore();
+    s.record("timeline-branch-transition",{...identity,phase:"main-to-success",
+        previousTimeline:"/Ability.Main",nextTimeline:"/Ability.Success",
+        previousAbility:"/Enemy/GA_YuZan_Skill_03_A_R_Start_C_1",nextAbility:"/Enemy/GA_YuZan_Skill_03_A_R_Start_C_1",
+        transitionObservedWallTime:1000,branchConfirmed:false,
+        interpretation:"observed-timeline-switch-not-proof-of-successful-hit"});
+    const evidence=checkEvidence(s.snapshot()),row=evidence.records[0];
+    assert.equal(row.kind,"timeline-branch-transition");
+    assert.equal(evidence.dictionary[row.refs.previousTimeline],"/Ability.Main");
+    assert.equal(evidence.dictionary[row.refs.nextTimeline],"/Ability.Success");
+    assert.equal(evidence.dictionary[row.refs.previousAbility],"/Enemy/GA_YuZan_Skill_03_A_R_Start_C_1");
+    assert.equal(evidence.dictionary[row.refs.nextAbility],"/Enemy/GA_YuZan_Skill_03_A_R_Start_C_1");
+    assert.equal(row.branchConfirmed,false);assert.equal(row.priority,2);
+});
+test("spell-warning candidates survive as high-priority evidence with cue disabled",()=>{
+    const s=createObservationStore();
+    s.record("attack-plan",{...identity,eventKey:"main/179",
+        spellWarningCandidate:"yuzan-warning-aoe-observe",cueEnabled:false,
+        effect:"/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101"});
+    const row=checkEvidence(s.snapshot()).records[0];
+    assert.equal(row.spellWarningCandidate,"yuzan-warning-aoe-observe");
+    assert.equal(row.cueEnabled,false);assert.equal(row.priority,3);
+});
+test("different spell candidates on one execution are not collapsed",()=>{
+    const s=createObservationStore();
+    for(const candidate of ["yuzan-warning-aoe-observe","yuzan-warning-big-observe"])
+        s.record("attack-plan",{...identity,eventKey:"main/1",spellWarningCandidate:candidate,cueEnabled:false});
+    const e=checkEvidence(s.snapshot());
+    assert.equal(e.records.length,2);assert.equal(e.counters.deduplicated,0);
+});
+test("spell warning observations retain cast phase without enabling a cue",()=>{
+    const s=createObservationStore();
+    s.record("spell-warning-observation",{...identity,eventKey:"main/7",
+        spellWarningCandidate:"yuzan-warning-aoe-observe",spellPhase:"cast",cueEnabled:false});
+    const row=checkEvidence(s.snapshot()).records[0];
+    assert.equal(row.kind,"spell-warning-observation");
+    assert.equal(row.spellPhase,"cast");assert.equal(row.cueEnabled,false);
+    assert.equal(row.priority,3);
+});
 test("dictionary storage and UTF8 budgets remain exact through repeated eviction", () => {
     const s = createObservationStore({ maxEvidenceBytes: 4096, maxEvidenceDictionaryBytes: 2000, maxEvidenceRecords: 5 });
     for (let i = 0; i < 100; i++) {

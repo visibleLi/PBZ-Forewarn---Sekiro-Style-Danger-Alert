@@ -44,6 +44,16 @@ test('first observation in advance window cues without altering original event',
     assert(Math.abs(x.cues[0].actualLeadGameSeconds - 0.3) < 1e-9);
     assert(/^t\d+e\d+$/.test(x.cues[0].id));
 });
+test('per-event lead leaves the standard warning lead unchanged and respects task rate', () => {
+    const x = fixture({ leadSeconds: 0.1 });
+    const spell = event({ key: 'cast', color: 'black', start: 1, end: 1, leadSeconds: 0.35 });
+    const normal = event({ key: 'normal', start: 1, end: 1 });
+    x.scheduler.step(frame(0, [task(0.3, { rateHint: 2, events: [spell, normal] })]));
+    assert.equal(x.cues.length, 1); assert.equal(x.cues[0].eventKey, 'cast');
+    x.scheduler.step(frame(0.25, [task(0.8, { rateHint: 2, events: [spell, normal] })]));
+    assert.equal(x.cues.length, 2); assert.equal(x.cues[1].eventKey, 'normal');
+    assert.equal(spell.start, 1); assert.equal(spell.end, 1);
+});
 
 test('future nodes do not spam and trigger only after entering window', () => {
     const x = fixture();

@@ -70,9 +70,9 @@ function createPresentation(UE, cpp, adapter, settings, diagnostic) {
     function update(world, active, paused) {
         try {
             if (!settings.GlyphOn || paused || !active.length) {
-                if (valid(canvas)) canvas.SetVisibility(UE.ESlateVisibility.Collapsed); lastStatus = ""; return;
+                if (valid(canvas)) canvas.SetVisibility(UE.ESlateVisibility.Collapsed); lastStatus = ""; return [];
             }
-            if (!ensure(world)) return;
+            if (!ensure(world)) return [];
             const visible = colors.filter(c => active.some(x => x.color === c));
             canvas.SetVisibility(UE.ESlateVisibility.HitTestInvisible);
             for (const color of colors) {
@@ -82,10 +82,12 @@ function createPresentation(UE, cpp, adapter, settings, diagnostic) {
             }
             const status = visible.map(c => c === 'black' ? 'K' : c[0].toUpperCase()).join('');
             if (status !== lastStatus) { report("hud-show", { colors: status }); lastStatus = status; }
+            return visible.map(color => active.find(x => x.color === color)).filter(Boolean);
         } catch (e) {
             // UI failures are independent of combat/audio scheduling. Rebuild
             // after a bounded delay instead of retrying a stale slot each tick.
             failure(e);
+            return [];
         }
     }
     return { update, dispose };

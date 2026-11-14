@@ -2,8 +2,11 @@
 
 ## Branch and evidence
 
-Develop on `feature/qishu-fallback`. The published `v0.5-preview` tag stays at its existing commit.
-The development baseline is `observe-bounded.2`; the first playable candidate is `0.6.0-trial.1`.
+Develop on `feature/trial2-generic-attacks`. The published `v0.5-preview` tag stays at its existing commit.
+Current release candidate: `0.6.0-preview`, cumulative 0.5 baseline plus tested QiShu and YuZan improvements. See ROADMAP.md and MODLOG.md.
+The development baseline is `observe-bounded.2`; the first playable candidate is `0.6.0-trial.2-observe.4`;
+`observe.5` added branch-transition and YuZan spell-warning resource evidence without adding a cue.
+`observe.6` deduplicates those spell observations per task and phase; it still does not add a cue.
 A candidate name is not a claim that combat testing has passed.
 
 The two QiShu_Huo rules come from captured actor/ability/action/type facts in build 26367565.
@@ -26,7 +29,7 @@ python verify.py --node <node-path-or-node-on-PATH>
 python package.py
 ```
 
-The default output is `dist/PBZForewarn-0.6.0-trial.1.zip`. Add `--source` for the optional source archive.
+The default output is `dist/PBZForewarn-0.6.0-preview.zip`. Add `--source` for the optional source archive.
 Use `--output-dir <new-folder>` to collect a candidate separately from older outputs.
 `PACKAGE_CHECK.json` stays outside the installer. Only `ProjectPBZ/`, `platform/` and a bilingual README go to players.
 

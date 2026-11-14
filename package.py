@@ -2,6 +2,7 @@ from pathlib import Path
 import argparse
 import hashlib
 import json
+import re
 import zipfile
 
 from build_state import VERSION, TEST_CASES, source_paths, validated_inputs
@@ -69,6 +70,13 @@ hooks_prefix = 'platform/steam/ue4ss/Mods/PBZForewarnHooks/'
 for script_name in ('main.lua', 'timeline-hooks.lua', 'observation-hooks.lua'):
     runtime[hooks_prefix + 'Scripts/' + script_name] = archive_bytes(ROOT / 'hooks-package' / script_name)
 runtime[hooks_prefix + 'enabled.txt'] = b''
+js_version = re.search(r'const VERSION = "([^"]+)";', runtime[scripts_prefix + 'main.js'].decode('utf8'))
+lua_versions = {name: re.search(r'local VERSION = "([^"]+)"',
+    runtime[hooks_prefix + 'Scripts/' + name].decode('utf8'))
+    for name in ('main.lua', 'observation-hooks.lua')}
+if (not js_version or js_version.group(1) != VERSION or
+        any(not match or match.group(1) != VERSION for match in lua_versions.values())):
+    raise SystemExit('Runtime version mismatch: JS, Lua and package version must be identical.')
 frozen = json.loads((ROOT / 'evidence/release2-tested-runtime-hashes.json').read_text(encoding='utf8'))
 runtime_hashes = {name: hashlib.sha256(data).hexdigest() for name, data in runtime.items()}
 matches_baseline = runtime_hashes == frozen

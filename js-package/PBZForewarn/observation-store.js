@@ -263,7 +263,8 @@ function createEvidenceStore(options) {
     const counters = { observed: 0, accepted: 0, evicted: 0, deduplicated: 0, rejected: 0,
         priorityProtectedDrops: 0, oversized: 0, dictionaryDrops: 0, omittedPaths: 0, kindOverflow: 0 };
     const priorities = [0, 1, 2, 3].map(() => ({ accepted: 0, evicted: 0, rejected: 0, count: 0 }));
-    const pathFields = ["worldKey", "player", "actor", "ability", "action", "task", "timeline", "effect", "bullet",
+    const pathFields = ["worldKey", "player", "actor", "ability", "action", "task", "timeline", "previousTimeline", "nextTimeline",
+        "previousAbility", "nextAbility", "effect", "bullet",
         "component", "ownerActorCandidate", "roleActorCandidate", "captureWorld", "boundWorld"];
     const scalarFields = ["id", "eventKey", "attackId", "activation", "clockEpoch", "recordSerial", "handle", "source", "fallbackRule", "reason",
         "phase", "color", "eligible", "typeName", "typeValue", "typeConflict", "hitTimeStatus", "impactVerified",
@@ -276,21 +277,29 @@ function createEvidenceStore(options) {
         "plannedStart", "observedTimelineTime", "estimatedLeadGameSeconds", "soundSubmitted", "generation",
         "authoredStartTime", "triggerTimeOffset", "endTriggerTimeOffset", "deltaTimelineTime", "deltaGameTime", "cause",
         "replacesRecordSerial", "startTimeVerified", "executionVerified", "interpretation", "clockSource", "playerHitCauseVerified",
-        "callbackContextVerified", "callbackContextReason", "timingBasis", "temporalAssociation", "scanned", "truncated", "unreadable", "layers"];
+        "callbackContextVerified", "callbackContextReason", "timingBasis", "temporalAssociation", "scanned", "truncated", "unreadable", "layers",
+        "typed", "timed", "standard", "generic", "ignored", "branchConfirmed", "spellWarningCandidate",
+        "spellPhase", "cueEnabled", "castRule", "castCueId", "castRecordSerial", "mainRecordSerial", "associationBasis"];
     function countKind(kind) {
         if (Object.hasOwn(totals, kind)) { totals[kind]++; return; }
         if (Object.keys(totals).length < 64) { totals[kind] = 1; kinds[kind] = { retained: 0, evicted: 0, deduplicated: 0, rejected: 0 }; }
         else counters.kindOverflow++;
     }
     function priority(kind, event) {
-        if (["warning-cue", "warning-withdrawal", "warning-missed", "missed", "focused-call-summary"].includes(kind)) return 3;
-        if (["task-lifecycle", "native-task-start", "timeline-start"].includes(kind)) {
+        if (["warning-cue", "warning-withdrawal", "warning-suppressed", "warning-missed", "missed", "focused-call-summary"].includes(kind)) return 3;
+        // Preserve every scanned timeline phase, including a mage's Success
+        // branch, even when it has no red/blue type or warning resource.
+        if (kind === "timeline-observer-status") return 2;
+        if (["task-lifecycle", "timeline-branch-transition", "native-task-start", "timeline-start", "timeline-observer-status"].includes(kind)) {
             const ability = typeof event.ability === "string" ? event.ability : "";
             const focus = ability.includes("FeiZei_SpecialAttack_07") || ability.includes("Vessel_Vagrant_RangeAttack_Throw_02") ||
                 (ability.includes("YuCong") && ability.includes("Wuli_Attack_01_B"));
             return focus ? 3 : 2;
         }
         if (["warning-plan", "native-warning-call"].includes(kind)) return 2;
+        if (kind === "attack-plan" && (event.spellWarningCandidate ||
+            event.genericColor && event.genericEvidencePolicy)) return 3;
+        if (kind === "spell-warning-observation") return 3;
         return kind.startsWith("native-frame") || kind === "timeline-call" ? 1 : 0;
     }
     function retainPath(value, refs) {
@@ -409,13 +418,16 @@ function createEvidenceStore(options) {
         // Deduplicate stable plans/status facts only. Never combine cue attempts,
         // callbacks, misses, or lifecycle transitions by their nearby timestamp.
         let key = null;
-        const stable = ["attack-plan", "warning-plan", "timeline-observer-status", "native-observer-status"].includes(event.kind);
+        const stable = ["attack-plan", "warning-plan", "spell-warning-observation", "timeline-observer-status", "native-observer-status",
+            "timeline-branch-transition"].includes(event.kind);
         const hasScope = pathRefs.worldKey && pathRefs.player && pathRefs.actor && pathRefs.ability && pathRefs.task &&
             identity(event.activation) !== null && identity(event.clockEpoch) !== null;
         if (stable && hasScope) {
             const fields = [event.kind, pathRefs, event.clockEpoch, event.activation, event.recordSerial, event.observationRun,
                 event.eventKey, event.attackId, event.handle, event.start, event.end, event.eligible,
-                event.typeName, event.typeValue, event.reason, event.status, event.scanned, event.truncated, event.unreadable, r.attack];
+                event.typeName, event.typeValue, event.reason, event.status, event.scanned, event.truncated, event.unreadable,
+                event.typed, event.timed, event.standard, event.generic, event.ignored,
+                event.phase, event.branchConfirmed, event.spellWarningCandidate, event.spellPhase, event.cueEnabled, r.attack];
             // Missing action/event identity cannot collapse two attack nodes.
             if (!PLAN_KINDS.has(event.kind) || pathRefs.action || identity(event.eventKey) !== null) key = JSON.stringify(fields);
         }

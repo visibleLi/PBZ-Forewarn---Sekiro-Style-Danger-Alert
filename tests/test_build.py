@@ -97,11 +97,11 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         destination = self.root / 'dist'
         self.assertEqual({path.name for path in destination.iterdir()},
-                         {'PBZForewarn-0.6.0-trial.1.zip', 'PACKAGE_CHECK.json'})
-        with zipfile.ZipFile(destination / 'PBZForewarn-0.6.0-trial.1.zip') as archive:
+                         {'PBZForewarn-0.6.0-preview.zip', 'PACKAGE_CHECK.json'})
+        with zipfile.ZipFile(destination / 'PBZForewarn-0.6.0-preview.zip') as archive:
             self.assertEqual({name.split('/')[0] for name in archive.namelist()},
                              {'ProjectPBZ', 'platform', 'README.txt'})
-            self.assertEqual(len(archive.namelist()), 21)
+            self.assertEqual(len(archive.namelist()), 24)
             self.assertIn('中文', archive.read('README.txt').decode('utf-8-sig'))
             self.assertIn('English', archive.read('README.txt').decode('utf-8-sig'))
             self.assertIn(b'durationSeconds: 0.25', archive.read(
@@ -113,12 +113,13 @@ class BuildTests(unittest.TestCase):
         self.record_mock_validation()
         result = self.run_script('package.py', '--source')
         self.assertEqual(result.returncode, 0, result.stderr)
-        with zipfile.ZipFile(self.root / 'dist/PBZForewarn-0.6.0-trial.1-Source.zip') as archive:
+        with zipfile.ZipFile(self.root / 'dist/PBZForewarn-0.6.0-preview-Source.zip') as archive:
             self.assertIn('build_state.py', archive.namelist())
             self.assertIn('tests/test_build.py', archive.namelist())
             self.assertFalse(any(name.lower().endswith(('.wav', '.bnk', '.wem')) for name in archive.namelist()))
             self.assertFalse(any('/generated/' in name for name in archive.namelist()))
             self.assertIn('PBZForewarn.example.txt', archive.namelist())
+            self.assertIn('js-package/tests/fixtures/trial1-generic-attack-evidence.json', archive.namelist())
             self.assertEqual(set(archive.namelist()),
                              {path.relative_to(self.root).as_posix() for path in source_paths(self.root)})
             self.assertFalse(any(name.lower().endswith(('.exe', '.dll', '.pyd', '.log'))
@@ -130,7 +131,7 @@ class BuildTests(unittest.TestCase):
         result = self.run_script('package.py', '--source')
         self.assertEqual(result.returncode, 0, result.stderr)
         with tempfile.TemporaryDirectory(prefix='forewarn-source-') as extracted:
-            with zipfile.ZipFile(self.root / 'dist/PBZForewarn-0.6.0-trial.1-Source.zip') as archive:
+            with zipfile.ZipFile(self.root / 'dist/PBZForewarn-0.6.0-preview-Source.zip') as archive:
                 archive.extractall(extracted)
             source_root = Path(extracted)
             self.assertEqual({path.relative_to(source_root).as_posix() for path in source_paths(source_root)},
@@ -154,6 +155,20 @@ class BuildTests(unittest.TestCase):
         result = self.run_script('package.py')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('changed after validation', result.stderr)
+
+    def test_packaging_rejects_mismatched_js_and_lua_versions(self):
+        self.build()
+        self.record_mock_validation()
+        main = self.root / 'js-package/PBZForewarn/main.js'
+        main.write_text(main.read_text(encoding='utf8').replace(
+            'const VERSION = "0.6.0-preview";',
+            'const VERSION = "0.6.0-trial.1";'), encoding='utf8')
+        report = json.loads((self.root / 'verification/summary.json').read_text(encoding='utf8'))
+        report['validatedInputs'] = validated_inputs(self.root)
+        (self.root / 'verification/summary.json').write_text(json.dumps(report), encoding='utf8')
+        result = self.run_script('package.py')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Runtime version mismatch', result.stderr)
 
     def test_missing_validation_is_rejected(self):
         self.build()

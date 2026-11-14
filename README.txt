@@ -1,11 +1,16 @@
-PBZForewarn 0.6.0-trial.1 — 只狼风格危字与音效提示
+PBZForewarn 0.6.0-preview — 只狼风格危字与音效提示
 
 这版做什么
+0.6.0-preview是0.5基础上的累积功能预览：保留全部普通红蓝黑危，补QiShu_Huo两招和YuZan施法危。
+YuZan特定转圈施法有前置黑色系危和危音效，默认开启。它提示正在施放的危险，不预测你一定被控制。
+实际发出施法危后，若连续观察到左右转圈段和同次Success，后续额外黑危字声收掉；阶段不明时保留原黑危兜底。
+游戏原黑光不变；不全局屏蔽Success或其他BOSS黑危。新增规则不代表全法系已覆盖。
+新增来源严格匹配YuZan角色、Skill_03.Main、动作类和AOE预警资源；未全局开启法术或PowerAttack分类。
 沿用0.5的调度、危字和游戏内Wwise音效，在observe-bounded.2的有界观察基础上，试接QiShu_Huo两条红危补充：火环、突进收招。
 现有日志已读取到这两招的RedEye=3分类与动作计划，旧识别器只认提示资源，因此没有发危。
 新规则同时核对角色、技能、动作类和分类，不全局开启所有RedEye或不可格挡动作。
 标准提示在同一节点优先；同节点从补充转为标准来源时保留去重身份。不同节点不会仅因同色或时间接近而强行合并。
-本trial尚待实机验证；不承诺全招覆盖。原光、原攻击、招架和伤害规则不变。
+QiShu_Huo两条补充已在trial.1实机确认能发危；trial.2新增通用分类只做证据观察，默认不发危。不承诺全招覆盖。
 
 必装前置
 必须安装PBZModLoader和PBZ专用UE4SS。0.5已测组合为PBZModLoader 2.1.0和UE4SS v3.0.1-1195-g1ceefac8。
@@ -16,14 +21,17 @@ PBZ专用UE4SS发行页：https://www.nexusmods.com/phantombladezero/mods/13
 其他加载器发行版本须单独验证，不叠装两套加载器。
 
 安装
-管理器：完全退出游戏，停用旧Forewarn/AlertCue及旧外置音效包，导入PBZForewarn-0.6.0-trial.1.zip，启用主脚本、BNK音效、Hooks全部三部分。
+管理器：完全退出游戏，停用旧Forewarn/AlertCue及旧外置音效包，导入PBZForewarn-0.6.0-preview.zip，启用主脚本、BNK音效、Hooks全部三部分。
 手动：默认前置已装好。把ZIP内ProjectPBZ和platform合并到游戏根目录（能看到这两个文件夹的位置），保留全部文件。
 完全退出后重启，Alt+F9试听危音效；Alt+F5不能代替Lua/音效重载。
 
 配置
 %LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt。保留旧值，缺少新项使用默认值。
 LeadMs=350：数值越大，请求越早；普通来源参照原提示节点，补充来源参照动作计划起点，不是命中点。
-SemanticFallback=1：启用两条QiShu_Huo补充。设0关闭新增规则，保留观察版原提示链路。
+YuZanCastWarning=1：新增YuZan施法提醒并收口已确认后续额外字声；设0恢复两阶段原提示。
+YuZanCastLeadMs=350：独立于LeadMs，目标是在施法AOE资源节点前350ms；不是控制/命中前350ms。
+施法资源是零时长节点，危字到该节点可消失；音尾按现有取消规则处理。旧配置缺这两项时使用默认值。
+SemanticFallback=1：启用两条QiShu_Huo补充。设0关闭两条规则。GenericAttack=0：保留通用观察，不增加危。
 OnlyLockedTarget=0：无锁也提示；1只提醒已确认锁定目标。SoundVolume=0.8：本MOD音量0—2。
 ObserveAttacks=1和Diagnostics=1启用有限只读观察；只记录，不驱动预警决策。
 修改配置后完整重启。此处回退开关不代表逐字节回到0.5；要恢复0.5请移除本版再装发布包。
@@ -37,7 +45,7 @@ Python 3.12、Node.js 24，在仓库根目录运行：
   python audio-bank/build_bank.py
   python verify.py --node <node.exe路径，或PATH里的node>
   python package.py
-安装包输出dist/PBZForewarn-0.6.0-trial.1.zip；默认不打Source。要源码包运行python package.py --source。
+安装包输出dist/PBZForewarn-0.6.0-preview.zip；默认不打Source。要源码包运行python package.py --source。
 安装ZIP只含ProjectPBZ、platform和一份中英README。外置PACKAGE_CHECK.json记录包与运行文件哈希，不需安装。
 源码、文档、音频在验证后有变，必须重跑verify.py。完整流程和分支使用见DEVELOPMENT.md。
 
@@ -45,8 +53,9 @@ Python 3.12、Node.js 24，在仓库根目录运行：
 5个本MOD文件位于Saved：pbzforewarn_diagnostics.json、pbzforewarn_resources.json、pbzforewarn_hooks.json、pbzforewarn_observations.json、pbzforewarn_observer_hooks.json。
 另有游戏根目录下ProjectPBZ/PBZModLoader/loader.log及platform/steam/ue4ss/UE4SS.log。
 新启动/重载会覆盖快照；复现后退出并及时手动复制，附BOSS、动作与大概时间。日志不会自动上传。
-0.5曾在Steam build26367565上完成四BOSS测试；这不能作为本trial新规则已实测的证据。
-尚待核对两招是否发危、声字同步、时机、重复/误报、其他BOSS回归、性能和正常退出。
+0.5完成过四BOSS测试；QiShu_Huo两条规则、YuZan施法提醒及后续收口均已实测。
+QiShu两条补充、YuZan施法提醒和两阶段收口均已实机触发；仍不是全招覆盖。
+YuCong短黑光、部分条件拒绝和已发弹体生命周期仍为已知限制。
 
 卸载
 管理器移除本MOD；手动退出游戏后只删除：

@@ -1,5 +1,7 @@
-# PBZForewarn 0.6.0-trial.1; example only, not automatically installed.
+# PBZForewarn 0.6.0-preview; example only, not automatically installed.
 LeadMs=350
+YuZanCastWarning=1
+YuZanCastLeadMs=350
 RangeCm=3500
 BlackOn=1
 SemanticFallback=1

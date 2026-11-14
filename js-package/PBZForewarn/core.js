@@ -252,7 +252,10 @@ class Scheduler {
                 });
                 continue;
             }
-            const cueAt = Math.max(0, event.start - this.options.leadSeconds * task.rate);
+            // A scoped cast cue has its own configured reference/lead. Ordinary
+            // warning nodes keep the global LeadMs path exactly as before.
+            const lead = finite(event.leadSeconds) ? Math.max(0, Math.min(1, event.leadSeconds)) : this.options.leadSeconds;
+            const cueAt = Math.max(0, event.start - lead * task.rate);
             if (event.eligible !== true || input.time + TIME_EPSILON < cueAt) continue;
 
             state.fired = true;

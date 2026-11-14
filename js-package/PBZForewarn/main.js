@@ -9,20 +9,22 @@ const bankConfig = require("./wwise-bank-config");
 const { createAudioEnvironmentProbe } = require("./audio-environment");
 const { createTargetFilter } = require("./target-filter");
 const { createDiagnosticStore } = require("./diagnostic-store");
-const VERSION = "0.6.0-trial.1";
+const { createCastFollowup } = require("./cast-followup");
+const VERSION = "0.6.0-preview";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
-    Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, SemanticFallback: true,
+    Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, SemanticFallback: true, GenericAttack: false,
+    YuZanCastWarning: true, YuZanCastLeadMs: 350,
     OnlyLockedTarget: false, SoundOn: true, SoundVolume: 0.8,
     FontPath: "/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font" };
-const TEMPLATE = "# PBZForewarn 0.6.0-trial.1; restart game after changes\n" +
+const TEMPLATE = "# PBZForewarn 0.6.0-preview; restart game after changes\n" +
     "# Extra cue lead in GAME seconds (ms input); original warning is unchanged.\n" +
-    "LeadMs=350\nRangeCm=3500\nBlackOn=1\nSemanticFallback=1\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\n";
+    "LeadMs=350\nYuZanCastWarning=1\nYuZanCastLeadMs=350\nRangeCm=3500\nBlackOn=1\nSemanticFallback=1\nGenericAttack=0\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\n";
 let state = null;
 function log(kind, data) { console.log("[PBZMOD] [Forewarn] " + kind + " " + JSON.stringify(data)); }
 function parseSettings(text) {
     const result = { ...DEFAULTS };
-    const bounds = { LeadMs: [0, 1000], RangeCm: [500, 10000], TickMs: [16, 100], DiscoverMs: [16, 250], ScanMs: [100, 1000],
+    const bounds = { LeadMs: [0, 1000], YuZanCastLeadMs: [0, 1000], RangeCm: [500, 10000], TickMs: [16, 100], DiscoverMs: [16, 250], ScanMs: [100, 1000],
         LateGraceMs: [0, 250], MaxGlyphMs: [100, 3000], GlyphFontSize: [30, 240], GlyphY: [0.1, 0.8], SoundVolume: [0, 2] };
     for (const line of text.split(/\r?\n/)) {
         const m = /^\s*([A-Za-z]+)\s*=\s*([^#;\r\n]+?)\s*$/.exec(line);
@@ -40,7 +42,7 @@ function start() {
     const s = { session, stopped: false, ticking: false, seq: 0, events: [], audioEvents: [], once: new Map(),
         actors: [], hintedActors: new Map(), records: new Map(), lastDiscovery: 0, lastScan: 0, lastReport: 0,
         worldKey: "", nextRecord: 0, hooksSession: "", hooksSeq: 0, hooksAlive: false, hookHealth: null, lastHookRead: 0,
-        paused: true, stats: { cues: 0, fallbackCues: 0, cancels: 0, duplicateCancelsSuppressed: 0, missed: 0, conditionsNotMet: 0,
+        paused: true, stats: { cues: 0, fallbackCues: 0, castCues: 0, followupSuppressed: 0, cancels: 0, duplicateCancelsSuppressed: 0, missed: 0, conditionsNotMet: 0,
             previewOnlySkipped: 0, recognized: 0, tasks: 0, hooks: 0, errors: 0 },
         lastTickWall: 0, maxTickGap: 0, lastLongTick: 0, gameNow: 0, naturalCompletions: new Set(),
         targetStatus: null, previewDown: true, previewSerial: 0,
@@ -53,6 +55,17 @@ function start() {
         flushStats: { writes: 0, catalogWrites: 0, observationWrites: 0, observationWriteFailures: 0,
             lastChars: 0, maxWriteMs: 0, maxSerializeMs: 0, maxObservationWriteMs: 0, maxObservationSerializeMs: 0 } };
     s.diagnostics = createDiagnosticStore({ now: () => Date.now() });
+    s.castFollowup = createCastFollowup();
+    s.pendingCastDelivery = new Map();
+    function acceptCastDelivery(id) {
+        const pending = s.pendingCastDelivery.get(id);
+        if (!pending) return;
+        s.castFollowup.recordCue(pending, id); s.pendingCastDelivery.delete(id);
+    }
+    function followupContext(r, live) {
+        return { world: s.worldKey + "|" + s.clockEpoch, actor: a.path(r.actor), ability: a.path(r.ability),
+            timeline: r.timelineKey, key: r.key, serial: r.serial, activation: String(r.activation), live };
+    }
     function shortPath(value) { return typeof value === "string" ? value.slice(value.lastIndexOf(".") + 1) : value; }
     function canonical(value) { return typeof value === "string" ? value.replace(/_C_\d+/g, "_C") : ""; }
     function templateKey(r) { return shortPath(canonical(a.path(r.ability))) + "|" + a.path(r.timeline).slice(a.path(r.timeline).lastIndexOf(".") + 1); }
@@ -79,7 +92,8 @@ function start() {
             action: shortPath(item.action), actionClass: item.actionClass, effect: item.effect, color: item.color,
             start: item.start, end: item.end, roleName: item.roleName, recognition: item.recognition || null,
             requirements: evidence ? { requireTags: evidence.requireTags, ignoreTags: evidence.ignoreTags, tagQuery: evidence.tagQuery } : null,
-            attackSemantics: item.attackSemantics || null, semanticFallback: item.semanticFallback || null, reason: item.reason,
+            attackSemantics: item.attackSemantics || null, semanticFallback: item.semanticFallback || null,
+            castWarning: item.castWarning || null, reason: item.reason,
             detailLevel: item.requirementsEvidence || item.attackSemantics ? "full" : "compact" };
     }
     function compactEvent(data) {
@@ -93,6 +107,12 @@ function start() {
                 result.fallbackRule = data.meta.semanticFallback.ruleId;
                 result.timingBasis = data.meta.semanticFallback.timingBasis;
             }
+            if (data.meta.castWarning) {
+                result.source = "cast-warning";
+                result.castRule = data.meta.castWarning.ruleId;
+                result.spellPhase = "cast";
+                result.timingBasis = data.meta.castWarning.timingBasis;
+            }
         }
         if (result.taskKey) { const parts = result.taskKey.split("|"); result.task = shortPath(parts[parts.length - 1]); delete result.taskKey; }
         if (result.timelineKey) { result.timeline = shortPath(result.timelineKey); delete result.timelineKey; }
@@ -103,6 +123,7 @@ function start() {
         return result;
     }
     function diagnostic(kind, data, onceKey) {
+        if (kind === "sound-play" && data && data.playingId) acceptCastDelivery(data.id);
         if (onceKey) {
             const previous = s.once.get(onceKey);
             if (previous && Date.now() - previous < 10000) return;
@@ -113,7 +134,7 @@ function start() {
         if (!["inventory", "eligibility", "task-found", "hook-hint", "rate-jump", "active-ability-no-timeline", "timeline-coverage"].includes(kind)) log(kind, data);
     }
     const a = createAdapter(UE, puerts, (k, d) => diagnostic(k, d, k + JSON.stringify(d)),
-        { semanticFallback: false });
+        { semanticFallback: false, genericAttack: false });
     s.a = a;
     function readText(file) {
         const out = puerts.$ref(""); const result = UE.EasyCsv.LoadStringFromLocalFile(file, out);
@@ -129,6 +150,8 @@ function start() {
     const configPath = saved + "PBZForewarn.txt";
     s.settings = parseSettings(a.safe(() => readText(configPath), ""));
     a.configureSemanticFallback(s.settings.SemanticFallback === true);
+    a.configureGenericAttack(s.settings.GenericAttack === true);
+    a.configureCastWarning(s.settings.YuZanCastWarning === true, s.settings.YuZanCastLeadMs / 1000);
     s.diagnostics = createDiagnosticStore({ enabled: s.settings.Diagnostics, now: () => Date.now() });
     const requestedObserving = s.settings.Diagnostics && s.settings.ObserveAttacks;
     let observing = false, createNativeAttackObserver = null, captureTimelineActions = null;
@@ -206,6 +229,21 @@ function start() {
                 startTimeVerified: false, interpretation: "first-discovery-is-not-proof-of-task-start" });
         } catch (_) { s.observationFaults++; }
     }
+    function observeBranchTransition(r, previous, current, now) {
+        if (!observing || !previous || !current || previous === current || !/\.Success$/i.test(current)) return;
+        try {
+            const previousAbility = a.path(r.ability);
+            const nextAbility = a.path(a.safe(() => r.task.Ability, null)) || previousAbility;
+            observe("timeline-branch-transition", {
+                ...taskObservationContext(r), actor: a.path(r.actor), ability: a.path(r.ability),
+                activation: r.activation, task: a.path(r.task), previousTimeline: previous,
+                nextTimeline: current, phase: "main-to-success", recordSerial: r.serial,
+                transitionObservedWallTime: now, branchConfirmed: false,
+                previousAbility, nextAbility,
+                interpretation: "observed-timeline-switch-not-proof-of-successful-hit"
+            });
+        } catch (_) { s.observationFaults++; }
+    }
     function observeTaskProgress(r, current) {
         if (!observing || !Number.isFinite(current) || !r.observationLifecycle) return;
         try {
@@ -238,6 +276,10 @@ function start() {
     function inputKey(name) { return a.safe(() => { const key = new UE.Key(); key.KeyName = name; return key; }, null); }
     const previewKey = inputKey("F9"), previewAltKeys = [inputKey("LeftAlt"), inputKey("RightAlt")];
     function emit(kind, event) {
+        if (kind === "reset") { s.castFollowup.clear(); s.pendingCastDelivery.clear(); }
+        if (kind === "cancel" && event && event.id) {
+            s.castFollowup.withdrawCue(event.id); s.pendingCastDelivery.delete(event.id);
+        }
         if (kind === "cancel" && event && event.id) {
             if (s.cancelledIds.has(event.id)) { s.stats.duplicateCancelsSuppressed++; return; }
             s.cancelledIds.add(event.id);
@@ -254,6 +296,7 @@ function start() {
         if (kind === "cue") {
             const role = event.meta && event.meta.roleName;
             const semanticFallback = event.meta && event.meta.semanticFallback;
+            const castWarning = event.meta && event.meta.castWarning;
             observe("warning-cue", { ...taskObservationContext(s.records.get(event.taskKey)), id: event.id, actor: role ? null : event.meta && event.meta.actor,
                 ability: role ? null : event.meta && event.meta.ability, activation: role ? null : event.activation,
                 ownerActorCandidate: event.meta && event.meta.actor, roleActorCandidate: event.meta && event.meta.roleActor,
@@ -261,9 +304,10 @@ function start() {
                 action: event.meta && event.meta.action, eventKey: event.eventKey,
                 color: event.color, plannedStart: event.start, observedTimelineTime: event.observedTime,
                 observedRate: event.observedRate, estimatedLeadGameSeconds: event.actualLeadGameSeconds,
-                soundSubmitted: false, source: semanticFallback ? "semantic-fallback" : "existing-0.5-scheduler",
+                soundSubmitted: false, source: castWarning ? "cast-warning" : semanticFallback ? "semantic-fallback" : "existing-0.5-scheduler",
+                castRule: castWarning ? castWarning.ruleId : null, spellPhase: castWarning ? "cast" : null,
                 fallbackRule: semanticFallback ? semanticFallback.ruleId : null,
-                timingBasis: semanticFallback ? semanticFallback.timingBasis : "original-warning-node",
+                timingBasis: castWarning ? castWarning.timingBasis : semanticFallback ? semanticFallback.timingBasis : "original-warning-node",
                 executionVerified: false, usedForScheduling: true });
             if (s.settings.Diagnostics && event.meta) {
                 const id = resourceId(event.meta);
@@ -272,11 +316,14 @@ function start() {
             }
             const r = s.records.get(event.taskKey);
             if (r) {
+                if (castWarning && s.settings.YuZanCastWarning && (s.settings.GlyphOn || s.settings.SoundOn))
+                    s.pendingCastDelivery.set(event.id, followupContext(r, true));
                 r.audioIds.add(event.id); if (event.eventKey) r.audioByEvent.set(event.eventKey, event.id);
                 if (r.audioIds.size > 256) r.audioIds.delete(r.audioIds.values().next().value);
             }
             s.stats.cues++; diagnostic("CUE", { seq: entry.seq, ...compactEvent(event) });
             if (event.meta && event.meta.semanticFallback) s.stats.fallbackCues++;
+            if (castWarning) s.stats.castCues++;
         }
         if (kind === "cancel") {
             observe("warning-withdrawal", { ...taskObservationContext(s.records.get(event.taskKey)), id: event.id, reason: event.reason,
@@ -318,8 +365,9 @@ function start() {
                     const begin = Date.now(), snapshot = s.observations.snapshot();
                     const observationReport = { version: VERSION, session, at: now, ...snapshot,
                         faults: s.observationFaults,
-                        sampling: { maxTimelineTasksPerTick: 1, maxAttackNodesPerTask: 128,
-                            deferredTaskSamples: s.observationTasksDeferred, minimumTaskSampleMs: 200 },
+                        sampling: { maxTimelineTasksPerTick: 4, maxAttackNodesPerTask: 128,
+                            deferredTaskSamples: s.observationTasksDeferred, minimumTaskSampleMs: 200,
+                            fairRotationByRecord: true },
                         hookImport: { session: s.observationHooksSession, lastSeq: s.observationHooksSeq,
                             rejectedRows: s.observationHookRowsRejected, importIntervalMs: 250,
                             health: s.observationHookHealth, focus: s.observationHookFocus },
@@ -398,6 +446,8 @@ function start() {
         record.naturalAudioIds.clear();
     }
     function clearRecords(reason = "context-reset") {
+        s.castFollowup.clear();
+        s.pendingCastDelivery.clear();
         for (const r of s.records.values()) { observeTask(r, "observation-boundary", { reason, dangerEndedVerified: false }); detach(r); }
         s.records.clear(); s.naturalCompletions.clear();
     }
@@ -469,6 +519,7 @@ function start() {
         if (r && (r.task !== task || r.activation !== activation || r.timelineKey !== timelineKey)) {
             replacedSerial = r.serial;
             observeTask(r, "record-replaced", { nextActivation: activation, nextTimeline: timelineKey, dangerEndedVerified: false });
+            observeBranchTransition(r, r.timelineKey, timelineKey, now);
             cancelRecordAudio(r, "task-generation-changed"); detach(r); s.records.delete(key); r = null;
         }
         if (!r) {
@@ -538,6 +589,14 @@ function start() {
         }
         for (const [key, r] of s.records) {
             r.present = r.stamp === stamp || (r.witnessed && !r.ended && now - r.lastProgress <= 1000);
+        }
+        // Reconcile before retiring old task records: a stage handoff must be
+        // witnessed while both records are still available, never reconstructed
+        // later from two close timestamps or a global cooldown.
+        s.castFollowup.update([...s.records.values()].map(r => followupContext(r,
+            r.present && !r.ended && a.valid(r.task) && a.valid(r.ability) &&
+            a.safe(() => r.ability.bIsActive, false) && !a.safe(() => r.ability.bIsAbilityEnding, true))));
+        for (const [key, r] of s.records) {
             if (!r.present && r.witnessed) diagnostic("native-task-stalled", { task: a.path(r.task) }, "stalled:" + r.key);
             // A temporarily unreadable/out-of-range live task keeps its history.
             // Only confirmed ending/invalid objects remove this generation.
@@ -592,6 +651,18 @@ function start() {
                     if (r.observedPlans.get(key) !== signature) {
                         r.observedPlans.set(key, signature); observe("attack-plan", candidate);
                     }
+                    if (candidate.spellWarningCandidate) {
+                        const spellKey = "spell:" + candidate.spellWarningCandidate + "|" + candidate.spellPhase;
+                        if (r.observedPlans.get(spellKey) !== candidate.eventKey) {
+                            r.observedPlans.set(spellKey, candidate.eventKey);
+                            observe("spell-warning-observation", {
+                                ...candidate,
+                                eventKey: candidate.spellWarningCandidate + "|" + candidate.eventKey,
+                                spellPhase: candidate.spellPhase, cueEnabled: false,
+                                interpretation: "spell-warning-resource-candidate-not-confirmed-danger-cue"
+                            });
+                        }
+                    }
                 }
                 const captureKey = JSON.stringify(candidates.status);
                 if (r.observedCaptureStatus !== captureKey) {
@@ -602,14 +673,16 @@ function start() {
                     const execution = r.contexts.get(event.key);
                     const role = execution && execution.roleName;
                     const semanticFallback = event.meta && event.meta.semanticFallback;
+                    const castWarning = event.meta && event.meta.castWarning;
                     const plan = { ...context, actor: role ? null : context.actor,
                         ability: role ? null : context.ability, activation: role ? null : context.activation,
                         ownerActorCandidate: context.actor, roleActorCandidate: role ? a.path(execution.actor) : null,
                         action: event.meta.action, eventKey: event.key,
                         color: event.color, start: event.start, end: event.end, eligible: event.eligible,
-                        source: semanticFallback ? "semantic-fallback" : "existing-warning-resource",
+                        source: castWarning ? "cast-warning" : semanticFallback ? "semantic-fallback" : "existing-warning-resource",
+                        castRule: castWarning ? castWarning.ruleId : null, spellPhase: castWarning ? "cast" : null,
                         fallbackRule: semanticFallback ? semanticFallback.ruleId : null,
-                        timingBasis: semanticFallback ? semanticFallback.timingBasis : "timeline-warning-event",
+                        timingBasis: castWarning ? castWarning.timingBasis : semanticFallback ? semanticFallback.timingBasis : "timeline-warning-event",
                         executionVerified: false, usedForScheduling: true };
                     const signature = JSON.stringify({ ...plan, taskTimelineTime: null }), key = "warning:" + event.key;
                     if (r.observedPlans.get(key) !== signature) {
@@ -621,13 +694,13 @@ function start() {
     function sampleTimelineObservations(wall) {
         if (!observing) return;
         const records = [...s.records.values()], cursor = s.observationRecordCursor;
-        let sampled = false, deferred = 0;
+        let sampled = 0, deferred = 0;
         for (let offset = 0; offset < records.length; offset++) {
             const index = (cursor + offset) % records.length, r = records[index];
             if (r.ended || !r.present || !a.valid(r.task) || !a.valid(r.ability) || !r.events ||
                 wall - (r.lastObservationSample || 0) < 200) continue;
-            if (sampled) { deferred++; continue; }
-            observeTimelineRecord(r, wall); sampled = true;
+            if (sampled >= 4) { deferred++; continue; }
+            observeTimelineRecord(r, wall); sampled++;
             s.observationRecordCursor = (index + 1) % records.length;
         }
         s.observationTasksDeferred += deferred;
@@ -763,6 +836,7 @@ function start() {
             }
             if (paused !== s.paused) diagnostic("state", { paused });
             s.paused = paused;
+            if (paused) s.castFollowup.clear();
             const targetStatus = s.targetFilter.read(player, s.settings.OnlyLockedTarget);
             if (s.settings.OnlyLockedTarget && s.targetStatus && targetStatus.key !== s.targetStatus.key) emit("reset", { reason: "lock-target-change" });
             s.targetStatus = targetStatus;
@@ -771,6 +845,7 @@ function start() {
             s.gameNow = gameNow;
             const rewind = s.observedGameTime !== null && gameNow < s.observedGameTime - 0.001;
             if (!s.observationContext || s.observationContext.worldKey !== wk || rewind) {
+                s.castFollowup.clear();
                 s.clockEpoch++;
                 for (const record of s.records.values()) record.observedPlans = null;
                 observe("observer-reset", { previousWorldKey: s.observationContext && s.observationContext.worldKey,
@@ -819,12 +894,16 @@ function start() {
                                 UE.FactionUtils.GetFactionRelation(executionActor, player) === UE.ETeamAttitude.Hostile, false);
                             const semanticType = event.meta && event.meta.semanticFallback ?
                                 a.semanticFallbackEligibility(r.checks.get(event.key)) : null;
+                            const castCheck = event.meta && event.meta.castWarning ? a.castWarningEligibility(r.checks.get(event.key), {
+                                actor: a.path(executionActor), ability: a.path(r.ability),
+                                timeline: a.path(a.safe(() => r.task.Timeline, null)) }) : null;
                             const check = context && context.reason ? { eligible: false, reason: context.reason } :
                                 !targetAllowed ? { eligible: false, reason: "not-locked-target" } :
                                 !blackAllowed ? { eligible: false, reason: "black-not-confirmed-hostile" } :
                                 role && (!a.valid(context.actor) || !eligibleActor(context.actor, player)) ?
                                 { eligible: false, reason: "role-not-eligible" } :
                                 semanticType && !semanticType.eligible ? semanticType :
+                                castCheck && !castCheck.eligible ? castCheck :
                                 a.requirements(r.checks.get(event.key), context ? context.asc : r.asc);
                             const audioId = r.audioByEvent.get(event.key);
                             if (audioId && check.eligible && current >= event.end) r.naturalAudioIds.add(audioId);
@@ -846,6 +925,19 @@ function start() {
                                 }
                             }
                             return { ...event, eligible: check.eligible };
+                        }).filter(event => {
+                            const suppression = s.settings.YuZanCastWarning &&
+                                s.castFollowup.suppression({ ...followupContext(r, true),
+                                    timeline: a.path(a.safe(() => r.task.Timeline, null)) }, event);
+                            if (!suppression) return true;
+                            if (!r.followupSuppressed) r.followupSuppressed = new Set();
+                            if (!r.followupSuppressed.has(event.key)) {
+                                r.followupSuppressed.add(event.key); s.stats.followupSuppressed++;
+                                const info = { ...taskObservationContext(r), action: event.meta.action, eventKey: event.key,
+                                    color: event.color, ...suppression, source: "cast-followup-policy", usedForScheduling: false };
+                                diagnostic("followup-suppressed", info); observe("warning-suppressed", info);
+                            }
+                            return false;
                         });
                         samples.push({ key: r.key, activation: r.activation, timelineKey: r.timelineKey, time: current, events: freshEvents });
                     } catch (e) {
@@ -867,10 +959,18 @@ function start() {
             const audioEvents = s.audioEvents.splice(0);
             try { s.audio.update({ world, player, worldKey: wk, paused }, audioEvents); }
             catch (e) { s.audio.dispose(); diagnostic("audio-update-error", { error: String(e) }, "audio-update-error"); }
-            try { s.presentation.update(world, result.active, paused); }
+            try {
+                const rendered = s.presentation.update(world, result.active, paused);
+                // presentation.update proves a HUD render call succeeded for the
+                // active list. Audio is acknowledged separately in diagnostic().
+                if (!paused) for (const active of Array.isArray(rendered) ? rendered : []) acceptCastDelivery(active.id);
+            }
             catch (e) {
                 s.presentation.dispose(); diagnostic("hud-update-error", { error: String(e) }, "hud-update-error");
             }
+            // A failed tick must not leave an old request waiting to be credited
+            // by an unrelated later output. Audio acknowledgements are synchronous.
+            s.pendingCastDelivery.clear();
             if (!paused) {
                 try { profileObservation("timeline-sample", () => sampleTimelineObservations(wall)); }
                 catch (error) { observe("timeline-observer-status", { status: "sampling-failed", error: String(error) }); }

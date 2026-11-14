@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert");
-const { captureTimelineActions } = require("../PBZForewarn/timeline-observation");
+const { captureTimelineActions, spellWarningCandidate } = require("../PBZForewarn/timeline-observation");
 const { createAdapter } = require("../PBZForewarn/adapter");
 let passed = 0;
 function test(name, run) { run(); passed++; console.log("PASS " + name); }
@@ -8,7 +8,10 @@ const arr = values => ({ Num: () => values.length, Get: index => values[index] }
 const safe = (fn, fallback) => { try { return fn(); } catch (_) { return fallback; } };
 const adapter = { safe, valid: x => !!x && x.valid !== false,
     path: x => x && x.path || "", list: x => x ? [...Array(x.Num())].map((_, index) => x.Get(index)) : [],
-    eventTimes: createAdapter({}, {}).eventTimes };
+    eventTimes: createAdapter({}, {}).eventTimes, effectPath: () => ({ path: "", source: "no-NiagaraEffect" }) };
+function effectAdapter(effectPath) {
+    return { ...adapter, effectPath: () => ({ path: effectPath, source: "hard" }) };
+}
 function action(path, props) { return Object.freeze({ path, ...props, GetClass: () => ({ path: "/Class/Attack" }) }); }
 function event(a, props) { return Object.freeze({ Action: a, StartTime: 1, duration: 0.2, ...props }); }
 function timeline(events, layers = []) { return Object.freeze({ path: "/Timeline", Actions: arr(events), RoleLayers: arr(layers) }); }
@@ -61,6 +64,15 @@ test("bounded scans report truncation rather than imply complete coverage", () =
     const r = captureTimelineActions(adapter, t, task, {}, 2);
     assert.equal(r.plans.length, 2); assert.equal(r.status.scanned, 2); assert.equal(r.status.truncated, true);
 });
+test("scan counters explain typed, timed and ignored nodes without claiming retention",()=>{
+    const typed=action("/Typed",{DeflectBulletType:2});
+    const timed=action("/Timed",{PreHitPointDuration:0.3});
+    const ignored=action("/Ignored",{});
+    const r=captureTimelineActions(adapter,timeline([event(typed),event(timed),event(ignored)]),task);
+    assert.equal(r.status.scanned,3);assert.equal(r.status.typed,1);
+    assert.equal(r.status.timed,1);assert.equal(r.status.generic,1);
+    assert.equal(r.status.ignored,1);assert.equal(r.plans.length,2);
+});
 test("invalid times remain null rather than substitute current time", () => {
     const p = captureTimelineActions(adapter, timeline([event(action("/A", { DeflectType: 2 }), { StartTime: NaN })]), task).plans[0];
     assert.equal(p.start, null); assert.equal(p.end, null);
@@ -76,5 +88,35 @@ test("authored event time and trigger offsets remain separate from a late first 
         {firstObservedTimelineTime:3.7155,observationRun:2}).plans[0];
     assert.equal(p.authoredStartTime,2.7526);assert.equal(p.triggerTimeOffset,0.1);assert.equal(p.endTriggerTimeOffset,0.2);
     assert.equal(p.firstObservedTimelineTime,3.7155);assert.equal(p.observationRun,2);assert.equal(p.usedForScheduling,false);
+});
+test("YuZan spell-warning resources are retained as cue-disabled evidence", () => {
+    const cases = [
+        ["/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101",
+            "/Game/Test.GA_YuZan_Skill_03_C_1"],
+        ["/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_Big_101.NS_YuZan_Warning_Big_101",
+            "/Game/Test.GA_YuZan_Skill_03_A_R_Start_C_1"]
+    ];
+    for (const [effectPath, ability] of cases) {
+        const r = captureTimelineActions(effectAdapter(effectPath),
+            timeline([event(action("/Spell"))]), task, { ability });
+        assert.equal(r.plans.length, 1);
+        assert(r.plans[0].spellWarningCandidate);
+        assert.equal(r.plans[0].spellPhase, "cast");
+        assert.equal(r.plans[0].cueEnabled, false);
+        assert.equal(r.plans[0].usedForScheduling, false);
+        assert.equal(r.plans[0].effectPath, effectPath);
+    }
+});
+test("only the two exact YuZan warning paths are spell candidates", () => {
+    assert.equal(spellWarningCandidate("/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101",
+        "/Game/GA_YuZan_Skill_03_C_1").id,
+        "yuzan-warning-aoe-observe");
+    for (const path of [
+        "/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101",
+        "/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.Unrelated",
+        "/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_Blue_101.NS_YuZan_Warning_Blue_101"
+    ]) assert.equal(spellWarningCandidate(path, "/Game/GA_YuZan_Skill_03_C_1"), null);
+    assert.equal(spellWarningCandidate("/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101",
+        "/Game/GA_YuZan_Skill_11_C_1"), null);
 });
 console.log("RESULT " + passed + " timeline observation scenarios passed");

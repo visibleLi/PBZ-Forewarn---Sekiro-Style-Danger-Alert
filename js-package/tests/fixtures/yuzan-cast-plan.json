@@ -1,0 +1,13 @@
+{
+  "scope": "Sanitized live cast plan, not rendered FX or confirmed control. Requirements were not captured for this candidate and must be checked live.",
+  "gameBuild": "26367565",
+  "baseline": "0.6.0-trial.2-observe.6",
+  "actorClass": "BP_Monster_FemaleVessel_YuZan_C",
+  "abilityClass": "GA_YuZan_Skill_03_C",
+  "timeline": "Main",
+  "actionClass": "/SGameCombatSystem/Weapon/Action/GAAction_WeaponParticleFrame.GAAction_WeaponParticleFrame_C",
+  "effectPath": "/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101",
+  "start": 0.7387645244598389,
+  "end": 0.7387645244598389,
+  "requirementsCaptured": false
+}
