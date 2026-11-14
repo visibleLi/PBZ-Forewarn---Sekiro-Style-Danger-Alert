@@ -1,70 +1,62 @@
-PBZForewarn 0.6.0-preview — 只狼风格危字与音效提示
+PBZForewarn 0.6.0-preview / 只狼风格“危”提示
 
-这版做什么
-0.6.0-preview是0.5基础上的累积功能预览：保留全部普通红蓝黑危，补Acolyte Yanru（灭法之法·炎茹）两招和No. 3 Musician Puppet（三号·乐师偶·玉瓒）施法危。
-No. 3 Musician Puppet特定转圈施法有前置黑色系危和危音效，默认开启。它提示正在施放的危险，不预测你一定被控制。
-实际发出施法危后，若连续观察到左右转圈段和同次Success，后续额外黑危字声收掉；阶段不明时保留原黑危兜底。
-游戏原黑光不变；不全局屏蔽Success或其他BOSS黑危。新增规则不代表全法系已覆盖。
-新增来源严格匹配No. 3 Musician Puppet（三号·乐师偶·玉瓒）角色、Skill_03.Main、动作类和AOE预警资源；未全局开启法术或PowerAttack分类。
-沿用0.5的调度、危字和游戏内Wwise音效，在observe-bounded.2的有界观察基础上，试接Acolyte Yanru（灭法之法·炎茹）两条红危补充：火环、突进收招。
-现有日志已读取到这两招的RedEye=3分类与动作计划，旧识别器只认提示资源，因此没有发危。
-新规则同时核对角色、技能、动作类和分类，不全局开启所有RedEye或不可格挡动作。
-标准提示在同一节点优先；同节点从补充转为标准来源时保留去重身份。不同节点不会仅因同色或时间接近而强行合并。
-Acolyte Yanru两条补充已实机确认能发危；通用分类只做证据观察，默认不发危。不承诺全招覆盖。
+为已支持的红、蓝、黑光攻击显示“危”字和游戏内危音效。
 
-必装前置
-必须安装PBZModLoader和PBZ专用UE4SS。0.5已测组合为PBZModLoader 2.1.0和UE4SS v3.0.1-1195-g1ceefac8。
-推荐使用Phantom Blade Zero - Mod Manager管理前置和本MOD：
-https://www.nexusmods.com/phantombladezero/mods/2
-PBZ专用UE4SS发行页：https://www.nexusmods.com/phantombladezero/mods/13
-已测Loader源码：https://github.com/KintaroModding/phantombladezero_pbzmodloader/releases/tag/v2.1.0
-其他加载器发行版本须单独验证，不叠装两套加载器。
+0.6在0.5基础上增加：
+- 灭法之法·炎茹：火环、突进收招红危。
+- 三号·乐师偶·玉瓒：转圈施法前置黑危和声音。
+
+原有0.5的普通危字、音效、调度、锁定选项和全部行为不变。
+不是全招覆盖，不改变攻击或招架判定。
+
+新增配置
+配置文件：%LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt
+旧配置保留，缺少新项时使用默认值。修改后完整重启游戏。
+
+SemanticFallback=1
+灭法之法·炎茹的两条补充危。设为0关闭。
+
+YuZanCastWarning=1
+三号·乐师偶·玉瓒的转圈施法前置危。设为0关闭。
+
+YuZanCastLeadMs=350
+三号·乐师偶·玉瓒施法危的独立提前量，数值越大越早。
+它参照施法资源节点，不是命中时间。
 
 安装
-管理器：完全退出游戏，停用旧Forewarn/AlertCue及旧外置音效包，导入PBZForewarn-0.6.0-preview.zip，启用主脚本、BNK音效、Hooks全部三部分。
-手动：默认前置已装好。把ZIP内ProjectPBZ和platform合并到游戏根目录（能看到这两个文件夹的位置），保留全部文件。
-完全退出后重启，Alt+F9试听危音效；Alt+F5不能代替Lua/音效重载。
+前置必须安装PBZModLoader和PBZ专用UE4SS。
+推荐使用Phantom Blade Zero - Mod Manager：
+https://www.nexusmods.com/phantombladezero/mods/2
 
-配置
-%LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt。保留旧值，缺少新项使用默认值。
-LeadMs=350：数值越大，请求越早；普通来源参照原提示节点，补充来源参照动作计划起点，不是命中点。
-YuZanCastWarning=1：开启No. 3 Musician Puppet（三号·乐师偶·玉瓒）施法提醒；设0恢复原有提示。
-YuZanCastLeadMs=350：独立于LeadMs，目标是在施法AOE资源节点前350ms；不是控制/命中前350ms。
-施法资源是零时长节点，危字到该节点可消失；音尾按现有取消规则处理。旧配置缺这两项时使用默认值。
-SemanticFallback=1：启用Acolyte Yanru（灭法之法·炎茹）两条补充。设0关闭两条规则。GenericAttack=0：保留通用观察，不增加危。
-OnlyLockedTarget=0：无锁也提示；1只提醒已确认锁定目标。SoundVolume=0.8：本MOD音量0—2。
-ObserveAttacks=1和Diagnostics=1启用有限只读观察；只记录，不驱动预警决策。
-修改配置后完整重启。此处回退开关不代表逐字节回到0.5；要恢复0.5请移除本版再装发布包。
+管理器安装：
+完全退出游戏，停用旧Forewarn/AlertCue和旧外置音效，导入
+PBZForewarn-0.6.0-preview.zip，启用脚本、BNK音效和Hooks三部分。
+
+手动安装：
+默认PBZModLoader和UE4SS已经装好。把包内ProjectPBZ和platform
+合并到游戏根目录，保留全部文件。完整重启；Alt+F9试听危音效。
+
+卸载
+管理器用户直接移除此MOD。手动用户退出游戏后只删除：
+ProjectPBZ\PBZModLoader\mods\PBZForewarn
+ProjectPBZ\Content\PBZForewarn
+platform\steam\ue4ss\Mods\PBZForewarnHooks
 
 源码构建
-Git和Source ZIP均不含WAV、BNK或WEM。自备有权使用的音源放到：js-package/PBZForewarn/cue.wav。
-格式：44100Hz、双声道、16bit未压缩PCM WAV，0.01—30秒。
-原0.5音源自动去掉已验证的开头80ms近静音；其他音源默认不裁剪。SHA256只作原音源识别，不锁定自备音频。
+仓库和Source ZIP不含WAV、BNK或WEM。构建前自备有权使用的
+js-package/PBZForewarn/cue.wav：44100Hz、双声道、16bit PCM，
+时长0.01—30秒。
+
 Python 3.12、Node.js 24，在仓库根目录运行：
   python -m pip install --target hooks-package/tests/lib -r requirements-test.txt
   python audio-bank/build_bank.py
-  python verify.py --node <node.exe路径，或PATH里的node>
+  python verify.py --node <node.exe路径>
   python package.py
-安装包输出dist/PBZForewarn-0.6.0-preview.zip；默认不打Source。要源码包运行python package.py --source。
-安装ZIP只含ProjectPBZ、platform和一份中英README。外置PACKAGE_CHECK.json记录包与运行文件哈希，不需安装。
-源码、文档、音频在验证后有变，必须重跑verify.py。完整流程和分支使用见DEVELOPMENT.md。
 
-日志与测试
-5个本MOD文件位于Saved：pbzforewarn_diagnostics.json、pbzforewarn_resources.json、pbzforewarn_hooks.json、pbzforewarn_observations.json、pbzforewarn_observer_hooks.json。
-另有游戏根目录下ProjectPBZ/PBZModLoader/loader.log及platform/steam/ue4ss/UE4SS.log。
-新启动/重载会覆盖快照；复现后退出并及时手动复制，附BOSS、动作与大概时间。日志不会自动上传。
-0.5完成过四BOSS测试；Acolyte Yanru两条规则、No. 3 Musician Puppet施法提醒及后续收口均已实测。
-两个BOSS的补充均已实机触发；仍不是全招覆盖。
-YuCong短黑光、部分条件拒绝和已发弹体生命周期仍为已知限制。
-
-卸载
-管理器移除本MOD；手动退出游戏后只删除：
-  ProjectPBZ/PBZModLoader/mods/PBZForewarn
-  ProjectPBZ/Content/PBZForewarn
-  platform/steam/ue4ss/Mods/PBZForewarnHooks
-保留共用加载器、Saved和存档。避免同时使用另一套额外危字或提前预警。
+安装包输出到dist。需要源码包时运行python package.py --source。
+源码、文档或音频在验证后改变，必须重跑verify.py。
 
 来源
-“危”形式参考《只狼：影逝二度》，用PBZ字体绘制，未导入只狼UI动画。此处安装包沿用0.5的只狼危音效。
-素材权利归原权利人；源码包不附素材，构建者自行处理音源权利。感谢加载器与管理器作者。
-使用AI辅助分析、编码、调试和文档整理。
+“危”形式参考《只狼：影逝二度》，使用PBZ字体绘制。
+安装包沿用0.5的只狼危音效。相关素材权利归原权利人。
+感谢PBZModLoader、UE4SS和Mod Manager作者。
