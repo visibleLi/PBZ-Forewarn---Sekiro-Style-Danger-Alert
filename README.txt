@@ -1,4 +1,4 @@
-PBZForewarn 0.6.0-preview / 只狼风格“危”提示
+PBZForewarn 0.6.1-dev.1 / 只狼风格“危”提示
 
 为已支持的红、蓝、黑光攻击显示“危”字和游戏内危音效。
 
@@ -30,7 +30,7 @@ https://www.nexusmods.com/phantombladezero/mods/2
 
 管理器安装：
 完全退出游戏，停用旧Forewarn/AlertCue和旧外置音效，导入
-PBZForewarn-0.6.0-preview.zip，启用脚本、BNK音效和Hooks三部分。
+PBZForewarn-0.6.1-dev.1.zip，启用脚本、BNK音效和Hooks三部分。
 
 手动安装：
 默认PBZModLoader和UE4SS已经装好。把包内ProjectPBZ和platform

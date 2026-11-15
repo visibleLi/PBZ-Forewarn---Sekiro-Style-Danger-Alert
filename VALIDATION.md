@@ -1,5 +1,20 @@
 # Validation / 自检边界
 
+## 0.6.1-dev.1
+
+Development-only source based on the published `v0.6.0-preview` commit `257b421`.
+It does not include the failed NativeRecovery path from `0.6.1-test.1`.
+The new bounded encounter summary is observation-only and cannot create, delay or
+suppress a cue. It keeps per-actor and per-ability totals after detailed history is
+evicted, including cue colours, missed windows, withdrawals, native observations,
+latest timing/identity facts and explicit overflow.
+
+The complete offline suite passes 653 checks, including 66 observation-store checks
+and 107 runtime integration checks. Replaying the preserved test.1 diagnostics through
+forced detail eviction retained all 124 emitted cues and five `OnlyDodge` past-window
+records across three actors. This proves summary retention only. The five records are
+not confirmed visible misses, and no installer or in-game validation is claimed.
+
 ## 0.6.0-preview
 
 In-game candidate basis: tested trial.4, Steam build 26367565, Windows x64,

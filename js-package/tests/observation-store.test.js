@@ -499,4 +499,44 @@ test("compact facts retain the fields needed to explain late discovery and a see
     assert.equal(records[1].cause,'unknown-seek-rate-or-sampling');assert.equal(records[1].replacesRecordSerial,7);
     assert.equal(records[2].generation,645);assert.equal(records[2].executionVerified,false);
 });
+test("encounter totals survive raw and compact detail eviction",()=>{
+    const s=createObservationStore({maxBytes:1200,maxEvidenceBytes:1800,maxEvidenceDictionaryBytes:900,maxEvidenceRecords:8});
+    const onlyDodge="/Enemy/GA_Luanshi_SpecialAttack_08_OnlyDodge";
+    for(let i=0;i<24;i++)s.record("warning-cue",{...identity,id:"cue-"+i,
+        color:["red","blue","black"][i%3],gameTime:i});
+    for(const generation of [19,39])s.record("warning-missed",{...identity,ability:onlyDodge,
+        color:"black",generation,reason:"past-window",start:0.33798766136169434,end:0.9526950716972351,
+        firstObservedTimelineTime:1.25,taskTimelineTime:1.25,recordSerial:generation+1,executionVerified:false});
+    const result=s.snapshot(),actor=result.encounterSummary.actors[0];
+    assert(result.counters.evicted>0);assert(result.evidence.counters.evicted>0);
+    assert.equal(actor.counts.warningCue,24);assert.equal(actor.counts.warningMissed,2);
+    assert.equal(actor.colors.red,8);assert.equal(actor.colors.blue,8);assert.equal(actor.colors.black,10);
+    const ability=actor.abilities.find(x=>x.ability===onlyDodge);
+    assert.equal(ability.counts.warningMissed,2);
+    assert.equal(ability.colors.black,2);
+    assert.equal(ability.missedReasons["past-window"],2);
+    assert.equal(ability.lastFact.generation,39);
+    assert.equal(ability.lastFact.firstObservedTimelineTime,1.25);
+    assert.equal(ability.lastFact.taskTimelineTime,1.25);
+    assert.equal(ability.lastFact.executionVerified,false);
+    assert.equal(result.encounterSummary.retention.complete,true);
+});
+test("encounter summaries remain bounded and prefer warnings over unrelated churn",()=>{
+    const s=createObservationStore({maxEncounterActors:2,maxEncounterAbilities:1});
+    s.record("task-lifecycle",{...identity,actor:"/Enemy/Noise",ability:"/Ability/Noise",phase:"first-observed"});
+    s.record("warning-cue",{...identity,actor:"/Enemy/Boss",ability:"/Ability/Red",id:"red",color:"red"});
+    s.record("warning-missed",{...identity,actor:"/Enemy/Boss",ability:"/Ability/Black",id:"black",color:"black",reason:"past-window"});
+    s.record("warning-cue",{...identity,actor:"/Enemy/Another",ability:"/Ability/Blue",id:"blue",color:"blue"});
+    const summary=s.snapshot().encounterSummary;
+    assert.equal(summary.actors.length,2);
+    assert(summary.counters.actorsEvicted>0);assert(summary.counters.abilitiesEvicted>0);
+    assert.equal(summary.retention.complete,false);
+    assert(summary.actors.some(x=>x.actor==="/Enemy/Boss"));
+});
+test("disabled observation does not run encounter summaries",()=>{
+    const s=createObservationStore({enabled:false});
+    s.record("warning-cue",{...identity,id:"cue"});
+    const summary=s.snapshot().encounterSummary;
+    assert.equal(summary.counters.observed,0);assert.equal(summary.actors.length,0);
+});
 console.log("RESULT " + passed + " observation store scenarios passed.");

@@ -1,5 +1,14 @@
 # Development journal
 
+## 2026-11-15: clean 0.6.1 encounter-evidence line
+
+- Started `feature/0.6.1` from the published `v0.6.0-preview` commit `257b421`; the failed NativeRecovery experiment remains isolated on `feature/0.6.1-coverage-audit` and is not part of this branch.
+- Route remains PBZModLoader/Puerts plus the existing time-axis cue pipeline. This slice adds an observation-only, bounded per-actor/ability summary after raw events and compact evidence evict; it does not generate, delay or suppress a cue.
+- The summary keeps warning, miss, withdrawal, native-frame and task counts, red/blue/black totals, the latest timing/identity fact, and explicit actor/ability/snapshot overflow.
+- Replayed the preserved test.1 diagnostics through intentionally evicted detail lanes: all 124 emitted cues and all 5 `Luanshi_SpecialAttack_08_OnlyDodge` past-window records remained grouped under three actors. This proves evidence retention, not that those five were player-visible misses.
+- The five `OnlyDodge` records are not a four-task sampling backlog: the preserved run reports `deferredTaskSamples=0`. Each task was first observed at timeline 1.25-1.288 seconds, after its 0.338-0.953 second warning window, with `discoverySource=current`. No safe production rule follows without evidence that this task represents the visible attack.
+- Offline validation passed 653 checks, including 66 observation-store and 107 runtime integration checks. Source is labelled `0.6.1-dev.1`; no installer, push, tag or publication is part of this journal entry.
+
 ## 2026-11-14: trial.3 vertical slice
 
 - Baseline: tested observe.6 installer, SHA256 BA90D93F6AC40AAE3D463B0C1977129BDFCDF148BB714B500E1BB4C943119450. Kept unchanged.

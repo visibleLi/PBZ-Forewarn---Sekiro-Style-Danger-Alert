@@ -483,6 +483,174 @@ function createEvidenceStore(options) {
     return { record, snapshot };
 }
 
+// Keep totals and the latest actionable fact after both detailed lanes evict.
+// This is a third bounded observation lane; it never creates or changes a cue.
+function createEncounterStore(options) {
+    const maxActors = limit(options.maxEncounterActors, 128, 256);
+    const maxAbilities = limit(options.maxEncounterAbilities, 128, 256);
+    const maxBytes = limit(options.maxEncounterBytes, 64 * 1024, 128 * 1024);
+    const actors = new Map();
+    const counters = { observed: 0, attributed: 0, unattributed: 0, actorsEvicted: 0,
+        abilitiesEvicted: 0, namedValuesOmitted: 0, snapshotRowsOmitted: 0 };
+    const scalar = value => value === null || typeof value === "boolean" ||
+        typeof value === "number" && Number.isFinite(value) || typeof value === "string";
+    const known = value => {
+        const result = identity(value);
+        return result === null ? null : result;
+    };
+    function counts() {
+        return { events: 0, warningCue: 0, warningMissed: 0, warningWithdrawal: 0,
+            warningSuppressed: 0, warningPlan: 0, attackPlan: 0, nativeFrame: 0,
+            nativeFrameEnded: 0, nativeWarningCall: 0, taskLifecycle: 0, timelineCall: 0, other: 0 };
+    }
+    function colors() { return { red: 0, blue: 0, black: 0, unknown: 0 }; }
+    function bumpCounts(value, kind) {
+        value.events++;
+        const field = kind === "warning-cue" ? "warningCue" :
+            kind === "warning-missed" || kind === "missed" ? "warningMissed" :
+            kind === "warning-withdrawal" ? "warningWithdrawal" :
+            kind === "warning-suppressed" ? "warningSuppressed" :
+            kind === "warning-plan" ? "warningPlan" :
+            kind === "attack-plan" ? "attackPlan" :
+            kind === "native-frame" ? "nativeFrame" :
+            kind === "native-frame-ended" ? "nativeFrameEnded" :
+            kind === "native-warning-call" ? "nativeWarningCall" :
+            kind === "task-lifecycle" ? "taskLifecycle" :
+            kind === "timeline-call" ? "timelineCall" : "other";
+        value[field]++;
+    }
+    function updateTime(value, event) {
+        if (value.firstSeq === null) value.firstSeq = event.seq;
+        value.lastSeq = event.seq;
+        const wall = known(event.at) ?? known(event.wallTime);
+        if (wall !== null) {
+            if (value.firstWall === null) value.firstWall = Number(wall);
+            value.lastWall = Number(wall);
+        }
+        if (typeof event.gameTime === "number" && event.gameTime >= 0) {
+            if (value.firstGameTime === null) value.firstGameTime = event.gameTime;
+            value.lastGameTime = event.gameTime;
+        }
+    }
+    function updateFact(value, event) {
+        const fact = { seq: event.seq, kind: event.kind };
+        for (const field of ["at", "gameTime", "start", "end", "time", "reason", "color",
+            "typeName", "typeValue", "generation", "eventKey", "attackId", "timeline", "task",
+            "action", "activation", "firstObservedTimelineTime", "taskTimelineTime", "recordSerial",
+            "observationRun", "executionVerified", "usedForScheduling"])
+            if (scalar(event[field])) fact[field] = event[field];
+        value.lastFact = fact;
+    }
+    function updateColors(value, event) {
+        if (!["warning-cue", "warning-missed", "warning-withdrawal", "warning-suppressed"].includes(event.kind)) return;
+        value.colors[["red", "blue", "black"].includes(event.color) ? event.color : "unknown"]++;
+    }
+    function bumpNamed(map, value) {
+        const key = known(value) || "unknown";
+        if (!Object.hasOwn(map, key) && Object.keys(map).length >= 16) {
+            counters.namedValuesOmitted++; return;
+        }
+        map[key] = (map[key] || 0) + 1;
+    }
+    function emptyValue(key, actor) {
+        return { key, actor, counts: counts(), colors: colors(), firstSeq: null, lastSeq: null,
+            firstWall: null, lastWall: null, firstGameTime: null, lastGameTime: null,
+            lastFact: null, score: 0 };
+    }
+    function score(value) {
+        return value.counts.warningCue * 100 + value.counts.warningMissed * 100 +
+            value.counts.warningWithdrawal * 10 + value.counts.warningSuppressed * 10 +
+            value.counts.nativeFrame + value.counts.nativeWarningCall +
+            value.counts.warningPlan + value.counts.attackPlan;
+    }
+    function evictLeastImportant(map, counter) {
+        let victim = null;
+        for (const [key, value] of map)
+            if (!victim || value.score < victim.value.score ||
+                value.score === victim.value.score && value.lastSeq < victim.value.lastSeq)
+                victim = { key, value };
+        if (!victim) return;
+        map.delete(victim.key);
+        counters[counter]++;
+    }
+    function record(event) {
+        counters.observed++;
+        const actor = known(event.actor) ?? known(event.roleActorCandidate) ?? known(event.ownerActorCandidate);
+        if (actor === null) { counters.unattributed++; return; }
+        counters.attributed++;
+        const world = known(event.worldKey) ?? known(event.world) ?? known(event.captureWorld) ?? known(event.boundWorld);
+        const actorKey = JSON.stringify([world, actor]);
+        let summary = actors.get(actorKey);
+        if (!summary) {
+            while (actors.size >= maxActors) evictLeastImportant(actors, "actorsEvicted");
+            summary = { world, value: emptyValue(actorKey, actor), abilities: new Map() };
+            actors.set(actorKey, summary);
+        }
+        updateTime(summary.value, event);
+        bumpCounts(summary.value.counts, event.kind);
+        updateColors(summary.value, event);
+        updateFact(summary.value, event);
+        summary.value.score = score(summary.value);
+        const ability = known(event.ability) ?? known(event.nextAbility);
+        if (ability === null) return;
+        let detail = summary.abilities.get(ability);
+        if (!detail) {
+            while (summary.abilities.size >= maxAbilities) evictLeastImportant(summary.abilities, "abilitiesEvicted");
+            detail = emptyValue(ability, actor);
+            detail.ability = ability;
+            detail.missedReasons = Object.create(null);
+            detail.nativeTypes = Object.create(null);
+            summary.abilities.set(ability, detail);
+        }
+        updateTime(detail, event);
+        bumpCounts(detail.counts, event.kind);
+        updateColors(detail, event);
+        updateFact(detail, event);
+        if (event.kind === "warning-missed" || event.kind === "missed") bumpNamed(detail.missedReasons, event.reason);
+        if (event.kind === "native-frame" || event.kind === "native-frame-ended" || event.kind === "native-warning-call") {
+            bumpNamed(detail.nativeTypes, event.typeName);
+        }
+        detail.score = score(detail);
+    }
+    function publicValue(value) {
+        return { actor: value.actor, ability: value.ability, counts: { ...value.counts }, colors: { ...value.colors },
+            missedReasons: value.missedReasons ? { ...value.missedReasons } : undefined,
+            nativeTypes: value.nativeTypes ? { ...value.nativeTypes } : undefined,
+            firstSeq: value.firstSeq, lastSeq: value.lastSeq, firstWall: value.firstWall, lastWall: value.lastWall,
+            firstGameTime: value.firstGameTime, lastGameTime: value.lastGameTime,
+            lastFact: value.lastFact ? { ...value.lastFact } : null };
+    }
+    function snapshot() {
+        let rows = [...actors.values()].map(summary => ({
+            world: summary.world, actor: summary.value.actor, counts: { ...summary.value.counts },
+            colors: { ...summary.value.colors },
+            firstSeq: summary.value.firstSeq, lastSeq: summary.value.lastSeq,
+            firstWall: summary.value.firstWall, lastWall: summary.value.lastWall,
+            firstGameTime: summary.value.firstGameTime, lastGameTime: summary.value.lastGameTime,
+            lastFact: summary.value.lastFact ? { ...summary.value.lastFact } : null,
+            abilities: [...summary.abilities.values()]
+                .sort((a, b) => (a.firstSeq ?? 0) - (b.firstSeq ?? 0)).map(publicValue),
+            score: summary.value.score
+        }));
+        while (rows.length && utf8Bytes(JSON.stringify(rows.map(x => ({ ...x, score: undefined })))) > maxBytes) {
+            let victim = 0;
+            for (let i = 1; i < rows.length; i++)
+                if (rows[i].score < rows[victim].score ||
+                    rows[i].score === rows[victim].score && rows[i].lastSeq < rows[victim].lastSeq) victim = i;
+            rows.splice(victim, 1); counters.snapshotRowsOmitted++;
+        }
+        rows = rows.map(({ score: _, ...row }) => row).sort((a, b) => (a.firstSeq ?? 0) - (b.firstSeq ?? 0));
+        return { schemaVersion: 1, mode: "bounded-encounter-summary",
+            actors: rows, counters: { ...counters },
+            retention: { count: rows.length, maxActors, maxAbilitiesPerActor: maxAbilities, maxBytes,
+                byteScope: "actors-json-array; metadata-excluded",
+                complete: counters.actorsEvicted === 0 && counters.abilitiesEvicted === 0 &&
+                    counters.snapshotRowsOmitted === 0 && counters.unattributed === 0 },
+            interpretation: "observed totals survive detail eviction; not confirmed hits or a coverage rate" };
+    }
+    return { record, snapshot };
+}
+
 function createObservationStore(options = {}) {
     const enabled = options.enabled !== false;
     const session = typeof options.session === "string" ? options.session.slice(0, 256) : "";
@@ -492,7 +660,7 @@ function createObservationStore(options = {}) {
         maxCorrelationComparisons: limit(options.maxCorrelationComparisons, DEFAULTS.maxCorrelationComparisons, MAXIMUM.maxCorrelationComparisons),
         maxCorrelationRows: limit(options.maxCorrelationRows, DEFAULTS.maxCorrelationRows, MAXIMUM.maxCorrelationRows)
     };
-    const items = [], evidence = createEvidenceStore(options);
+    const items = [], evidence = createEvidenceStore(options), encounters = createEncounterStore(options);
     let bytes = 2, seq = 0;
     const counts = { attempted: 0, accepted: 0, disabled: 0, rejected: 0, sanitizedValues: 0, evicted: 0, oversized: 0 };
     function record(kind, data) {
@@ -510,6 +678,7 @@ function createObservationStore(options = {}) {
         if (issues.length) event.sanitization = Object.freeze(issues.map(x => Object.freeze(x)));
         counts.sanitizedValues += issues.length;
         Object.freeze(event);
+        encounters.record(event);
         evidence.record(event);
         const size = utf8Bytes(JSON.stringify(event));
         if (size + 2 > maxBytes) { counts.oversized++; counts.rejected++; return false; }
@@ -528,7 +697,8 @@ function createObservationStore(options = {}) {
             summary: { kindCounts: kinds, ...links.statuses, planCorrelations: links.planCorrelations,
                 completeHistory: enabled && counts.disabled === 0 && counts.evicted === 0 && counts.rejected === 0,
                 interpretation: "candidate-correlations-only; no coverage rate or confirmed hits" },
-            correlations: links.rows, analysis: links.analysis, evidence: evidence.snapshot() };
+            correlations: links.rows, analysis: links.analysis, evidence: evidence.snapshot(),
+            encounterSummary: encounters.snapshot() };
     }
     return { record, snapshot };
 }

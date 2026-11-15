@@ -463,6 +463,11 @@ test('native observations are persisted but cannot generate an unsupported warni
     assert.equal(e.cues().length,0);assert(report.events.some(x=>x.kind==='native-frame'&&x.typeName==='RedEye'));
     assert(report.events.some(x=>x.kind==='attack-plan'));assert.equal(report.mode,'observe-only');
 });
+test('emitted warning is present in the bounded encounter summary',()=>{
+    const e=fixture();e.tick(0.7);e.mod.stop();const summary=observations(e).encounterSummary;
+    const actor=summary.actors.find(x=>x.actor==='/Enemy');
+    assert(actor);assert.equal(actor.counts.warningCue,1);assert.equal(actor.colors.red,1);
+});
 test('same resource in another activation has another observation identity',()=>{
     const e=fixture();provideNativeFrame(e);e.tick(0.1);
     e.owner.ability.activation++;e.tick(0.1,250);e.mod.stop();
@@ -733,7 +738,7 @@ test('one spell-warning observation is retained per task and phase',()=>{
 test('trial version is identical in START, diagnostics and observation snapshots',()=>{
     const e=fixture();e.tick(0.1);e.mod.stop();
     const start=JSON.parse(e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] START ')).split('START ')[1]);
-    assert.equal(start.version,'0.6.0-preview');
+    assert.equal(start.version,'0.6.1-dev.1');
     assert.equal(observations(e).version,start.version);
     assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).version,start.version);
 });

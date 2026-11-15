@@ -2,8 +2,14 @@
 
 ## Branch and evidence
 
-Develop on `feature/trial2-generic-attacks`. The published `v0.5-preview` tag stays at its existing commit.
-Current release candidate: `0.6.0-preview`, cumulative 0.5 baseline plus tested QiShu and YuZan improvements. See ROADMAP.md and MODLOG.md.
+Develop release fixes on `feature/0.6.1`, branched from `v0.6.0-preview` at `257b421`.
+The published `v0.5-preview` and `v0.6.0-preview` tags stay at their existing commits.
+`feature/0.6.1-coverage-audit` is research-only: it contains the failed NativeRecovery experiment
+and must not be used as a packaging base.
+Current source adds a bounded observation-only encounter summary. It has no player-visible cue
+change and no installer. See ROADMAP.md and MODLOG.md.
+Review status (2026-11-15): the summary and baseline regression are under validation. Do not infer
+coverage from record retention and do not turn an unexplained past-window record into a cue rule.
 The development baseline is `observe-bounded.2`; the first playable candidate is `0.6.0-trial.2-observe.4`;
 `observe.5` added branch-transition and YuZan spell-warning resource evidence without adding a cue.
 `observe.6` deduplicates those spell observations per task and phase; it still does not add a cue.
@@ -29,7 +35,7 @@ python verify.py --node <node-path-or-node-on-PATH>
 python package.py
 ```
 
-The default output is `dist/PBZForewarn-0.6.0-preview.zip`. Add `--source` for the optional source archive.
+The default output is `dist/PBZForewarn-0.6.1-dev.1.zip`. Add `--source` for the optional source archive.
 Use `--output-dir <new-folder>` to collect a candidate separately from older outputs.
 `PACKAGE_CHECK.json` stays outside the installer. Only `ProjectPBZ/`, `platform/` and a bilingual README go to players.
 

@@ -51,7 +51,7 @@ def logs(state):return '\n'.join(state.logs[i] for i in range(1,len(state.logs)+
 t=run();check(t.runs==2 and len(t.loads)==2,'loads legacy hints and independent sibling observation module')
 check(t.loads[1]==r'C:\Games\PBZ\Mods\PBZForewarnHooks\Scripts\timeline-hooks.lua','resolves hook module beside actual entry')
 check('ENTRY_READY' in logs(t),'reports hooks-only startup')
-check('ENTRY_READY version=0.6.0-preview' in logs(t) and 'OBSERVER_READY version=0.6.0-preview' in logs(t),
+check('ENTRY_READY version=0.6.1-dev.1' in logs(t) and 'OBSERVER_READY version=0.6.1-dev.1' in logs(t),
     'entry and optional observer report the trial build identifier')
 check('Wwise' in logs(t) and 'UE Media' not in logs(t),'startup log identifies the current in-game Wwise audio owner')
 t=run('@D:/PBZ mods/Forewarn/Scripts/main.lua');check(t.runs==2,'forward-slash absolute paths supported')
