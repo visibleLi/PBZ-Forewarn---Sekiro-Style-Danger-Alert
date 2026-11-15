@@ -1,6 +1,6 @@
 # Validation / 自检边界
 
-## 0.6.1-dev.3
+## 0.6.1-dev.4
 
 Summary schema 2 enforces the 64 KiB actors-array JSON budget at record time,
 caches actor headers and ability rows, and assembles snapshots without reserializing
@@ -17,8 +17,9 @@ for retained input and 181.94 -> 2.01 ms for pressure on Node 22.15 / this host.
 These are local benchmark results, not measured in-game frame times or proof that
 every logged tick-gap was caused by this module.
 
-LateDodgeRecovery defaults to false; explicitly configured old values are preserved.
-No installed game files or historical ZIPs were modified for this source checkpoint.
+The unproven late-window recovery has been removed. A stale `LateDodgeRecovery`
+line in an existing user file is unknown and ignored. No installed game files or
+historical ZIPs were modified for this source checkpoint.
 
 ## 0.6.1-test.2
 

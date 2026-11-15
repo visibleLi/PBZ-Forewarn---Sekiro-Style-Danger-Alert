@@ -1,4 +1,4 @@
-PBZForewarn 0.6.1-dev.3
+PBZForewarn 0.6.1-dev.4
 
 Shows the “危” glyph and in-game warning sound for supported red, blue and black attacks.
 
@@ -9,9 +9,9 @@ Shows the “危” glyph and in-game warning sound for supported red, blue and 
 All ordinary 0.5 warnings, audio, scheduling, lock options and existing behavior remain unchanged.
 This is not full-move coverage and does not change attacks or parry rules.
 
-0.6.1-dev.3 is development source with no delivered installer:
+0.6.1-dev.4 is development source with no delivered installer:
 - Repairs repeated summary serialization and loss of entire boss summaries at capacity.
-- Unproven late-window recovery defaults to off; ordinary cues use the existing 0.6 path.
+- The unproven late-window recovery has been removed from source.
 
 NEW SETTINGS
 Settings file: %LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt
@@ -27,13 +27,6 @@ YuZanCastLeadMs=350
 Independent lead for that cast warning. Higher values fire earlier.
 It targets the cast resource marker, not impact time.
 
-LateDodgeRecovery=0
-Experimental recovery, disabled by default; no in-game coverage benefit is proven.
-An existing explicit value of 1 still enables it. User configuration is not overwritten.
-
-LateDodgeRecoveryMinRemainingMs=100
-Minimum reported time before the future hit for a recovery cue.
-
 INSTALLATION
 PBZModLoader and PBZ-specific UE4SS are required.
 Recommended Phantom Blade Zero - Mod Manager:
@@ -41,7 +34,7 @@ https://www.nexusmods.com/phantombladezero/mods/2
 
 Manager:
 Close the game, disable older Forewarn/AlertCue and external warning sounds,
-import PBZForewarn-0.6.1-dev.3.zip, and enable scripts, BNK audio and Hooks.
+import PBZForewarn-0.6.1-dev.4.zip, and enable scripts, BNK audio and Hooks.
 
 Manual:
 With PBZModLoader and UE4SS already installed, merge ProjectPBZ and platform

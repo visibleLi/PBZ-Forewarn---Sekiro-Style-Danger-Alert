@@ -10,23 +10,21 @@ const { createAudioEnvironmentProbe } = require("./audio-environment");
 const { createTargetFilter } = require("./target-filter");
 const { createDiagnosticStore } = require("./diagnostic-store");
 const { createCastFollowup } = require("./cast-followup");
-const { createLateWindowRecovery } = require("./late-window-recovery");
-const VERSION = "0.6.1-dev.3";
+const VERSION = "0.6.1-dev.4";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
     Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, SemanticFallback: true, GenericAttack: false,
-    LateDodgeRecovery: false, LateDodgeRecoveryMinRemainingMs: 100,
     YuZanCastWarning: true, YuZanCastLeadMs: 350,
     OnlyLockedTarget: false, SoundOn: true, SoundVolume: 0.8,
     FontPath: "/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font" };
-const TEMPLATE = "# PBZForewarn 0.6.1-dev.3; restart game after changes\n" +
+const TEMPLATE = "# PBZForewarn 0.6.1-dev.4; restart game after changes\n" +
     "# Extra cue lead in GAME seconds (ms input); original warning is unchanged.\n" +
-    "LeadMs=350\nLateDodgeRecovery=0\nLateDodgeRecoveryMinRemainingMs=100\nYuZanCastWarning=1\nYuZanCastLeadMs=350\nRangeCm=3500\nBlackOn=1\nSemanticFallback=1\nGenericAttack=0\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\n";
+    "LeadMs=350\nYuZanCastWarning=1\nYuZanCastLeadMs=350\nRangeCm=3500\nBlackOn=1\nSemanticFallback=1\nGenericAttack=0\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\n";
 let state = null;
 function log(kind, data) { console.log("[PBZMOD] [Forewarn] " + kind + " " + JSON.stringify(data)); }
 function parseSettings(text) {
     const result = { ...DEFAULTS };
-    const bounds = { LeadMs: [0, 1000], LateDodgeRecoveryMinRemainingMs: [0, 2000], YuZanCastLeadMs: [0, 1000],
+    const bounds = { LeadMs: [0, 1000], YuZanCastLeadMs: [0, 1000],
         RangeCm: [500, 10000], TickMs: [16, 100], DiscoverMs: [16, 250], ScanMs: [100, 1000],
         LateGraceMs: [0, 250], MaxGlyphMs: [100, 3000], GlyphFontSize: [30, 240], GlyphY: [0.1, 0.8], SoundVolume: [0, 2] };
     for (const line of text.split(/\r?\n/)) {
@@ -45,7 +43,7 @@ function start() {
     const s = { session, stopped: false, ticking: false, seq: 0, events: [], audioEvents: [], once: new Map(),
         actors: [], hintedActors: new Map(), records: new Map(), lastDiscovery: 0, lastScan: 0, lastReport: 0,
         worldKey: "", nextRecord: 0, hooksSession: "", hooksSeq: 0, hooksAlive: false, hookHealth: null, lastHookRead: 0,
-        paused: true, stats: { cues: 0, fallbackCues: 0, castCues: 0, recoveryCues: 0, followupSuppressed: 0, cancels: 0, duplicateCancelsSuppressed: 0, missed: 0, conditionsNotMet: 0,
+        paused: true, stats: { cues: 0, fallbackCues: 0, castCues: 0, followupSuppressed: 0, cancels: 0, duplicateCancelsSuppressed: 0, missed: 0, conditionsNotMet: 0,
             previewOnlySkipped: 0, recognized: 0, tasks: 0, hooks: 0, errors: 0 },
         lastTickWall: 0, maxTickGap: 0, lastLongTick: 0, gameNow: 0, naturalCompletions: new Set(),
         targetStatus: null, previewDown: true, previewSerial: 0,
@@ -55,7 +53,6 @@ function start() {
         observationFaults: 0, observerImportFailure: "", observationRecordCursor: 0,
         observationTasksDeferred: 0, observationHookRowsRejected: 0, observationLastRaw: "",
         observationProfiles: {}, observationHookHealth: null, observationHookFocus: null, observationFocusSeqs: new Map(),
-        lateRecovery: null,
         flushStats: { writes: 0, catalogWrites: 0, observationWrites: 0, observationWriteFailures: 0,
             lastChars: 0, maxWriteMs: 0, maxSerializeMs: 0, maxObservationWriteMs: 0, maxObservationSerializeMs: 0 } };
     s.diagnostics = createDiagnosticStore({ now: () => Date.now() });
@@ -177,10 +174,6 @@ function start() {
     }
     function observe(kind, data) {
         if (!observing) return;
-        if (s.lateRecovery && kind === "native-frame") {
-            try { s.lateRecovery.recordFrame(data, data.wallTime); }
-            catch (error) { diagnostic("late-recovery-error", { stage: "frame", error: String(error) }, "late-recovery-error:frame"); }
-        }
         try { s.observations.record(kind, { ...(s.observationContext || {}), ...data }); }
         catch (_) { s.observationFaults++; } // optional evidence cannot change cue decisions
     }
@@ -270,8 +263,6 @@ function start() {
             t.previousTimelineTime = current; t.previousGameTime = s.gameNow;
         } catch (_) { s.observationFaults++; }
     }
-    s.lateRecovery = s.settings.LateDodgeRecovery ? createLateWindowRecovery({
-        minRemainingMs: s.settings.LateDodgeRecoveryMinRemainingMs }) : null;
     try { if (observing) s.attackObserver = createNativeAttackObserver(UE, puerts, a, { enabled: true, onRecord: observe }); }
     catch (error) { observe("observer-status", { status: "startup-failed", error: String(error) }); }
     if (!a.safe(() => UE.BlueprintPathsLibrary.FileExists(configPath), true)) {
@@ -307,7 +298,6 @@ function start() {
             const role = event.meta && event.meta.roleName;
             const semanticFallback = event.meta && event.meta.semanticFallback;
             const castWarning = event.meta && event.meta.castWarning;
-            const recovery = event.meta && event.meta.recovery;
             observe("warning-cue", { ...taskObservationContext(s.records.get(event.taskKey)), id: event.id, actor: role ? null : event.meta && event.meta.actor,
                 ability: role ? null : event.meta && event.meta.ability, activation: role ? null : event.activation,
                 ownerActorCandidate: event.meta && event.meta.actor, roleActorCandidate: event.meta && event.meta.roleActor,
@@ -315,14 +305,13 @@ function start() {
                 action: event.meta && event.meta.action, eventKey: event.eventKey,
                 color: event.color, plannedStart: event.start, observedTimelineTime: event.observedTime,
                 observedRate: event.observedRate, estimatedLeadGameSeconds: event.actualLeadGameSeconds,
-                soundSubmitted: false, source: recovery ? "late-window-dodge-recovery" :
-                    castWarning ? "cast-warning" : semanticFallback ? "semantic-fallback" : "existing-0.5-scheduler",
+                soundSubmitted: false, source: castWarning ? "cast-warning" : semanticFallback ? "semantic-fallback" : "existing-0.5-scheduler",
                 castRule: castWarning ? castWarning.ruleId : null, spellPhase: castWarning ? "cast" : null,
                 fallbackRule: semanticFallback ? semanticFallback.ruleId : null,
-                timingBasis: recovery ? event.meta.timingBasis : castWarning ? castWarning.timingBasis :
+                timingBasis: castWarning ? castWarning.timingBasis :
                     semanticFallback ? semanticFallback.timingBasis : "original-warning-node",
                 executionVerified: false, usedForScheduling: true });
-            if (s.settings.Diagnostics && event.meta && !recovery) {
+            if (s.settings.Diagnostics && event.meta) {
                 const id = resourceId(event.meta);
                 if (!s.diagnostics.hasCatalog(id)) s.diagnostics.catalog(resourceDetail(event.meta), id, 2);
                 else s.diagnostics.promote(id, 2);
@@ -337,7 +326,6 @@ function start() {
             s.stats.cues++; diagnostic("CUE", { seq: entry.seq, ...compactEvent(event) });
             if (event.meta && event.meta.semanticFallback) s.stats.fallbackCues++;
             if (castWarning) s.stats.castCues++;
-            if (recovery) s.stats.recoveryCues++;
         }
         if (kind === "cancel") {
             observe("warning-withdrawal", { ...taskObservationContext(s.records.get(event.taskKey)), id: event.id, reason: event.reason,
@@ -365,10 +353,6 @@ function start() {
                     action: data.meta && data.meta.action, color: data.meta && data.meta.color,
                     resourceId: data.meta && data.meta.resourceId,
                     executionVerified: false, interpretation: "past-plan-window-does-not-prove-executed-attack-was-missed" };
-                if (s.lateRecovery) {
-                    try { s.lateRecovery.recordMiss(missed, Date.now()); }
-                    catch (error) { diagnostic("late-recovery-error", { stage: "miss", error: String(error) }, "late-recovery-error:miss"); }
-                }
                 observe("warning-missed", missed);
             }
             if (kind === "missed" && data.reason === "ineligible-through-window") {
@@ -395,8 +379,7 @@ function start() {
                             health: s.observationHookHealth, focus: s.observationHookFocus },
                         profiles: { scope: "observation-wall-clock-steps-not-total-frame-time", steps: s.observationProfiles },
                         native: s.attackObserver ? s.attackObserver.status() : { status: "unavailable" },
-                        lateRecovery: s.lateRecovery ? s.lateRecovery.status() : { enabled: false },
-                        flush: { ...s.flushStats }, interpretation: "read-only observations plus scoped late-window dodge recovery" };
+                        flush: { ...s.flushStats }, interpretation: "read-only observations; cue behavior is unchanged" };
                     const body = JSON.stringify(observationReport), writeBegin = Date.now();
                     s.flushStats.maxObservationSerializeMs = Math.max(s.flushStats.maxObservationSerializeMs, writeBegin - begin);
                     writeText(saved + "pbzforewarn_observations.json", body);
@@ -413,7 +396,7 @@ function start() {
                 paused: s.paused, maxObservedTickGapMs: s.maxTickGap,
                 settings: s.settings, target: s.targetStatus ? { mode: s.targetStatus.mode, key: s.targetStatus.key,
                     status: s.targetStatus.status, reason: s.targetStatus.reason } : null,
-                audio: a.safe(() => s.audio.status(), null), lateRecovery: s.lateRecovery ? s.lateRecovery.status() : { enabled: false },
+                audio: a.safe(() => s.audio.status(), null),
                 outputEvents: s.events,
                 recent: snapshot.recent, activity: snapshot.activity, retention: snapshot.retention,
                 resourceCatalog: { ...snapshot.catalog, file: "pbzforewarn_resources.json" }, flush: { ...s.flushStats } };
@@ -970,15 +953,6 @@ function start() {
                     }
                 }
             }
-            if (s.lateRecovery) {
-                try {
-                    samples.push(...s.lateRecovery.samples({ now: Number(gameNow), wall, paused,
-                        allowActor: actor => !s.settings.OnlyLockedTarget ||
-                            !!(s.targetStatus && s.targetStatus.status === "locked" && s.targetStatus.key === actor) }));
-                } catch (error) {
-                    diagnostic("late-recovery-error", { stage: "samples", error: String(error) }, "late-recovery-error:samples");
-                }
-            }
             const result = s.scheduler.step({ now: Number(gameNow), wall, paused, worldKey: wk, tasks: samples });
             const previewDown = a.valid(pc) && previewKey ? a.safe(() => pc.IsInputKeyDown(previewKey), false) : false;
             const previewAltDown = a.valid(pc) && previewAltKeys.some(key => key && a.safe(() => pc.IsInputKeyDown(key), false));
@@ -1028,7 +1002,7 @@ function start() {
     };
     state = s;
     log("START", { version: VERSION, session, saved, settings: s.settings,
-        architecture: "0.5 cue pipeline + bounded observations + late-window dodge recovery" });
+        architecture: "0.5 cue pipeline + bounded read-only observations" });
     flush(true);
     s.timer = setInterval(tick, s.settings.TickMs);
 }

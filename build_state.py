@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib
 
 
-VERSION = '0.6.1-dev.3'
+VERSION = '0.6.1-dev.4'
 TEST_CASES = (
     ('core', 'js-package/PBZForewarn/core.test.js'),
     ('adapter', 'js-package/tests/adapter.test.js'),
@@ -24,7 +24,6 @@ TEST_CASES = (
     ('generic-attack', 'js-package/tests/generic-attack.test.js'),
     ('cast-warning', 'js-package/tests/cast-warning.test.js'),
     ('cast-followup', 'js-package/tests/cast-followup.test.js'),
-    ('late-window-recovery', 'js-package/tests/late-window-recovery.test.js'),
     ('observation-hooks', 'hooks-package/tests/test_observation.py'),
     ('build', 'tests/test_build.py'),
 )
