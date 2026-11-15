@@ -10,6 +10,8 @@
 - Correction after inspecting the live user file: the user's PBZForewarn.txt still has only 0.5-era keys and no LateDodgeRecovery line, so test.2 enabled the feature through the default rather than an explicit override. The earlier claim that only explicit values could enable it was wrong.
 - dev.4 therefore removes the recovery module, its config keys, tests, diagnostics field and runtime path entirely. A stale line in an old config is now an unknown key and is ignored. No automatic recovery cue can run.
 - Standard cue, glyph, Wwise, cast rules and Lua gameplay hooks remain behaviorally unchanged. Development version is 0.6.1-dev.4, separate from immutable test.2 archives. No publication.
+- Full offline validation for dev.4 passes 658 checks. An independent Source ZIP rebuild produced byte-identical archives; installer SHA256 `83e8132070e9337bddfc9baf0a3bab26a310b89f9bc6decfc563219ecc9fc00c`, 24 runtime files, zero recovery modules.
+- Live-session reading works while PBZ is running: Saved JSON plus loader and UE4SS logs are readable without quitting. The 22:59-23:22 session on test.2 showed 10 further cues across SpearMan_Rider, QinNv, HuaShan and DaTouWaWa; recovery matched zero times again.
 
 ## 2026-11-15: 0.6.1-test.2 new-boss audit
 
