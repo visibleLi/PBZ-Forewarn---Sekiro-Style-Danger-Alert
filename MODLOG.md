@@ -1,5 +1,14 @@
 # Development journal
 
+## 2026-11-15: 0.6.1-test.2 new-boss audit
+
+- Installed runtime was verified against the test ZIP: all 25 files matched; session `mwhlia37-q8iyj0l7`, version `0.6.1-test.2`.
+- New main boss was `GuiChai_Red`: P1 emitted 9 cues (red 8, blue 1, black 0); P2 emitted 18 cues (red 7, blue 3, black 8). The whole 67.4-minute session emitted 53 cues (red 24, blue 21, black 8).
+- The scoped recovery did not fire: 0 `past-window`, 0 matched, 0 recovery cues. This run neither demonstrates a positive recovery benefit nor a duplicate false positive.
+- Five red `GA_GuiChai_Red_P1_GEx_01` nodes required tag `ddsd`, expired while still ineligible, and were followed by the same task's `OnCancelled`. They are correctly excluded, not `past-window` misses.
+- No JS, HUD, Wwise or observation write errors. All 53 requests obtained non-zero PlayingIDs; 18 sounds were stopped and 10 superseded by later cues.
+- Performance remains unresolved: 396 tick-gaps were recorded, including a stable roughly 340-460 ms cadence during the boss fight. Observation steps peaked at 11 ms, and a separate observation serializer reached 524 ms once near session teardown, so these logs do not attribute that cadence to test.2 and do not establish performance acceptance.
+
 ## 2026-11-15: clean 0.6.1 encounter-evidence line
 
 - Started `feature/0.6.1` from the published `v0.6.0-preview` commit `257b421`; the failed NativeRecovery experiment remains isolated on `feature/0.6.1-coverage-audit` and is not part of this branch.
