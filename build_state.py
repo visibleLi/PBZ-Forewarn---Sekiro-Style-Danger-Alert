@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib
 
 
-VERSION = '0.6.1-dev.2'
+VERSION = '0.6.1-test.2'
 TEST_CASES = (
     ('core', 'js-package/PBZForewarn/core.test.js'),
     ('adapter', 'js-package/tests/adapter.test.js'),

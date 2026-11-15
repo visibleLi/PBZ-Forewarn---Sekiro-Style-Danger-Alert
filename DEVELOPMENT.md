@@ -36,7 +36,7 @@ python verify.py --node <node-path-or-node-on-PATH>
 python package.py
 ```
 
-The default output is `dist/PBZForewarn-0.6.1-dev.2.zip`. Add `--source` for the optional source archive.
+The default output is `dist/PBZForewarn-0.6.1-test.2.zip`. Add `--source` for the optional source archive.
 Use `--output-dir <new-folder>` to collect a candidate separately from older outputs.
 `PACKAGE_CHECK.json` stays outside the installer. Only `ProjectPBZ/`, `platform/` and a bilingual README go to players.
 

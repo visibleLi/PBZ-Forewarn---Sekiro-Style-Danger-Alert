@@ -1,4 +1,4 @@
-# PBZForewarn 0.6.1-dev.2; example only, not automatically installed.
+# PBZForewarn 0.6.1-test.2; example only, not automatically installed.
 LeadMs=350
 YuZanCastWarning=1
 YuZanCastLeadMs=350

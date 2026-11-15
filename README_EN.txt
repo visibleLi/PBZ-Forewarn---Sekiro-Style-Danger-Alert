@@ -1,4 +1,4 @@
-PBZForewarn 0.6.1-dev.2
+PBZForewarn 0.6.1-test.2
 
 Shows the “危” glyph and in-game warning sound for supported red, blue and black attacks.
 
@@ -45,7 +45,7 @@ https://www.nexusmods.com/phantombladezero/mods/2
 
 Manager:
 Close the game, disable older Forewarn/AlertCue and external warning sounds,
-import PBZForewarn-0.6.1-dev.2.zip, and enable scripts, BNK audio and Hooks.
+import PBZForewarn-0.6.1-test.2.zip, and enable scripts, BNK audio and Hooks.
 
 Manual:
 With PBZModLoader and UE4SS already installed, merge ProjectPBZ and platform

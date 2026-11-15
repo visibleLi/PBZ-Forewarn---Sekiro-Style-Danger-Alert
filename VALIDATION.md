@@ -1,6 +1,6 @@
 # Validation / 自检边界
 
-## 0.6.1-dev.2
+## 0.6.1-test.2
 
 Development-only source based on the published `v0.6.0-preview` commit `257b421`.
 It does not include the failed NativeRecovery path from `0.6.1-test.1`.
