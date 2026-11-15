@@ -1,4 +1,4 @@
-PBZForewarn 0.6.1-dev.1 / 只狼风格“危”提示
+PBZForewarn 0.6.1-dev.2 / 只狼风格“危”提示
 
 中文
 为已支持的红、蓝、黑光攻击显示“危”字和游戏内危音效。
@@ -9,6 +9,11 @@ PBZForewarn 0.6.1-dev.1 / 只狼风格“危”提示
 
 原有0.5的普通危字、音效、调度、锁定选项和全部行为不变。
 不是全招覆盖，不改变攻击或招架判定。
+
+0.6.1开发测试增加：普通时间轴预警已经错过，但游戏随后送来同一敌人、
+技能、激活、时间轴和动作的“只能闪避”来招帧时，补一次当刻危。
+只匹配已经确认过期的预警，不按名字猜。这不是提前350ms的保证；
+未来命中时间必须至少还剩100ms。
 
 新增配置：
 SemanticFallback=1
@@ -21,6 +26,13 @@ YuZanCastLeadMs=350
 三号·乐师偶·玉瓒施法危的独立提前量，数值越大越早。
 它参照施法资源节点，不是命中时间。
 
+LateDodgeRecovery=1
+已错过时间轴预警＋后续只能闪避来招帧的保守补危。
+需要ObserveAttacks和Diagnostics同时开启。设为0关闭。
+
+LateDodgeRecoveryMinRemainingMs=100
+补危至少要求距离游戏给出的未来命中时间还有多少毫秒。
+
 配置位置：%LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt
 旧配置保留，缺少新项时使用默认值。修改后完整重启游戏。
 
@@ -30,7 +42,7 @@ https://www.nexusmods.com/phantombladezero/mods/2
 
 安装：
 完全退出游戏，停用旧Forewarn/AlertCue和旧外置音效，导入
-PBZForewarn-0.6.1-dev.1.zip，启用脚本、BNK音效和Hooks三部分。
+PBZForewarn-0.6.1-dev.2.zip，启用脚本、BNK音效和Hooks三部分。
 
 手动安装：
 默认PBZModLoader和UE4SS已经装好。把包内ProjectPBZ和platform
@@ -52,6 +64,12 @@ Shows the “危” glyph and in-game warning sound for supported red, blue and 
 All ordinary 0.5 warnings, audio, scheduling, lock options and existing behavior remain unchanged.
 This is not full-move coverage and does not change attacks or parry rules.
 
+The 0.6.1 development test adds one conservative recovery: a cue is issued only
+when an ordinary warning was already missed and the game later supplies a
+dodge-only frame for the same enemy, ability, activation, timeline and action.
+It does not guess from names, does not guarantee 350 ms of lead, and requires at
+least 100 ms before the game-reported future hit time.
+
 New settings:
 SemanticFallback=1
 Acolyte Yanru's two supplementary warnings. Set to 0 to disable.
@@ -63,6 +81,13 @@ YuZanCastLeadMs=350
 Independent lead for that cast warning. Higher values fire earlier.
 It targets the cast resource marker, not impact time.
 
+LateDodgeRecovery=1
+Enables the conservative recovery. ObserveAttacks and Diagnostics are required.
+Set to 0 to disable.
+
+LateDodgeRecoveryMinRemainingMs=100
+Minimum reported time before the future hit for a recovery cue.
+
 Settings: %LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt
 Existing values are kept; missing keys use defaults. Fully restart after changes.
 
@@ -72,7 +97,7 @@ https://www.nexusmods.com/phantombladezero/mods/2
 
 Install:
 Close the game, disable older Forewarn/AlertCue and external warning sounds,
-import PBZForewarn-0.6.1-dev.1.zip, and enable scripts, BNK audio and Hooks.
+import PBZForewarn-0.6.1-dev.2.zip, and enable scripts, BNK audio and Hooks.
 
 Manual install:
 With PBZModLoader and UE4SS already installed, merge ProjectPBZ and platform

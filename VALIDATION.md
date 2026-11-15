@@ -1,19 +1,28 @@
 # Validation / 自检边界
 
-## 0.6.1-dev.1
+## 0.6.1-dev.2
 
 Development-only source based on the published `v0.6.0-preview` commit `257b421`.
 It does not include the failed NativeRecovery path from `0.6.1-test.1`.
-The new bounded encounter summary is observation-only and cannot create, delay or
-suppress a cue. It keeps per-actor and per-ability totals after detailed history is
-evicted, including cue colours, missed windows, withdrawals, native observations,
-latest timing/identity facts and explicit overflow.
+The bounded encounter summary keeps per-actor and per-ability totals after detailed
+history is evicted, including cue colours, missed windows, withdrawals, native
+observations, latest timing/identity facts and explicit overflow.
 
-The complete offline suite passes 653 checks, including 66 observation-store checks
-and 107 runtime integration checks. Replaying the preserved test.1 diagnostics through
+The new late-window recovery is separate and narrowly gated. It requires all of:
+an ordinary warning already recorded as `past-window`; a later incoming frame with
+`IsDodge=true`, `IsHit=false`, finite game/hit times and at least 100 ms remaining;
+and exact agreement of actor, ability, activation, timeline and action. It never
+creates a cue from a BOSS name, ability suffix, missing activation or unrelated task.
+The selected target filter still applies and one source/hit can emit once.
+
+The complete offline suite passes 663 checks, including 109 runtime integration,
+66 observation-store and 8 late-window-recovery checks. The preserved-diagnostic replay
+is rerun after this feature.
+Replaying the preserved test.1 diagnostics through
 forced detail eviction retained all 124 emitted cues and five `OnlyDodge` past-window
 records across three actors. This proves summary retention only. The five records are
-not confirmed visible misses, and no installer or in-game validation is claimed.
+not proof that the recovery frame appears before their hits. No installer or in-game
+validation is claimed by the offline suite.
 
 ## 0.6.0-preview
 

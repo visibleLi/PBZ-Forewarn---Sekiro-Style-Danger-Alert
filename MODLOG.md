@@ -7,7 +7,16 @@
 - The summary keeps warning, miss, withdrawal, native-frame and task counts, red/blue/black totals, the latest timing/identity fact, and explicit actor/ability/snapshot overflow.
 - Replayed the preserved test.1 diagnostics through intentionally evicted detail lanes: all 124 emitted cues and all 5 `Luanshi_SpecialAttack_08_OnlyDodge` past-window records remained grouped under three actors. This proves evidence retention, not that those five were player-visible misses.
 - The five `OnlyDodge` records are not a four-task sampling backlog: the preserved run reports `deferredTaskSamples=0`. Each task was first observed at timeline 1.25-1.288 seconds, after its 0.338-0.953 second warning window, with `discoverySource=current`. No safe production rule follows without evidence that this task represents the visible attack.
-- Offline validation passed 653 checks, including 66 observation-store and 107 runtime integration checks. Source is labelled `0.6.1-dev.1`; no installer, push, tag or publication is part of this journal entry.
+- Offline validation passed 653 checks, including 66 observation-store and 107 runtime integration checks. Source was labelled `0.6.1-dev.1` at this checkpoint; no installer, push, tag or publication was performed.
+
+## 2026-11-15: scoped late-window dodge recovery
+
+- Independent evidence: AutoPerfectDefense reads `ReceiveFrames.IsDodge` and `HitGameTime` as game-provided dodge-only/future-hit facts; its published notes also state that `_OnlyDodge` attacks must be dodged. The preserved PBZForewarn run separately shows five `Luanshi_SpecialAttack_08_OnlyDodge` warning nodes that arrived after their timeline window.
+- Added `late-window-recovery.js`: an expired `past-window` node and a later incoming `IsDodge=true`, `IsHit=false` frame can produce one immediate cue only when actor, ability, activation, timeline, action and optional current task agree.
+- Recovery uses the expired node's original red/blue/black colour. It rejects `ineligible-through-window`, non-future hits, less than 100 ms remaining, target-filter rejection and duplicate source/hit identities.
+- Added 8 focused module checks plus runtime coverage for enabled and disabled paths. The cue enters the existing scheduler, so the glyph and Wwise path remain the same as ordinary cues.
+- This is a late recovery, not a 350 ms guarantee. It still needs one normal-play in-game check to prove that a matching frame arrives with usable time remaining; no installer or publication is claimed yet.
+- Full offline validation passes 663 checks: 109 runtime, 66 observation-store, 8 late-window-recovery and all existing suites. Source is labelled `0.6.1-dev.2`.
 
 ## 2026-11-14: trial.3 vertical slice
 
