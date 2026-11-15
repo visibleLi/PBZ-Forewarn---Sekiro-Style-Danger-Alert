@@ -11,17 +11,17 @@ const { createTargetFilter } = require("./target-filter");
 const { createDiagnosticStore } = require("./diagnostic-store");
 const { createCastFollowup } = require("./cast-followup");
 const { createLateWindowRecovery } = require("./late-window-recovery");
-const VERSION = "0.6.1-test.2";
+const VERSION = "0.6.1-dev.3";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
     Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, SemanticFallback: true, GenericAttack: false,
-    LateDodgeRecovery: true, LateDodgeRecoveryMinRemainingMs: 100,
+    LateDodgeRecovery: false, LateDodgeRecoveryMinRemainingMs: 100,
     YuZanCastWarning: true, YuZanCastLeadMs: 350,
     OnlyLockedTarget: false, SoundOn: true, SoundVolume: 0.8,
     FontPath: "/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font" };
-const TEMPLATE = "# PBZForewarn 0.6.1-test.2; restart game after changes\n" +
+const TEMPLATE = "# PBZForewarn 0.6.1-dev.3; restart game after changes\n" +
     "# Extra cue lead in GAME seconds (ms input); original warning is unchanged.\n" +
-    "LeadMs=350\nLateDodgeRecovery=1\nLateDodgeRecoveryMinRemainingMs=100\nYuZanCastWarning=1\nYuZanCastLeadMs=350\nRangeCm=3500\nBlackOn=1\nSemanticFallback=1\nGenericAttack=0\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\n";
+    "LeadMs=350\nLateDodgeRecovery=0\nLateDodgeRecoveryMinRemainingMs=100\nYuZanCastWarning=1\nYuZanCastLeadMs=350\nRangeCm=3500\nBlackOn=1\nSemanticFallback=1\nGenericAttack=0\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\n";
 let state = null;
 function log(kind, data) { console.log("[PBZMOD] [Forewarn] " + kind + " " + JSON.stringify(data)); }
 function parseSettings(text) {

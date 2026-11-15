@@ -1,5 +1,15 @@
 # Development journal
 
+## 2026-11-15: dev.3 summary serialization repair
+
+- Read C:/Users/lmany/.codex/AGENTS.md plus mod-any-game and reverse-engineering. Scope is the explicitly agreed summary overhead/data-loss repair and disabling unproven recovery by default; no BOSS rule or game setting change.
+- Root cause in our summary: snapshot repeatedly serialized every retained actor after each whole-actor output eviction, left all data in memory, and counted the same omitted actors again on every snapshot. Actor capacity eviction also inspected wrapper.score rather than wrapper.value.score. These defects were reproduced offline.
+- Schema 2 bounds data at record time using cached row byte counts. Skills lose detail before whole actors; actor and session counts remain separate from detail completeness. Snapshots perform no JSON.stringify; the final observation file is serialized once by the existing flush path. Fixed last warning evidence being replaced by passive noise, invalid owner/role attribution, and colors including non-cue observations.
+- Kept private benchmark files outside the source checkout under outputs/PBZForewarn-摘要性能审计. Partial replay of 352 retained test.2 rows: old output kept 46/53 cues, new output keeps 53/53 and both GuiChai phases. Synthetic pressure is labelled 24 actors x 64 abilities, not a reconstruction of the evicted session.
+- Complete observation snapshot/serialization mean: retained replay 11.44 -> 4.46 ms; pressure 181.94 -> 2.01 ms. Recording work is modestly increased and spread across incoming records; captured complete-record p99 was 0.77 ms, max 1.53 ms on the local benchmark. This does not certify Unreal performance or all tick-gap causality.
+- LateDodgeRecovery is now false in defaults and generated configuration. An old explicit 1 remains opt-in; the installed user config is not changed. Standard cue, glyph, Wwise, cast rules and Lua gameplay hooks remain behaviorally unchanged.
+- Development version is 0.6.1-dev.3, separate from immutable test.2 archives. No new player installer or publication is performed in this repair step.
+
 ## 2026-11-15: 0.6.1-test.2 new-boss audit
 
 - Installed runtime was verified against the test ZIP: all 25 files matched; session `mwhlia37-q8iyj0l7`, version `0.6.1-test.2`.

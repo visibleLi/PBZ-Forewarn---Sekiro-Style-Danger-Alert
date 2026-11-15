@@ -116,7 +116,7 @@ function fixture(config, startup = {}) {
 test('startup configures native audio without writing an external audio bus', () => {
     const e = fixture(); assert.equal(e.bus().seq, 0); assert.equal(e.bus().paused, true);
     assert(e.files.get(e.saved + 'PBZForewarn.txt').includes('LeadMs=350'));
-    assert(e.files.get(e.saved + 'PBZForewarn.txt').includes('LateDodgeRecovery=1')); assert.equal(e.timers.size, 1);
+    assert(e.files.get(e.saved + 'PBZForewarn.txt').includes('LateDodgeRecovery=0')); assert.equal(e.timers.size, 1);
     assert.equal([...e.timers.values()][0].ms, 16); assert(![...e.files.keys()].some(p => p.endsWith('_bus.json')));
     assert.equal(e.bankPath, 'D:/Mock/ProjectPBZ/Content/PBZForewarn/PBZForewarn.bnk');
     assert.equal(e.bankRelativePath, 'PBZForewarn/PBZForewarn.bnk'); assert.equal(e.bankConfig.eventId, 1682749338); e.mod.stop();
@@ -468,7 +468,7 @@ test('native observations are persisted but cannot generate an unsupported warni
     assert(report.events.some(x=>x.kind==='attack-plan'));assert.equal(report.mode,'observe-only');
 });
 test('an expired warning and matching future dodge frame recover one shown cue',()=>{
-    const e=fixture();const native=provideNativeFrame(e);native.frame.HitGameTime=4;
+    const e=fixture('LateDodgeRecovery=1');const native=provideNativeFrame(e);native.frame.HitGameTime=4;
     e.tick(3.7);assert.equal(e.cues().length,0);e.tick(3.716);
     assert.equal(e.cues().length,1);assert.equal(e.cues()[0].color,'red');
     assert.equal(e.hud.at(-1).active[0].color,'red');
@@ -482,6 +482,13 @@ test('late-window recovery can be disabled without changing the ordinary miss pa
     assert.equal(e.cues().length,0);e.mod.stop();
     const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
     assert.equal(report.stats.missed,1);assert.equal(report.stats.recoveryCues,0);
+});
+test('default settings leave unproven recovery inactive even when a synthetic match exists',()=>{
+    const e=fixture();const native=provideNativeFrame(e);native.frame.HitGameTime=4;
+    e.tick(3.7);e.tick(3.716);e.mod.stop();
+    const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
+    assert.equal(report.lateRecovery.enabled,false);assert.equal(report.stats.recoveryCues,0);
+    assert.equal(e.cues().length,0);assert.equal(report.stats.missed,1);
 });
 test('emitted warning is present in the bounded encounter summary',()=>{
     const e=fixture();e.tick(0.7);e.mod.stop();const summary=observations(e).encounterSummary;
@@ -758,7 +765,7 @@ test('one spell-warning observation is retained per task and phase',()=>{
 test('trial version is identical in START, diagnostics and observation snapshots',()=>{
     const e=fixture();e.tick(0.1);e.mod.stop();
     const start=JSON.parse(e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] START ')).split('START ')[1]);
-    assert.equal(start.version,'0.6.1-test.2');
+    assert.equal(start.version,'0.6.1-dev.3');
     assert.equal(observations(e).version,start.version);
     assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).version,start.version);
 });

@@ -1,5 +1,7 @@
-# PBZForewarn 0.6.1-test.2; example only, not automatically installed.
+# PBZForewarn 0.6.1-dev.3; example only, not automatically installed.
 LeadMs=350
+LateDodgeRecovery=0
+LateDodgeRecoveryMinRemainingMs=100
 YuZanCastWarning=1
 YuZanCastLeadMs=350
 RangeCm=3500

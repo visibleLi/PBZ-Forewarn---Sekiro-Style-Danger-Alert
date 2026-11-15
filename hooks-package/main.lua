@@ -1,6 +1,6 @@
 -- PBZForewarn 0.6: discovery hooks plus optional read-only observations.
 -- This entry point never launches a process or writes an audio signal.
-local VERSION = "0.6.1-test.2"
+local VERSION = "0.6.1-dev.3"
 local prefix = "[PBZForewarnHooks] "
 local function report(message) print(prefix .. message .. "\n") end
 local info = debug.getinfo(1, "S")

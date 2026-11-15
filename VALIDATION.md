@@ -1,5 +1,25 @@
 # Validation / 自检边界
 
+## 0.6.1-dev.3
+
+Summary schema 2 enforces the 64 KiB actors-array JSON budget at record time,
+caches actor headers and ability rows, and assembles snapshots without reserializing
+all actors to repeatedly trim the output. Ability detail is retired before actor
+counts; session counts and explicit eviction/unattributed counters remain available.
+Colors count emitted warning-cue records only. Detail loss still means history is
+partial. Owner/role candidates cannot impersonate a missing execution actor.
+
+Offline comparison used 352 distinct retained records from test.2, not all 6811
+original events. Old summary output retained 46 of 53 cues; revised output retains
+53 and both boss phases. Synthetic pressure uses 24 actors x 64 abilities with long
+paths. Full observation snapshot plus JSON serialization averaged 11.44 -> 4.46 ms
+for retained input and 181.94 -> 2.01 ms for pressure on Node 22.15 / this host.
+These are local benchmark results, not measured in-game frame times or proof that
+every logged tick-gap was caused by this module.
+
+LateDodgeRecovery defaults to false; explicitly configured old values are preserved.
+No installed game files or historical ZIPs were modified for this source checkpoint.
+
 ## 0.6.1-test.2
 
 Development-only source based on the published `v0.6.0-preview` commit `257b421`.

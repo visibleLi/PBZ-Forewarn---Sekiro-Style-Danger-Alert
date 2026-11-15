@@ -1,4 +1,4 @@
-PBZForewarn 0.6.1-test.2 / 只狼风格“危”提示
+PBZForewarn 0.6.1-dev.3 / 只狼风格“危”提示
 
 为已支持的红、蓝、黑光攻击显示“危”字和游戏内危音效。
 
@@ -9,11 +9,9 @@ PBZForewarn 0.6.1-test.2 / 只狼风格“危”提示
 原有0.5的普通危字、音效、调度、锁定选项和全部行为不变。
 不是全招覆盖，不改变攻击或招架判定。
 
-0.6.1开发测试增加：
-- 普通时间轴预警已经错过，但游戏随后送来同一敌人、技能、激活、
-  时间轴和动作的“只能闪避”来招帧时，补一次当刻危。
-- 只匹配已经确认过期的预警，不按敌人或技能名字猜。
-- 这不是提前350ms的保证；未来命中时间必须至少还剩100ms。
+0.6.1-dev.3仅为开发源码，尚未交付安装包：
+- 修正日志摘要反复序列化与超限丢掉整份BOSS记录的问题。
+- 未证明收益的过期窗口补危默认关闭，普通提示继续使用0.6主链。
 
 新增配置
 配置文件：%LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt
@@ -29,9 +27,9 @@ YuZanCastLeadMs=350
 三号·乐师偶·玉瓒施法危的独立提前量，数值越大越早。
 它参照施法资源节点，不是命中时间。
 
-LateDodgeRecovery=1
-开启“已错过时间轴预警＋后续只能闪避来招帧”的保守补危。
-需要ObserveAttacks和Diagnostics同时开启。设为0完全关闭。
+LateDodgeRecovery=0
+过期窗口补危研究开关，默认关闭。实机尚未证明它有覆盖收益。
+旧配置若显式写了1仍会开启；此开发版不自动覆盖用户配置。
 
 LateDodgeRecoveryMinRemainingMs=100
 补危至少要求距离游戏给出的未来命中时间还有多少毫秒。
@@ -43,7 +41,7 @@ https://www.nexusmods.com/phantombladezero/mods/2
 
 管理器安装：
 完全退出游戏，停用旧Forewarn/AlertCue和旧外置音效，导入
-PBZForewarn-0.6.1-test.2.zip，启用脚本、BNK音效和Hooks三部分。
+PBZForewarn-0.6.1-dev.3.zip，启用脚本、BNK音效和Hooks三部分。
 
 手动安装：
 默认PBZModLoader和UE4SS已经装好。把包内ProjectPBZ和platform

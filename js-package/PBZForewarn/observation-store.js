@@ -489,15 +489,13 @@ function createEncounterStore(options) {
     const maxActors = limit(options.maxEncounterActors, 128, 256);
     const maxAbilities = limit(options.maxEncounterAbilities, 128, 256);
     const maxBytes = limit(options.maxEncounterBytes, 64 * 1024, 128 * 1024);
-    const actors = new Map();
+    const actors = new Map(), sessionCounts = counts();
+    let bytes = 2;
     const counters = { observed: 0, attributed: 0, unattributed: 0, actorsEvicted: 0,
         abilitiesEvicted: 0, namedValuesOmitted: 0, snapshotRowsOmitted: 0 };
     const scalar = value => value === null || typeof value === "boolean" ||
         typeof value === "number" && Number.isFinite(value) || typeof value === "string";
-    const known = value => {
-        const result = identity(value);
-        return result === null ? null : result;
-    };
+    const known = identity;
     function counts() {
         return { events: 0, warningCue: 0, warningMissed: 0, warningWithdrawal: 0,
             warningSuppressed: 0, warningPlan: 0, attackPlan: 0, nativeFrame: 0,
@@ -522,10 +520,10 @@ function createEncounterStore(options) {
     function updateTime(value, event) {
         if (value.firstSeq === null) value.firstSeq = event.seq;
         value.lastSeq = event.seq;
-        const wall = known(event.at) ?? known(event.wallTime);
-        if (wall !== null) {
-            if (value.firstWall === null) value.firstWall = Number(wall);
-            value.lastWall = Number(wall);
+        const wall = [event.at, event.wallTime].find(x => typeof x === "number" && Number.isFinite(x) && x >= 0);
+        if (wall !== undefined) {
+            value.firstWall = value.firstWall === null ? wall : Math.min(value.firstWall, wall);
+            value.lastWall = value.lastWall === null ? wall : Math.max(value.lastWall, wall);
         }
         if (typeof event.gameTime === "number" && event.gameTime >= 0) {
             if (value.firstGameTime === null) value.firstGameTime = event.gameTime;
@@ -533,16 +531,18 @@ function createEncounterStore(options) {
         }
     }
     function updateFact(value, event) {
+        const important = event.kind.startsWith("warning-") || event.kind === "missed";
+        if (!important && value.lastFact && value.lastFact.kind.startsWith("warning-")) return;
         const fact = { seq: event.seq, kind: event.kind };
         for (const field of ["at", "gameTime", "start", "end", "time", "reason", "color",
             "typeName", "typeValue", "generation", "eventKey", "attackId", "timeline", "task",
             "action", "activation", "firstObservedTimelineTime", "taskTimelineTime", "recordSerial",
             "observationRun", "executionVerified", "usedForScheduling"])
-            if (scalar(event[field])) fact[field] = event[field];
+            if (scalar(event[field]) && !(event.sanitization || []).some(x => x.path === field)) fact[field] = event[field];
         value.lastFact = fact;
     }
     function updateColors(value, event) {
-        if (!["warning-cue", "warning-missed", "warning-withdrawal", "warning-suppressed"].includes(event.kind)) return;
+        if (event.kind !== "warning-cue") return;
         value.colors[["red", "blue", "black"].includes(event.color) ? event.color : "unknown"]++;
     }
     function bumpNamed(map, value) {
@@ -558,32 +558,68 @@ function createEncounterStore(options) {
             lastFact: null, score: 0 };
     }
     function score(value) {
-        return value.counts.warningCue * 100 + value.counts.warningMissed * 100 +
-            value.counts.warningWithdrawal * 10 + value.counts.warningSuppressed * 10 +
-            value.counts.nativeFrame + value.counts.nativeWarningCall +
-            value.counts.warningPlan + value.counts.attackPlan;
+        if (value.counts.warningCue || value.counts.warningMissed) return 3;
+        if (value.counts.warningWithdrawal || value.counts.warningSuppressed || value.counts.warningPlan) return 2;
+        return value.counts.nativeFrame || value.counts.nativeWarningCall || value.counts.attackPlan ? 1 : 0;
     }
-    function evictLeastImportant(map, counter) {
+    function leastImportant(map, actorMap = false) {
         let victim = null;
-        for (const [key, value] of map)
+        for (const [key, entry] of map) {
+            const value = actorMap ? entry.value : entry;
             if (!victim || value.score < victim.value.score ||
                 value.score === victim.value.score && value.lastSeq < victim.value.lastSeq)
-                victim = { key, value };
-        if (!victim) return;
-        map.delete(victim.key);
-        counters[counter]++;
+                victim = { key, value, entry };
+        }
+        return victim;
+    }
+    function removeAbility(summary, key) {
+        const detail = summary.abilities.get(key);
+        summary.abilities.delete(key);
+        const removed = detail.bytes + (summary.abilities.size ? 1 : 0);
+        bytes -= removed; summary.bytes -= removed; counters.abilitiesEvicted++;
+    }
+    function removeActor(key) {
+        const summary = actors.get(key);
+        actors.delete(key); bytes -= summary.bytes + (actors.size ? 1 : 0); counters.actorsEvicted++;
+    }
+    function enforceBudget() {
+        while (bytes > maxBytes) {
+            let victim = null;
+            for (const summary of actors.values()) {
+                const candidate = leastImportant(summary.abilities);
+                if (candidate && (!victim || candidate.value.score < victim.value.score ||
+                    candidate.value.score === victim.value.score && candidate.value.lastSeq < victim.value.lastSeq))
+                    victim = { ...candidate, summary };
+            }
+            if (victim) removeAbility(victim.summary, victim.key);
+            else if (actors.size) removeActor(leastImportant(actors, true).key);
+            else break;
+        }
+    }
+    function refreshHeader(summary) {
+        const header = publicValue(summary.value);
+        delete header.ability; delete header.missedReasons; delete header.nativeTypes;
+        summary.header = { world: summary.world, ...header };
+        const size = utf8Bytes(JSON.stringify({ ...summary.header, abilities: [] }));
+        bytes += size - summary.headerBytes; summary.bytes += size - summary.headerBytes;
+        summary.headerBytes = size;
     }
     function record(event) {
         counters.observed++;
-        const actor = known(event.actor) ?? known(event.roleActorCandidate) ?? known(event.ownerActorCandidate);
+        bumpCounts(sessionCounts, event.kind);
+        const trusted = field => typeof event[field] !== "string" ||
+            (event.sanitization || []).some(x => x.path === field) ? null : known(event[field]);
+        // Owner/role candidates are not confirmed execution actors.
+        const actor = trusted("actor");
         if (actor === null) { counters.unattributed++; return; }
         counters.attributed++;
-        const world = known(event.worldKey) ?? known(event.world) ?? known(event.captureWorld) ?? known(event.boundWorld);
+        const world = trusted("worldKey") ?? trusted("world") ?? trusted("captureWorld") ?? trusted("boundWorld");
         const actorKey = JSON.stringify([world, actor]);
         let summary = actors.get(actorKey);
         if (!summary) {
-            while (actors.size >= maxActors) evictLeastImportant(actors, "actorsEvicted");
-            summary = { world, value: emptyValue(actorKey, actor), abilities: new Map() };
+            while (actors.size >= maxActors) removeActor(leastImportant(actors, true).key);
+            summary = { world, value: emptyValue(actorKey, actor), abilities: new Map(), headerBytes: 0, bytes: 0 };
+            if (actors.size) bytes++;
             actors.set(actorKey, summary);
         }
         updateTime(summary.value, event);
@@ -591,15 +627,18 @@ function createEncounterStore(options) {
         updateColors(summary.value, event);
         updateFact(summary.value, event);
         summary.value.score = score(summary.value);
-        const ability = known(event.ability) ?? known(event.nextAbility);
-        if (ability === null) return;
+        refreshHeader(summary);
+        const ability = trusted("ability");
+        if (ability === null) { enforceBudget(); return; }
         let detail = summary.abilities.get(ability);
         if (!detail) {
-            while (summary.abilities.size >= maxAbilities) evictLeastImportant(summary.abilities, "abilitiesEvicted");
+            while (summary.abilities.size >= maxAbilities) removeAbility(summary, leastImportant(summary.abilities).key);
             detail = emptyValue(ability, actor);
+            detail.bytes = 0;
             detail.ability = ability;
             detail.missedReasons = Object.create(null);
             detail.nativeTypes = Object.create(null);
+            if (summary.abilities.size) { bytes++; summary.bytes++; }
             summary.abilities.set(ability, detail);
         }
         updateTime(detail, event);
@@ -611,42 +650,30 @@ function createEncounterStore(options) {
             bumpNamed(detail.nativeTypes, event.typeName);
         }
         detail.score = score(detail);
+        detail.cached = publicValue(detail);
+        const size = utf8Bytes(JSON.stringify(detail.cached));
+        bytes += size - detail.bytes; summary.bytes += size - detail.bytes; detail.bytes = size;
+        enforceBudget();
     }
     function publicValue(value) {
-        return { actor: value.actor, ability: value.ability, counts: { ...value.counts }, colors: { ...value.colors },
+        return { actor: value.actor, ability: value.ability, counts: Object.freeze({ ...value.counts }), colors: Object.freeze({ ...value.colors }),
             missedReasons: value.missedReasons ? { ...value.missedReasons } : undefined,
             nativeTypes: value.nativeTypes ? { ...value.nativeTypes } : undefined,
             firstSeq: value.firstSeq, lastSeq: value.lastSeq, firstWall: value.firstWall, lastWall: value.lastWall,
             firstGameTime: value.firstGameTime, lastGameTime: value.lastGameTime,
-            lastFact: value.lastFact ? { ...value.lastFact } : null };
+            lastFact: value.lastFact ? Object.freeze({ ...value.lastFact }) : null };
     }
     function snapshot() {
-        let rows = [...actors.values()].map(summary => ({
-            world: summary.world, actor: summary.value.actor, counts: { ...summary.value.counts },
-            colors: { ...summary.value.colors },
-            firstSeq: summary.value.firstSeq, lastSeq: summary.value.lastSeq,
-            firstWall: summary.value.firstWall, lastWall: summary.value.lastWall,
-            firstGameTime: summary.value.firstGameTime, lastGameTime: summary.value.lastGameTime,
-            lastFact: summary.value.lastFact ? { ...summary.value.lastFact } : null,
-            abilities: [...summary.abilities.values()]
-                .sort((a, b) => (a.firstSeq ?? 0) - (b.firstSeq ?? 0)).map(publicValue),
-            score: summary.value.score
-        }));
-        while (rows.length && utf8Bytes(JSON.stringify(rows.map(x => ({ ...x, score: undefined })))) > maxBytes) {
-            let victim = 0;
-            for (let i = 1; i < rows.length; i++)
-                if (rows[i].score < rows[victim].score ||
-                    rows[i].score === rows[victim].score && rows[i].lastSeq < rows[victim].lastSeq) victim = i;
-            rows.splice(victim, 1); counters.snapshotRowsOmitted++;
-        }
-        rows = rows.map(({ score: _, ...row }) => row).sort((a, b) => (a.firstSeq ?? 0) - (b.firstSeq ?? 0));
-        return { schemaVersion: 1, mode: "bounded-encounter-summary",
-            actors: rows, counters: { ...counters },
-            retention: { count: rows.length, maxActors, maxAbilitiesPerActor: maxAbilities, maxBytes,
+        const rows = [...actors.values()].map(summary => ({ ...summary.header,
+            abilities: [...summary.abilities.values()].map(detail => ({ ...detail.cached,
+                missedReasons: { ...detail.cached.missedReasons }, nativeTypes: { ...detail.cached.nativeTypes } })) }));
+        return { schemaVersion: 2, mode: "bounded-encounter-summary",
+            actors: rows, counters: { ...counters }, sessionCounts: { ...sessionCounts },
+            retention: { count: rows.length, maxActors, maxAbilitiesPerActor: maxAbilities, bytes, maxBytes,
                 byteScope: "actors-json-array; metadata-excluded",
                 complete: counters.actorsEvicted === 0 && counters.abilitiesEvicted === 0 &&
-                    counters.snapshotRowsOmitted === 0 && counters.unattributed === 0 },
-            interpretation: "observed totals survive detail eviction; not confirmed hits or a coverage rate" };
+                    counters.namedValuesOmitted === 0 && counters.unattributed === 0 },
+            interpretation: "colors count emitted warning-cue records only; observed totals survive detail eviction; not confirmed hits or a coverage rate" };
     }
     return { record, snapshot };
 }

@@ -510,10 +510,10 @@ test("encounter totals survive raw and compact detail eviction",()=>{
     const result=s.snapshot(),actor=result.encounterSummary.actors[0];
     assert(result.counters.evicted>0);assert(result.evidence.counters.evicted>0);
     assert.equal(actor.counts.warningCue,24);assert.equal(actor.counts.warningMissed,2);
-    assert.equal(actor.colors.red,8);assert.equal(actor.colors.blue,8);assert.equal(actor.colors.black,10);
+    assert.equal(actor.colors.red,8);assert.equal(actor.colors.blue,8);assert.equal(actor.colors.black,8);
     const ability=actor.abilities.find(x=>x.ability===onlyDodge);
     assert.equal(ability.counts.warningMissed,2);
-    assert.equal(ability.colors.black,2);
+    assert.equal(ability.colors.black,0);
     assert.equal(ability.missedReasons["past-window"],2);
     assert.equal(ability.lastFact.generation,39);
     assert.equal(ability.lastFact.firstObservedTimelineTime,1.25);
@@ -538,5 +538,60 @@ test("disabled observation does not run encounter summaries",()=>{
     s.record("warning-cue",{...identity,id:"cue"});
     const summary=s.snapshot().encounterSummary;
     assert.equal(summary.counters.observed,0);assert.equal(summary.actors.length,0);
+});
+test("long path ability churn keeps both boss counts and bounds the retained summary at write time",()=>{
+    const s=createObservationStore({maxEncounterBytes:16000,maxRecords:1});
+    const prefix='/Game/Maps/'+('长名字😀'.repeat(40));
+    for(let i=0;i<2;i++) {
+        const actor=prefix+'.Boss_P'+i;
+        s.record('warning-cue',{...identity,actor,ability:actor+'.Danger',id:'cue'+i,color:'red'});
+        for(let n=0;n<100;n++)s.record('task-lifecycle',{...identity,actor,
+            ability:actor+'.Passive'+n,timeline:actor+'.Passive'+n+'.Main',phase:'first-observed'});
+    }
+    const a=s.snapshot().encounterSummary,b=s.snapshot().encounterSummary;
+    assert.equal(a.actors.length,2);assert.equal(a.actors.reduce((n,x)=>n+x.counts.warningCue,0),2);
+    assert.equal(a.sessionCounts.warningCue,2);assert(a.counters.abilitiesEvicted>0);
+    assert.equal(a.counters.actorsEvicted,0);assert.equal(a.counters.snapshotRowsOmitted,0);
+    assert.equal(a.retention.bytes,Buffer.byteLength(JSON.stringify(a.actors)));
+    assert(a.retention.bytes<=a.retention.maxBytes);assert.deepEqual(a,b);
+});
+test("summary snapshots neither reserialize accumulated actors nor change eviction counters",()=>{
+    const source=require('fs').readFileSync(require.resolve('../PBZForewarn/observation-store'),'utf8');
+    let serializations=0;
+    const ctx=vm.createContext({module:{exports:{}},JSON:{stringify(...args){
+        serializations++;return JSON.stringify(...args);
+    }}});
+    vm.runInContext(source+'\nmodule.exports.summary=createEncounterStore;',ctx);
+    const s=ctx.module.exports.summary({maxEncounterBytes:16000});
+    for(let i=0;i<12;i++)for(let j=0;j<24;j++)s.record({seq:i*24+j+1,kind:j?'task-lifecycle':'warning-cue',
+        actor:'/Enemy/'+i,ability:'/Enemy/'+i+'/Ability/'+j,color:'blue'});
+    serializations=0;const a=s.snapshot();for(let i=0;i<20;i++)s.snapshot();const b=s.snapshot();
+    assert.equal(serializations,0);assert.deepEqual(a.counters,b.counters);
+    assert(a.retention.bytes<=a.retention.maxBytes);
+});
+test("missing or sanitized execution actor cannot borrow an owner or role candidate",()=>{
+    const s=createObservationStore();
+    s.record('warning-cue',{...identity,actor:null,ownerActorCandidate:'/Enemy/A',roleActorCandidate:'/Enemy/B'});
+    s.record('warning-cue',{...identity,actor:'/'+('x'.repeat(5000))});
+    const x=s.snapshot().encounterSummary;
+    assert.equal(x.actors.length,0);assert.equal(x.sessionCounts.warningCue,2);assert.equal(x.counters.unattributed,2);
+});
+test("last warning fact survives passive lifecycle noise and detached snapshots keep earlier facts",()=>{
+    const s=createObservationStore();
+    s.record('warning-missed',{...identity,color:'black',reason:'past-window',time:1.25,wallTime:100});
+    const before=s.snapshot().encounterSummary;
+    s.record('task-lifecycle',{...identity,phase:'record-retired',wallTime:200});
+    const after=s.snapshot().encounterSummary;
+    assert.equal(after.actors[0].abilities[0].lastFact.reason,'past-window');
+    assert.equal(after.actors[0].abilities[0].lastWall,200);assert.equal(before.actors[0].abilities[0].lastWall,100);
+    assert.throws(()=>{after.actors[0].counts.warningCue=999;},TypeError);
+    assert.equal(s.snapshot().encounterSummary.sessionCounts.warningCue,0);
+});
+test("summary byte eviction preserves cumulative session counts and reports lost actors",()=>{
+    const s=createObservationStore({maxEncounterBytes:100});
+    s.record('warning-cue',{...identity,id:'cue',color:'red'});
+    const x=s.snapshot().encounterSummary;
+    assert.equal(x.actors.length,0);assert.equal(x.sessionCounts.warningCue,1);
+    assert.equal(x.retention.bytes,2);assert(x.counters.actorsEvicted>0);assert.equal(x.retention.complete,false);
 });
 console.log("RESULT " + passed + " observation store scenarios passed.");
