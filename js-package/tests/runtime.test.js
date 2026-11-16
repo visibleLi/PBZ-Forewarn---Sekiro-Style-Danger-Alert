@@ -487,6 +487,16 @@ test('observation file write failure leaves cues and audio running',()=>{
     assert.equal(report.stats.errors,0);assert(report.flush.observationWriteFailures>0);
     assert(report.recent.some(x=>x.kind==='observation-write-error'));
 });
+test('observation file is written on its own slower cadence and skipped when unchanged',()=>{
+    const e=fixture('ObservationFlushMs=20000');
+    const writes=()=>JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).flush.observationWrites;
+    assert.equal(writes(),1);                 // forced write at startup
+    e.tick(0.7);assert.equal(writes(),1);     // nothing due yet
+    e.tick(0.71,5200);assert.equal(writes(),1); // still inside the 20 s window
+    e.tick(0.72,16000);assert.equal(writes(),2); // now due and content changed
+    e.tick(0.73,21000);assert.equal(writes(),2); // due again but nothing changed
+    e.mod.stop();assert.equal(writes(),3);     // shutdown always flushes
+});
 test('diagnostics off disables all optional observation reads and files',()=>{
     const e=fixture('Diagnostics=0');let reads=0;
     Object.defineProperty(e.player,'GetComponentByClass',{get(){reads++;throw Error('must not read');}});
@@ -739,7 +749,7 @@ test('one spell-warning observation is retained per task and phase',()=>{
 test('trial version is identical in START, diagnostics and observation snapshots',()=>{
     const e=fixture();e.tick(0.1);e.mod.stop();
     const start=JSON.parse(e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] START ')).split('START ')[1]);
-    assert.equal(start.version,'0.6.1-dev.4');
+    assert.equal(start.version,'0.6.1-dev.5');
     assert.equal(observations(e).version,start.version);
     assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).version,start.version);
 });

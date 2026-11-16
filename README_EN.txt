@@ -1,4 +1,4 @@
-PBZForewarn 0.6.1-dev.4
+PBZForewarn 0.6.1-dev.5
 
 Shows the “危” glyph and in-game warning sound for supported red, blue and black attacks.
 
@@ -9,9 +9,12 @@ Shows the “危” glyph and in-game warning sound for supported red, blue and 
 All ordinary 0.5 warnings, audio, scheduling, lock options and existing behavior remain unchanged.
 This is not full-move coverage and does not change attacks or parry rules.
 
-0.6.1-dev.4 is development source with no delivered installer:
-- Repairs repeated summary serialization and loss of entire boss summaries at capacity.
+0.6.1-dev.5 is a stall-fix test build:
+- Observation logging has its own 20 s cadence and is skipped when unchanged;
+  the main loop no longer serializes the whole file every 5 s.
+- Observation caps are lower, so old detail yields to summary counters sooner.
 - The unproven late-window recovery has been removed from source.
+- Glyph, audio, scheduling and Yanru/YuZan rules are unchanged.
 
 NEW SETTINGS
 Settings file: %LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt
@@ -27,6 +30,10 @@ YuZanCastLeadMs=350
 Independent lead for that cast warning. Higher values fire earlier.
 It targets the cast resource marker, not impact time.
 
+ObservationFlushMs=20000
+Minimum interval between observation-log writes, 5000-60000 ms. It affects only
+diagnostic file size and write frequency, not glyph or audio timing.
+
 INSTALLATION
 PBZModLoader and PBZ-specific UE4SS are required.
 Recommended Phantom Blade Zero - Mod Manager:
@@ -34,7 +41,7 @@ https://www.nexusmods.com/phantombladezero/mods/2
 
 Manager:
 Close the game, disable older Forewarn/AlertCue and external warning sounds,
-import PBZForewarn-0.6.1-dev.4.zip, and enable scripts, BNK audio and Hooks.
+import PBZForewarn-0.6.1-dev.5.zip, and enable scripts, BNK audio and Hooks.
 
 Manual:
 With PBZModLoader and UE4SS already installed, merge ProjectPBZ and platform

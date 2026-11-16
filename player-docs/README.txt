@@ -1,4 +1,4 @@
-PBZForewarn 0.6.1-dev.4 / 只狼风格“危”提示
+PBZForewarn 0.6.1-dev.5 / 只狼风格“危”提示
 
 中文
 为已支持的红、蓝、黑光攻击显示“危”字和游戏内危音效。
@@ -10,9 +10,10 @@ PBZForewarn 0.6.1-dev.4 / 只狼风格“危”提示
 原有0.5的普通危字、音效、调度、锁定选项和全部行为不变。
 不是全招覆盖，不改变攻击或招架判定。
 
-0.6.1-dev.4为开发源码，尚未交付安装包。
-修正日志摘要反复序列化和超限丢掉整份BOSS记录的问题。
-未证明收益的过期窗口补危已从源码移除，普通提示继续使用0.6主链。
+0.6.1-dev.5为卡顿修复测试包。
+观察日志改为20秒独立节奏、内容未变不写，主循环不再每5秒序列化整份数据。
+观察缓冲上限下调。未证明收益的过期窗口补危已从源码移除。
+危字、音效、调度和炎茹/玉瓒规则逻辑未改。
 
 新增配置：
 SemanticFallback=1
@@ -34,7 +35,7 @@ https://www.nexusmods.com/phantombladezero/mods/2
 
 安装：
 完全退出游戏，停用旧Forewarn/AlertCue和旧外置音效，导入
-PBZForewarn-0.6.1-dev.4.zip，启用脚本、BNK音效和Hooks三部分。
+PBZForewarn-0.6.1-dev.5.zip，启用脚本、BNK音效和Hooks三部分。
 
 手动安装：
 默认PBZModLoader和UE4SS已经装好。把包内ProjectPBZ和platform
@@ -56,9 +57,10 @@ Shows the “危” glyph and in-game warning sound for supported red, blue and 
 All ordinary 0.5 warnings, audio, scheduling, lock options and existing behavior remain unchanged.
 This is not full-move coverage and does not change attacks or parry rules.
 
-0.6.1-dev.4 is development source with no delivered installer.
-It repairs repeated summary serialization and loss of whole boss summaries at capacity.
-The unproven late-window recovery has been removed; ordinary cues keep using the 0.6 path.
+0.6.1-dev.5 is a stall-fix test build.
+Observation logging now uses its own 20 s cadence and skips unchanged content.
+Observation caps are lower; unproven late-window recovery is removed.
+Glyph, audio, scheduling and Yanru/YuZan rules are unchanged.
 
 New settings:
 SemanticFallback=1
@@ -80,7 +82,7 @@ https://www.nexusmods.com/phantombladezero/mods/2
 
 Install:
 Close the game, disable older Forewarn/AlertCue and external warning sounds,
-import PBZForewarn-0.6.1-dev.4.zip, and enable scripts, BNK audio and Hooks.
+import PBZForewarn-0.6.1-dev.5.zip, and enable scripts, BNK audio and Hooks.
 
 Manual install:
 With PBZModLoader and UE4SS already installed, merge ProjectPBZ and platform

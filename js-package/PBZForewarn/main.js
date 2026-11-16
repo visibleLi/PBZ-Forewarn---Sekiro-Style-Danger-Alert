@@ -10,21 +10,22 @@ const { createAudioEnvironmentProbe } = require("./audio-environment");
 const { createTargetFilter } = require("./target-filter");
 const { createDiagnosticStore } = require("./diagnostic-store");
 const { createCastFollowup } = require("./cast-followup");
-const VERSION = "0.6.1-dev.4";
+const VERSION = "0.6.1-dev.5";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
     Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, SemanticFallback: true, GenericAttack: false,
+    ObservationFlushMs: 20000,
     YuZanCastWarning: true, YuZanCastLeadMs: 350,
     OnlyLockedTarget: false, SoundOn: true, SoundVolume: 0.8,
     FontPath: "/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font" };
-const TEMPLATE = "# PBZForewarn 0.6.1-dev.4; restart game after changes\n" +
+const TEMPLATE = "# PBZForewarn 0.6.1-dev.5; restart game after changes\n" +
     "# Extra cue lead in GAME seconds (ms input); original warning is unchanged.\n" +
-    "LeadMs=350\nYuZanCastWarning=1\nYuZanCastLeadMs=350\nRangeCm=3500\nBlackOn=1\nSemanticFallback=1\nGenericAttack=0\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\n";
+    "LeadMs=350\nYuZanCastWarning=1\nYuZanCastLeadMs=350\nRangeCm=3500\nBlackOn=1\nSemanticFallback=1\nGenericAttack=0\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\nObservationFlushMs=20000\n";
 let state = null;
 function log(kind, data) { console.log("[PBZMOD] [Forewarn] " + kind + " " + JSON.stringify(data)); }
 function parseSettings(text) {
     const result = { ...DEFAULTS };
-    const bounds = { LeadMs: [0, 1000], YuZanCastLeadMs: [0, 1000],
+    const bounds = { LeadMs: [0, 1000], YuZanCastLeadMs: [0, 1000], ObservationFlushMs: [5000, 60000],
         RangeCm: [500, 10000], TickMs: [16, 100], DiscoverMs: [16, 250], ScanMs: [100, 1000],
         LateGraceMs: [0, 250], MaxGlyphMs: [100, 3000], GlyphFontSize: [30, 240], GlyphY: [0.1, 0.8], SoundVolume: [0, 2] };
     for (const line of text.split(/\r?\n/)) {
@@ -46,6 +47,7 @@ function start() {
         paused: true, stats: { cues: 0, fallbackCues: 0, castCues: 0, followupSuppressed: 0, cancels: 0, duplicateCancelsSuppressed: 0, missed: 0, conditionsNotMet: 0,
             previewOnlySkipped: 0, recognized: 0, tasks: 0, hooks: 0, errors: 0 },
         lastTickWall: 0, maxTickGap: 0, lastLongTick: 0, gameNow: 0, naturalCompletions: new Set(),
+        lastObservationFlush: 0, lastObservationSeq: -1,
         targetStatus: null, previewDown: true, previewSerial: 0,
         cancelledIds: new Set(), resourceIds: new Map(), resourceSerial: 0, catalogedTemplates: new Set(),
         lastCatalogReport: 0, clockEpoch: 0, observedGameTime: null, observationContext: null,
@@ -366,7 +368,12 @@ function start() {
     function flush(force) {
         const now = Date.now();
         if (force || now - s.lastReport >= 5000) {
-            if (observing) {
+            // The observation file is the largest write. Serializing it on the
+            // game thread every 5 s was the measured cause of periodic stalls,
+            // so it keeps its own slower cadence and skips unchanged content.
+            const observationDue = force || !s.lastObservationFlush ||
+                now - s.lastObservationFlush >= s.settings.ObservationFlushMs;
+            if (observing && observationDue && (force || s.observations.sequence() !== s.lastObservationSeq)) {
                 try {
                     const begin = Date.now(), snapshot = s.observations.snapshot();
                     const observationReport = { version: VERSION, session, at: now, ...snapshot,
@@ -384,7 +391,8 @@ function start() {
                     s.flushStats.maxObservationSerializeMs = Math.max(s.flushStats.maxObservationSerializeMs, writeBegin - begin);
                     writeText(saved + "pbzforewarn_observations.json", body);
                     s.flushStats.maxObservationWriteMs = Math.max(s.flushStats.maxObservationWriteMs, Date.now() - writeBegin);
-                    s.flushStats.observationWrites++;
+                    s.flushStats.observationWrites++; s.lastObservationFlush = now;
+                    s.lastObservationSeq = snapshot.counters.lastSeq;
                 } catch (error) {
                     s.flushStats.observationWriteFailures++;
                     diagnostic("observation-write-error", { error: String(error) }, "observation-write-error");

@@ -184,7 +184,7 @@ z,m=fresh();z.execute("game();a,task,actor,tl=ability();for i=1,270 do invoke(BY
 p=data(z)
 check(p['seq']==540 and len(p['events'])<=512 and p['retention']['dropped']>0,'retention is bounded with monotonic sequence and explicit lost-history count')
 check(p['retention']['firstSeq']==p['events'][0]['seq'] and p['retention']['lastSeq']==540,'snapshot first and last sequence identify gaps without claiming complete history')
-check(p['schemaVersion']==2 and p['version']=='0.6.1-dev.4' and m.status()['version']==p['version'],
+check(p['schemaVersion']==2 and p['version']=='0.6.1-dev.5' and m.status()['version']==p['version'],
     'Lua snapshot and status identify the actual trial version')
 raw=data(z,raw=True)
 check(raw['retention']['retainedBytes']<=raw['retention']['maxBytes'] and raw['retention']['pathBytes']<=raw['retention']['maxPathBytes'],

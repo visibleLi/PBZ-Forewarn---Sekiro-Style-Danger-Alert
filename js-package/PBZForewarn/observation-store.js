@@ -2,7 +2,7 @@
 
 // Observation only: copies JSON data, retains no engine object, and makes no cue
 // decisions. Neither a shared source nor HitGameTime proves that a hit occurred.
-const DEFAULTS = Object.freeze({ maxRecords: 1024, maxBytes: 512 * 1024,
+const DEFAULTS = Object.freeze({ maxRecords: 512, maxBytes: 256 * 1024,
     maxCorrelationComparisons: 4096, maxCorrelationRows: 128 });
 const MAXIMUM = Object.freeze({ maxRecords: 2048, maxBytes: 1024 * 1024,
     maxCorrelationComparisons: 8192, maxCorrelationRows: 256 });
@@ -252,8 +252,8 @@ function correlations(events, limits) {
 // A second, bounded evidence lane preserves small facts from a long session.
 // Its references describe objects, not confirmed strike identities or outcomes.
 function createEvidenceStore(options) {
-    const maxBytes = limit(options.maxEvidenceBytes, 256 * 1024, 384 * 1024);
-    const maxRecords = limit(options.maxEvidenceRecords, 1024, 1536);
+    const maxBytes = limit(options.maxEvidenceBytes, 128 * 1024, 384 * 1024);
+    const maxRecords = limit(options.maxEvidenceRecords, 512, 1536);
     const maxDictionaryBytes = Math.min(maxBytes, limit(options.maxEvidenceDictionaryBytes, 96 * 1024, 128 * 1024));
     const maxDictionaryEntries = limit(options.maxEvidenceDictionaryEntries, 768, 1024);
     const queues = [new Map(), new Map(), new Map(), new Map()];
@@ -689,6 +689,9 @@ function createObservationStore(options = {}) {
     };
     const items = [], evidence = createEvidenceStore(options), encounters = createEncounterStore(options);
     let bytes = 2, seq = 0;
+    // Snapshot runs on the game thread. Recomputing candidate correlations when
+    // nothing was added would spend that budget for nothing.
+    let links = null, linksSeq = -1;
     const counts = { attempted: 0, accepted: 0, disabled: 0, rejected: 0, sanitizedValues: 0, evicted: 0, oversized: 0 };
     function record(kind, data) {
         counts.attempted++;
@@ -715,8 +718,12 @@ function createObservationStore(options = {}) {
         bytes += size + (items.length ? 1 : 0); items.push({ event, bytes: size }); counts.accepted++;
         return true;
     }
+    // Cheap change probe for the caller: no serialization, no allocation.
+    function sequence() { return enabled ? seq : 0; }
     function snapshot() {
-        const events = items.map(x => x.event), links = correlations(events, correlationLimits), kinds = Object.create(null);
+        const events = items.map(x => x.event);
+        if (!links || linksSeq !== seq) { links = correlations(events, correlationLimits); linksSeq = seq; }
+        const kinds = Object.create(null);
         for (const event of events) kinds[event.kind] = (kinds[event.kind] || 0) + 1;
         return { schemaVersion: 1, mode: "observe-only", session, enabled, events,
             counters: { ...counts, count: items.length, bytes, maxRecords, maxBytes, byteScope: "events-json-array",
@@ -727,7 +734,7 @@ function createObservationStore(options = {}) {
             correlations: links.rows, analysis: links.analysis, evidence: evidence.snapshot(),
             encounterSummary: encounters.snapshot() };
     }
-    return { record, snapshot };
+    return { record, snapshot, sequence };
 }
 
 module.exports = { createObservationStore };

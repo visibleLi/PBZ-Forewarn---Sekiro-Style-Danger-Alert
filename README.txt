@@ -1,4 +1,4 @@
-PBZForewarn 0.6.1-dev.4 / 只狼风格“危”提示
+PBZForewarn 0.6.1-dev.5 / 只狼风格“危”提示
 
 为已支持的红、蓝、黑光攻击显示“危”字和游戏内危音效。
 
@@ -9,9 +9,11 @@ PBZForewarn 0.6.1-dev.4 / 只狼风格“危”提示
 原有0.5的普通危字、音效、调度、锁定选项和全部行为不变。
 不是全招覆盖，不改变攻击或招架判定。
 
-0.6.1-dev.4仅为开发源码，尚未交付安装包：
-- 修正日志摘要反复序列化与超限丢掉整份BOSS记录的问题。
-- 0.6.1-test.2的过期窗口补危没有实机收益，已从源码移除。
+0.6.1-dev.5为卡顿修复测试包：
+- 观察日志改为20秒独立节奏、内容未变不写；主循环不再每5秒同步序列化整份数据。
+- 观察缓冲上限下调，旧明细更早让位给计数摘要。
+- 0.6.1-test.2的过期窗口补危已从源码移除。
+- 危字、音效、调度和炎茹/玉瓒规则逻辑未改。
 
 新增配置
 配置文件：%LOCALAPPDATA%\ProjectPBZ\Saved\PBZForewarn.txt
@@ -27,6 +29,10 @@ YuZanCastLeadMs=350
 三号·乐师偶·玉瓒施法危的独立提前量，数值越大越早。
 它参照施法资源节点，不是命中时间。
 
+ObservationFlushMs=20000
+观察日志的最小写入间隔，5000–60000毫秒。只影响诊断文件的体积和写入频率，
+不影响危字或音效时机。想记录更细可调小，嫌卡顿可调大。
+
 安装
 前置必须安装PBZModLoader和PBZ专用UE4SS。
 推荐使用Phantom Blade Zero - Mod Manager：
@@ -34,7 +40,7 @@ https://www.nexusmods.com/phantombladezero/mods/2
 
 管理器安装：
 完全退出游戏，停用旧Forewarn/AlertCue和旧外置音效，导入
-PBZForewarn-0.6.1-dev.4.zip，启用脚本、BNK音效和Hooks三部分。
+PBZForewarn-0.6.1-dev.5.zip，启用脚本、BNK音效和Hooks三部分。
 
 手动安装：
 默认PBZModLoader和UE4SS已经装好。把包内ProjectPBZ和platform
