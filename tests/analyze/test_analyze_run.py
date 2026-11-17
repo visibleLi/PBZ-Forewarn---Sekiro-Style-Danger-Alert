@@ -142,6 +142,35 @@ class AnalyzeRunTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('pbzforewarn_diagnostics.json', result.stderr)
 
+    def test_save_copies_the_logs_before_a_later_session_overwrites_them(self):
+        # The mod rewrites both log files under the same names every session, so a
+        # verdict that was not copied aside is gone after the next run.
+        gaps = [gap(120, 1_000 + i * 20_000) for i in range(6)]
+        folder = Path(self.temporary.name)
+        (folder / 'pbzforewarn_diagnostics.json').write_text(
+            json.dumps(diagnostics(gaps=gaps, cues=[cue(340)])), encoding='utf8')
+        (folder / 'pbzforewarn_observations.json').write_text('{"flush": {}}', encoding='utf8')
+        snapshots = folder / 'snapshots'
+
+        first = subprocess.run([sys.executable, str(ANALYZER), '--saved', str(folder),
+                                '--save', str(snapshots)], capture_output=True, text=True, encoding='utf8')
+        self.assertEqual(first.returncode, 0, first.stdout)
+        kept = snapshots / 'synthetic'
+        self.assertTrue((kept / 'pbzforewarn_diagnostics.json').is_file())
+        self.assertTrue((kept / 'analysis.txt').is_file())
+
+        # A second, different session landing on the same filenames must not touch
+        # the first session's copy.
+        other = diagnostics(version='0.6.1-dev.5', gaps=[], cues=[], errors=9)
+        other['session'] = 'later'
+        (folder / 'pbzforewarn_diagnostics.json').write_text(json.dumps(other), encoding='utf8')
+        second = subprocess.run([sys.executable, str(ANALYZER), '--saved', str(folder),
+                                 '--save', str(snapshots)], capture_output=True, text=True, encoding='utf8')
+        self.assertEqual(second.returncode, 1)
+        preserved = json.loads((kept / 'pbzforewarn_diagnostics.json').read_text(encoding='utf8'))
+        self.assertEqual(preserved['session'], 'synthetic')
+        self.assertTrue((snapshots / 'later' / 'pbzforewarn_diagnostics.json').is_file())
+
 
 
 class ReportingResult(unittest.TextTestResult):

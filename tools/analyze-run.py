@@ -19,6 +19,7 @@ import argparse
 import collections
 import json
 import os
+import shutil
 import statistics
 import sys
 
@@ -212,19 +213,47 @@ def render(run, checks):
     return '\n'.join(lines)
 
 
+LOG_FILES = ('pbzforewarn_diagnostics.json', 'pbzforewarn_observations.json')
+
+
+def save(snapshot_dir, saved, run, checks, report):
+    """Copy the logs and the report aside.
+
+    The mod rewrites pbzforewarn_diagnostics.json and pbzforewarn_observations.json
+    under the same names every session, so starting a second run erases the first.
+    Copying before that happens is the only way the evidence for a verdict survives.
+    """
+    session = str(run.get('session') or 'unknown')
+    target = Path(snapshot_dir) / session
+    target.mkdir(parents=True, exist_ok=True)
+    for name in LOG_FILES:
+        source = Path(saved) / name
+        if source.is_file():
+            shutil.copy2(source, target / name)
+    (target / 'analysis.txt').write_text(report, encoding='utf8')
+    (target / 'analysis.json').write_text(
+        json.dumps({'run': run, 'checks': checks}, ensure_ascii=False, indent=2), encoding='utf8')
+    return target
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--saved', default=str(DEFAULT_SAVED), help='folder holding the mod logs')
     parser.add_argument('--json', action='store_true', help='machine-readable output')
+    parser.add_argument('--save', metavar='DIR',
+                        help='copy the logs and this report into DIR/<session>/ before '
+                             'a later session overwrites them')
     args = parser.parse_args()
 
     run = analyse(Path(args.saved))
     checks = verdicts(run)
-    if args.json:
-        print(json.dumps({'run': run, 'checks': checks}, ensure_ascii=False, indent=2))
-    else:
-        print(render(run, checks))
+    report = (json.dumps({'run': run, 'checks': checks}, ensure_ascii=False, indent=2)
+              if args.json else render(run, checks))
+    if args.save:
+        target = save(args.save, args.saved, run, checks, report)
+        print(f'saved {target}', file=sys.stderr)
+    print(report)
     return 1 if any(check['verdict'] == 'FAIL' for check in checks) else 0
 
 

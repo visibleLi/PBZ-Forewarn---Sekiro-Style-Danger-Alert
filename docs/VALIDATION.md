@@ -23,9 +23,15 @@ archived dev.5 build in `README.txt` only; all 23 runtime files are byte-identic
 is still running:
 
 ```text
-python tools/analyze-run.py            # reads %LOCALAPPDATA%\ProjectPBZ\Saved
+python tools/analyze-run.py                  # reads %LOCALAPPDATA%\ProjectPBZ\Saved
+python tools/analyze-run.py --save runs      # also keep the logs and the report
 python tools/analyze-run.py --json
 ```
+
+The mod rewrites `pbzforewarn_diagnostics.json` and `pbzforewarn_observations.json` under
+the same names every session, so starting a second run erases the first. `--save DIR`
+copies both logs plus `analysis.txt` and `analysis.json` into `DIR/<session>/`; without it
+a verdict only describes whatever session is currently on disk.
 
 It prints one verdict per claim — `PASS`, `PARTIAL`, `FAIL` or `UNVERIFIED` — and exits
 non-zero on any `FAIL`. `UNVERIFIED` means the session did not exercise the claim (no
