@@ -749,7 +749,7 @@ test('one spell-warning observation is retained per task and phase',()=>{
 test('trial version is identical in START, diagnostics and observation snapshots',()=>{
     const e=fixture();e.tick(0.1);e.mod.stop();
     const start=JSON.parse(e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] START ')).split('START ')[1]);
-    assert.equal(start.version,'0.6.1-dev.5');
+    assert.equal(start.version,/const VERSION = "([^"]+)"/.exec(mainSource)[1]);
     assert.equal(observations(e).version,start.version);
     assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).version,start.version);
 });
@@ -768,7 +768,7 @@ test('Lua schema2 paths decode without changing callback clock or cue output',()
 });
 
 test('real Lua schema2 wire fixture imports string call IDs and structured parameters',()=>{
-    const e=fixture();const fixturePath=path.join(__dirname,'../../hooks-package/tests/observer-schema2-wire-fixture.json');
+    const e=fixture();const fixturePath=path.join(__dirname,'../../lua/tests/observer-schema2-wire-fixture.json');
     const payload=JSON.parse(fs.readFileSync(fixturePath,'utf8'));payload.heartbeat=e.wall;
     e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify(payload));e.tick(0.7);e.mod.stop();
     const r=observations(e),calls=r.events.filter(x=>x.kind==='timeline-call'),focus=r.events.filter(x=>x.kind==='focused-call-summary');

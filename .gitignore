@@ -1,16 +1,11 @@
 # 排除版权音频文件
-js-package/PBZForewarn/cue.wav
-audio-bank/generated/
-hooks-package/tests/lib/
-hooks-package/tests/results.json
-hooks-package/tests/*-results.json
-player-docs/CHANGELOG.txt
-player-docs/CREDITS.md
-player-docs/README_EN.txt
-player-docs/VALIDATION.md
+src/js/PBZForewarn/cue.wav
+tools/audio-bank/generated/
+src/lua/tests/lib/
+src/lua/tests/results.json
+src/lua/tests/*-results.json
 __pycache__/
 dist/
-/publish-docs/
 /verification/
 /evidence/*
 !/evidence/release2-tested-runtime-hashes.json

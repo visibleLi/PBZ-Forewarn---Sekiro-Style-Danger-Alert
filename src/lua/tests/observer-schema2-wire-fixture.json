@@ -1,0 +1,365 @@
+{
+  "schemaVersion": 2,
+  "version": "0.6.1-dev.5",
+  "session": "fw-observe-1800000000-table00000000013BC2C0",
+  "seq": 2,
+  "heartbeat": 1800000000000,
+  "active": true,
+  "retention": {
+    "maxEvents": 512,
+    "firstSeq": 1,
+    "pathBytes": 307,
+    "maxBytes": 393216,
+    "lastSeq": 2,
+    "dropped": 0,
+    "maxPathBytes": 131072,
+    "scope": "events-plus-path-dictionary-plus-focus-summaries; metadata-extra",
+    "maxPaths": 2048,
+    "pathCount": 4,
+    "retainedBytes": 3894,
+    "eventBytes": 1993
+  },
+  "focusRetention": {
+    "dropped": 0,
+    "interpretation": "three-named-investigation-cases; not-full-history",
+    "bytes": 1556,
+    "count": 1,
+    "priority": "retained-before-ordinary-events",
+    "total": 1,
+    "maxRecords": 64
+  },
+  "health": {
+    "discoveryNoContext": 1,
+    "recoveries": 0,
+    "candidateDrops": 0,
+    "unregisterFailures": 0,
+    "pathInlineFallbacks": 0,
+    "dynamicRegistered": 0,
+    "abiUnknown": 0,
+    "registered": 2,
+    "discoveryPaused": 0,
+    "writeFailures": 0,
+    "registrationFailures": 0,
+    "lastError": "",
+    "unmatchedPosts": 0,
+    "clockUnavailable": 0,
+    "unknownThread": 0,
+    "publishExceptions": 0,
+    "rejectedOffThread": 0,
+    "abandonedPres": 0,
+    "currentlyFailing": false,
+    "dynamicLimitReached": 0,
+    "lookupPathExhausted": 0,
+    "discoveryFailures": 0,
+    "lastErrorStage": "",
+    "captureFailures": 0,
+    "focusOversized": 0,
+    "snapshotRebuilds": 1,
+    "pathReferences": 20,
+    "lookupBudgetDrops": 0,
+    "lookupBackoffSkips": 0
+  },
+  "lookupProfile": {
+    "cpuClockUnavailable": 3,
+    "timer": "os.clock-process-cpu-seconds",
+    "calls": {
+      "1": {
+        "result": "found",
+        "cpuStatus": "unavailable",
+        "path": "/Script/LegoAbility.LegoAbility:PlayTimeline",
+        "purpose": "hook-discovery"
+      },
+      "3": {
+        "result": "found",
+        "cpuStatus": "unavailable",
+        "path": "/Script/Engine.Default__GameplayStatics",
+        "purpose": "engine-clock-library"
+      },
+      "2": {
+        "result": "found",
+        "cpuStatus": "unavailable",
+        "path": "/Script/LegoAbility.LegoAbility:PlayTimelineByName",
+        "purpose": "hook-discovery"
+      }
+    },
+    "attempts": 3,
+    "totalCpuSeconds": 0,
+    "notWallDuration": true,
+    "maxCpuSeconds": 0,
+    "byPath": {
+      "/Script/Engine.Default__GameplayStatics": {
+        "totalCpuSeconds": 0,
+        "misses": 0,
+        "purpose": "engine-clock-library",
+        "maxCpuSeconds": 0,
+        "attempts": 1
+      },
+      "/Script/LegoAbility.LegoAbility:PlayTimelineByName": {
+        "totalCpuSeconds": 0,
+        "misses": 0,
+        "purpose": "hook-discovery",
+        "maxCpuSeconds": 0,
+        "attempts": 1
+      },
+      "/Script/LegoAbility.LegoAbility:PlayTimeline": {
+        "totalCpuSeconds": 0,
+        "misses": 0,
+        "purpose": "hook-discovery",
+        "maxCpuSeconds": 0,
+        "attempts": 1
+      }
+    },
+    "misses": 0,
+    "notGameClock": true
+  },
+  "eventKinds": {
+    "timeline-call": 2
+  },
+  "pathDictionary": {
+    "1": "/Game/Test.Ability_FeiZei_SpecialAttack_07",
+    "4": "/Script/LegoAbility.LegoAbility:PlayTimelineByName",
+    "3": "/Game/Test.Task_FeiZei_SpecialAttack_07",
+    "2": "/Game/Test.Enemy_FeiZei_SpecialAttack_07"
+  },
+  "focusSummaries": [
+    {
+      "first": {
+        "task": {
+          "$path": 3
+        },
+        "taskTime": {
+          "value": 0.125,
+          "status": "read"
+        },
+        "matching": "pending-post",
+        "atWallMs": 1800000000000,
+        "phase": "pre",
+        "gameTime": {
+          "source": "GameplayStatics.GetTimeSeconds",
+          "value": 42.25,
+          "status": "read"
+        },
+        "timeline": "/Game/Test.Timeline",
+        "params": {
+          "source": "reflection-SDK-0.3.3",
+          "abiVerified": false,
+          "StartTimeSeconds": {
+            "value": 2.883,
+            "status": "read"
+          },
+          "TimelineName": {
+            "value": "Main",
+            "status": "read"
+          },
+          "PlayRate": {
+            "value": 1.2,
+            "status": "read"
+          },
+          "SyncPoint": {
+            "value": 0,
+            "status": "read"
+          },
+          "status": "sdk-positional-count-matched"
+        }
+      },
+      "interpretation": "focused-call-summary; not-per-strike-identity-or-hit-confirmation",
+      "firstSeq": 1,
+      "kind": "timeline-call",
+      "abiVerified": false,
+      "lastSeq": 2,
+      "activation": {
+        "value": 3,
+        "status": "read"
+      },
+      "attackAssociation": "unknown",
+      "callId": "fw-observe-1800000000-table00000000013BC2C0:1",
+      "captureWorld": "/Game/Test.World",
+      "last": {
+        "task": {
+          "$path": 3
+        },
+        "taskTime": {
+          "value": 2.9,
+          "status": "read"
+        },
+        "matching": "synchronous-stack",
+        "atWallMs": 1800000000000,
+        "phase": "post",
+        "gameTime": {
+          "source": "GameplayStatics.GetTimeSeconds",
+          "value": 42.25,
+          "status": "read"
+        },
+        "timeline": "/Game/Test.Timeline",
+        "params": {
+          "source": "reflection-SDK-0.3.3",
+          "abiVerified": false,
+          "StartTimeSeconds": {
+            "value": 2.883,
+            "status": "read"
+          },
+          "TimelineName": {
+            "value": "Main",
+            "status": "read"
+          },
+          "PlayRate": {
+            "value": 1.2,
+            "status": "read"
+          },
+          "SyncPoint": {
+            "value": 0,
+            "status": "read"
+          },
+          "status": "sdk-positional-count-matched"
+        }
+      },
+      "taskCorrelation": "current-task-candidate",
+      "hookPath": {
+        "$path": 4
+      },
+      "callbackSemantics": "native-pre-post",
+      "actor": {
+        "$path": 2
+      },
+      "ability": {
+        "$path": 1
+      }
+    }
+  ],
+  "events": [
+    {
+      "matching": "pending-post",
+      "kind": "timeline-call",
+      "context": {
+        "object": {
+          "$path": 1
+        },
+        "ability": {
+          "$path": 1
+        },
+        "task": {
+          "$path": 3
+        },
+        "world": "/Game/Test.World",
+        "attackAssociation": "unknown",
+        "taskTime": {
+          "value": 0.125,
+          "status": "read"
+        },
+        "nativeExecutionConfirmed": false,
+        "timeline": "/Game/Test.Timeline",
+        "taskCorrelation": "current-task-candidate",
+        "activation": {
+          "value": 3,
+          "status": "read"
+        },
+        "actor": {
+          "$path": 2
+        },
+        "captureWorld": "/Game/Test.World"
+      },
+      "hookPath": {
+        "$path": 4
+      },
+      "callId": "fw-observe-1800000000-table00000000013BC2C0:1",
+      "seq": 1,
+      "thread": "game-confirmed",
+      "params": {
+        "source": "reflection-SDK-0.3.3",
+        "abiVerified": false,
+        "StartTimeSeconds": {
+          "value": 2.883,
+          "status": "read"
+        },
+        "TimelineName": {
+          "value": "Main",
+          "status": "read"
+        },
+        "PlayRate": {
+          "value": 1.2,
+          "status": "read"
+        },
+        "SyncPoint": {
+          "value": 0,
+          "status": "read"
+        },
+        "status": "sdk-positional-count-matched"
+      },
+      "phase": "pre",
+      "callbackSemantics": "native-pre-post",
+      "atWallMs": 1800000000000,
+      "gameTime": {
+        "source": "GameplayStatics.GetTimeSeconds",
+        "value": 42.25,
+        "status": "read"
+      }
+    },
+    {
+      "matching": "synchronous-stack",
+      "kind": "timeline-call",
+      "context": {
+        "object": {
+          "$path": 1
+        },
+        "ability": {
+          "$path": 1
+        },
+        "task": {
+          "$path": 3
+        },
+        "world": "/Game/Test.World",
+        "attackAssociation": "unknown",
+        "taskTime": {
+          "value": 2.9,
+          "status": "read"
+        },
+        "nativeExecutionConfirmed": false,
+        "timeline": "/Game/Test.Timeline",
+        "taskCorrelation": "current-task-candidate",
+        "activation": {
+          "value": 3,
+          "status": "read"
+        },
+        "actor": {
+          "$path": 2
+        },
+        "captureWorld": "/Game/Test.World"
+      },
+      "hookPath": {
+        "$path": 4
+      },
+      "callId": "fw-observe-1800000000-table00000000013BC2C0:1",
+      "seq": 2,
+      "thread": "game-confirmed",
+      "params": {
+        "source": "reflection-SDK-0.3.3",
+        "abiVerified": false,
+        "StartTimeSeconds": {
+          "value": 2.883,
+          "status": "read"
+        },
+        "TimelineName": {
+          "value": "Main",
+          "status": "read"
+        },
+        "PlayRate": {
+          "value": 1.2,
+          "status": "read"
+        },
+        "SyncPoint": {
+          "value": 0,
+          "status": "read"
+        },
+        "status": "sdk-positional-count-matched"
+      },
+      "phase": "post",
+      "callbackSemantics": "native-pre-post",
+      "atWallMs": 1800000000000,
+      "gameTime": {
+        "source": "GameplayStatics.GetTimeSeconds",
+        "value": 42.25,
+        "status": "read"
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert");
-const { createAudioEnvironmentProbe } = require("./audio-environment");
+const { createAudioEnvironmentProbe } = require("../PBZForewarn/audio-environment");
 let checks = 0;
 function test(name, run) { run(); checks++; console.log("PASS " + name); }
 const clsPath = "/Script/AkAudio.AkSettings", cdoPath = "/Script/AkAudio.Default__AkSettings";

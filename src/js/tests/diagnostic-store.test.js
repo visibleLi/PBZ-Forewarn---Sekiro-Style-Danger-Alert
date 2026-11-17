@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("node:assert/strict");
-const { createDiagnosticStore } = require("./diagnostic-store");
+const { createDiagnosticStore } = require("../PBZForewarn/diagnostic-store");
 let checks = 0;
 function test(name, run) { run(); checks++; console.log("PASS " + name); }
 

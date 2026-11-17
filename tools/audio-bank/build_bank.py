@@ -8,7 +8,7 @@ from pathlib import Path
 import argparse, hashlib, json, struct, wave, math, array, re
 
 ROOT = Path(__file__).resolve().parent
-SOURCE = ROOT.parent / 'js-package/PBZForewarn/cue.wav'
+SOURCE = ROOT.parent.parent / 'src/js/PBZForewarn/cue.wav'
 OUT = ROOT / 'generated'
 OUT.mkdir(exist_ok=True)
 parser = argparse.ArgumentParser(description='Build a bank from a local 44100 Hz stereo 16-bit PCM WAV.')
@@ -44,7 +44,7 @@ BANK_TYPE = 30  # Event bank, matches game's generated banks.
 GAIN_DB = 6.0
 VOICE_PRIORITY = 100.0
 if not SOURCE.is_file():
-    raise SystemExit('Provide js-package/PBZForewarn/cue.wav before building the bank.')
+    raise SystemExit('Provide src/js/PBZForewarn/cue.wav before building the bank.')
 source_sha256 = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
 baseline_audio = source_sha256 == '5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8'
 TRIM_START_MS = args.trim_start_ms if args.trim_start_ms is not None else (80 if baseline_audio else 0)
@@ -112,7 +112,7 @@ bank += chunk('DATA', bytes(padding) + wem) + hierarchy
 bank_name = 'PBZForewarn.bnk'
 (OUT/bank_name).write_bytes(bank)
 (OUT/(str(ids['media'])+'.wem')).write_bytes(wem)  # inspection only; embedded in bank
-config_template = (ROOT.parent / 'js-package/PBZForewarn/wwise-bank-config.js').read_bytes().decode('utf8')
+config_template = (ROOT.parent.parent / 'src/js/PBZForewarn/wwise-bank-config.js').read_bytes().decode('utf8')
 config_text, replacements = re.subn(r'durationSeconds:\s*[0-9.]+',
     'durationSeconds: ' + str(frame_count / sample_rate), config_template)
 assert replacements == 1, 'runtime bank configuration must contain one durationSeconds field'

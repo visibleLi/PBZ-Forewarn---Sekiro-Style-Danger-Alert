@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("node:assert/strict");
-const { createNativeAudio } = require("./wwise-audio");
+const { createNativeAudio } = require("../PBZForewarn/wwise-audio");
 let count = 0;
 function test(name, body) { body(); count++; console.log("PASS " + name); }
 function collection() { return { values: [], Empty() { this.values.length = 0; }, Add(...args) { this.values.push(args); },

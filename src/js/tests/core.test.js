@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('assert');
-const { Scheduler, classifyEffect } = require('./core');
+const { Scheduler, classifyEffect } = require('../PBZForewarn/core');
 let passed = 0;
 function test(name, run) {
     run(); passed++; console.log('PASS ' + name);

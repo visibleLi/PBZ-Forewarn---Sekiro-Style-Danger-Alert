@@ -35,7 +35,7 @@ check('RIFF extent accounts for full media',wem[:4]==b'RIFF' and u32(wem,4)+8==l
 media=chunks(wem,12)
 fmt=struct.unpack('<HHIIHHHHI',media[b'fmt '][1])
 check('packed extensible PCM stereo matches original sample rate',fmt==(65534,2,44100,176400,4,16,6,0,0x3102))
-with wave.open(str(ROOT.parent/'js-package/PBZForewarn/cue.wav')) as f:
+with wave.open(str(ROOT.parent.parent/'src/js/PBZForewarn/cue.wav')) as f:
     source_frames=f.getnframes()
     original=f.readframes(source_frames)
 trim_frames=manifest['trimStartFrames']; trim_bytes=trim_frames*4
@@ -48,7 +48,7 @@ check('embedded PCM is byte-identical to original cue.wav suffix after trim',med
 check('media content hash and playable duration are exact',media[b'hash'][1]==hashlib.md5(playable).digest() and manifest['pcm']['durationSeconds']==len(playable)/176400)
 check('original WAV backup and source PCM hash are preserved',
       manifest['sourceFrames']==source_frames and manifest['sourcePcmSha256']==hashlib.sha256(original).hexdigest() and
-      manifest['sourceWavSha256']==hashlib.sha256((ROOT.parent/'js-package/PBZForewarn/cue.wav').read_bytes()).hexdigest())
+      manifest['sourceWavSha256']==hashlib.sha256((ROOT.parent.parent/'src/js/PBZForewarn/cue.wav').read_bytes()).hexdigest())
 hier=parts[b'HIRC'][1]; n=u32(hier); p=4; objects={}
 for _ in range(n):
     kind=hier[p]; length=u32(hier,p+1); data=hier[p+5:p+5+length]
