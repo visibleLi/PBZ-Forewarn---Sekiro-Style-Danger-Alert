@@ -1,5 +1,24 @@
 # Validation / 自检边界
 
+## 0.6.1-dev.5
+
+Observation logging moved off the main loop's 5 s snapshot: it now flushes on its own
+20 s cadence and writes nothing when the content is unchanged. Observation buffers are
+halved (raw events 512 KiB to 256 KiB, compact evidence 256 KiB to 128 KiB), and no
+correlation is recomputed when nothing new arrived. The unproven late-window recovery
+stays removed.
+
+The trigger was the user's live log: 116 tick gaps exactly 5 s apart, matching the
+observation save period, with that file around 840 KB and its own serialization peak at
+403 ms. That is correlation between our write cadence and the gaps, not proof that every
+gap was caused by this module.
+
+Offline validation passes 665 checks across 22 suites. The installer differs from the
+archived dev.5 build in `README.txt` only; all 23 runtime files are byte-identical.
+**No in-game run has been performed on dev.5**, so the stall fix is unverified: the open
+questions are whether the 5 s cadence is gone and whether cue lead returns to roughly
+300 ms.
+
 ## 0.6.1-dev.4
 
 Summary schema 2 enforces the 64 KiB actors-array JSON budget at record time,
