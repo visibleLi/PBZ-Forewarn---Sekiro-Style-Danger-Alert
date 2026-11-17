@@ -25,4 +25,5 @@ Rules:
 - Never force push `main`; never move or delete a published tag.
 - Branch names are lowercase with hyphens. Do not name integration branches after versions.
 
-Migration: until `feature/0.6.1` is renamed to `dev`, it plays the `dev` role.
+`dev` is the integration branch. `feature/0.6.1` remains as the historical
+0.6.1 line; do not add new work there.

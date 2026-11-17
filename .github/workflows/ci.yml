@@ -15,7 +15,7 @@ on:
       - 'chore/**'
       - 'release/**'
       - 'hotfix/**'
-      - 'feature/**' # transitional: current dev line before the rename
+      - 'feature/**' # historical 0.6.1 line
   pull_request:
   workflow_dispatch:
 
