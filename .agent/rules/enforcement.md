@@ -13,5 +13,8 @@ description: "What the repository enforces by machine and what is convention onl
 | `release.yml` requires real audio | direct commits to `dev` boundary |
 | `.gitignore` plus CI guard | evidence archive path |
 
+`main` branch protection is a GitHub setting, not a repository file. Verify it in
+Settings → Branches: require `verify`, forbid force pushes.
+
 If a rule matters, prefer making it machine-checkable. Do not add a new tool for
 a rule that a short script or an existing check can cover.

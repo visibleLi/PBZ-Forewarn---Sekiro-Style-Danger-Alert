@@ -11,5 +11,6 @@ These are the current defaults. Change one only with a commit to this file.
 2. `release/*` merges into `main` with `--no-ff`.
 3. Evidence lives in `E:\dev\pbz-runs`; long-term archive is
    `G:\PBZForewarn-evidence`.
-4. `main` is protected: `verify` required, force push forbidden.
+4. `main` is protected: `verify` required, force push forbidden. This is a GitHub
+   branch-protection setting; verify it is enabled.
 5. Commit format is convention only; no commitlint in CI.

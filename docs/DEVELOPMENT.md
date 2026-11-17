@@ -30,6 +30,7 @@ checkpoint is not a player release. Add `--source` for the optional source
 archive. Use `--output-dir <new-folder>` to collect a candidate separately from
 older outputs. `PACKAGE_CHECK.json` stays outside the installer. Only
 `ProjectPBZ/`, `platform/` and a bilingual README go to players.
+The Source ZIP carries `AGENTS.md` and `.agent/rules/`; the installer never does.
 
 `README.txt` at the repository root is the player document: it holds the Nexus
 description verbatim, bilingual, and the packager copies it into the installer
