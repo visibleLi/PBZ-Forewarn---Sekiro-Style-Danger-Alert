@@ -1,0 +1,152 @@
+name: release
+
+# Builds and publishes a release from a tag.
+#
+# The real cue.wav cannot live in the repository (third-party audio), and a
+# 800 KB WAV does not fit in a GitHub Actions secret (48 KB limit). So the
+# workflow downloads it from a URL configured once per repository:
+#
+#   Settings -> Secrets and variables -> Actions -> Variables
+#     CUE_WAV_URL     direct download link to the 44100 Hz stereo 16-bit PCM WAV
+#     CUE_WAV_SHA256  expected SHA-256 of that file (optional but recommended)
+#
+# Without CUE_WAV_URL the workflow fails instead of publishing a synthetic tone.
+# If you would rather not host the audio, keep releases manual: build locally
+# with `python tools/package.py --source` and upload the ZIP with `gh release create`.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build (e.g. v0.6.1)'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      CUE_WAV_URL: ${{ vars.CUE_WAV_URL }}
+      CUE_WAV_SHA256: ${{ vars.CUE_WAV_SHA256 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Require the audio source
+        run: |
+          if [ -z "$CUE_WAV_URL" ]; then
+            echo '::error::CUE_WAV_URL is not set. Releases need the real cue.wav; see the header of this workflow.'
+            exit 1
+          fi
+
+      - name: Install test dependency
+        run: python -m pip install --target src/lua/tests/lib -r requirements-test.txt
+
+      - name: Download cue.wav
+        run: |
+          curl -fsSL --retry 3 --retry-delay 5 -o src/js/PBZForewarn/cue.wav "$CUE_WAV_URL"
+          if [ -n "$CUE_WAV_SHA256" ]; then
+            actual=$(sha256sum src/js/PBZForewarn/cue.wav | cut -d' ' -f1)
+            if [ "$actual" != "$CUE_WAV_SHA256" ]; then
+              echo '::error::cue.wav SHA-256 mismatch; refusing to build a release.'
+              exit 1
+            fi
+          fi
+
+      - name: Check audio format
+        run: |
+          python - <<'PY'
+          import wave
+          with wave.open('src/js/PBZForewarn/cue.wav') as audio:
+              print('channels', audio.getnchannels(), 'rate', audio.getframerate(),
+                    'width', audio.getsampwidth(), 'frames', audio.getnframes())
+              assert audio.getnchannels() == 2, 'stereo required'
+              assert audio.getframerate() == 44100, '44100 Hz required'
+              assert audio.getsampwidth() == 2, '16-bit required'
+              assert 0 < audio.getnframes() <= 44100 * 30, '0.01-30 s required'
+          PY
+
+      - name: Build the Wwise bank
+        run: python tools/audio-bank/build_bank.py
+
+      - name: Run offline checks
+        run: python tools/verify.py --node "$(command -v node)"
+
+      - name: Package the installer
+        run: python tools/package.py --source
+
+      - name: Write checksums
+        run: sha256sum dist/*.zip | tee dist/SHA256SUMS.txt
+
+      - name: Write release notes
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+          tag = os.environ['TAG']
+          dist = pathlib.Path('dist')
+          lines = [f'# PBZForewarn {tag}', '', '## Artifacts']
+          for path in sorted(dist.glob('*.zip')):
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              lines.append(f'- `{path.name}` — `{digest}`')
+          cue = pathlib.Path('src/js/PBZForewarn/cue.wav')
+          lines += ['', f'cue.wav SHA-256: `{hashlib.sha256(cue.read_bytes()).hexdigest()}`']
+          check = dist / 'PACKAGE_CHECK.json'
+          if check.is_file():
+              report = json.loads(check.read_text(encoding='utf8'))
+              lines += ['', '## Build',
+                        f"- offline checks: {report.get('offlineChecks')}",
+                        f"- installer files: {report.get('installerFiles')}",
+                        f"- matches original 0.5 runtime: {report.get('matchesOriginalRuntime')}"]
+          lines += ['', 'Built from the tagged commit by GitHub Actions. '
+                    'No in-game test is claimed by this workflow.']
+          pathlib.Path('RELEASE_NOTES.md').write_text('\n'.join(lines) + '\n', encoding='utf8')
+          print('\n'.join(lines))
+          PY
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: PBZForewarn ${{ env.TAG }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+            dist/PACKAGE_CHECK.json
+          fail_on_unmatched_files: true
+          prerelease: ${{ contains(env.TAG, '-') }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pbzforewarn-${{ env.TAG }}
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+            dist/PACKAGE_CHECK.json
+          retention-days: 30
+          if-no-files-found: error
