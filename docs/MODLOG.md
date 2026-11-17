@@ -1,5 +1,12 @@
 # Development journal
 
+## 2026-11-17: one player document
+
+- The repository carried three overlapping player texts: `README.txt`, `docs/README_EN.txt` and a `docs/player/` tree (`README.txt`, `README_EN.txt`, `CHANGELOG.txt`, `CREDITS.md`, `VALIDATION.md`). The packager read `docs/player/README.txt`, so editing the root README changed nothing a player saw, and the two copies had already diverged: root described the dev.5 stall fix, the packaged copy described it in shorter form, and `docs/README_EN.txt` was a third English wording.
+- The user's rule: one player document, matching the Nexus description, plus developer docs that never ship. Root `README.txt` is now that document, bilingual, and `tools/package.py` copies it verbatim. The five `docs/player/` files and `docs/README_EN.txt` are deleted; `docs/` keeps only developer material (`CHANGELOG`, `CREDITS`, `DEVELOPMENT`, `MODDING_PLAN`, `MODLOG`, `ROADMAP`, `VALIDATION`, `PBZForewarn.example.txt`).
+- `test_default_produces_only_installer_and_external_report` now asserts the packaged README equals the repository README byte for byte after line-ending normalization. Swapping the packager back to any second source fails it (verified by pointing it at `docs/CHANGELOG.txt`).
+- Installer content is unchanged except `README.txt`: 24 files, runtime hashes identical to the archived dev.5 build, 665 offline checks over 22 suites. `matchesOriginalRuntime` stays false because this dev line has never matched the frozen 0.5 baseline; that flag is not a regression signal here.
+
 ## 2026-11-15: dev.3 summary serialization repair
 
 - Read C:/Users/lmany/.codex/AGENTS.md plus mod-any-game and reverse-engineering. Scope is the explicitly agreed summary overhead/data-loss repair and disabling unproven recovery by default; no BOSS rule or game setting change.

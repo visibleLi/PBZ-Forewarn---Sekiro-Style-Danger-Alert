@@ -42,6 +42,11 @@ is not a player release. Add `--source` for the optional source archive.
 Use `--output-dir <new-folder>` to collect a candidate separately from older outputs.
 `PACKAGE_CHECK.json` stays outside the installer. Only `ProjectPBZ/`, `platform/` and a bilingual README go to players.
 
+`README.txt` at the repository root is the player document: it holds the Nexus description
+verbatim, bilingual, and the packager copies it into the installer unchanged. Do not add a
+second player copy under `docs/`; that is how the two used to drift apart. Everything under
+`docs/` is developer-facing and never reaches a player.
+
 `build_state.py` owns the source inventory, version and required test suites. The verifier hashes inputs
 before and after checks; failure removes the old summary. The packager requires the complete suite list,
 passed syntax and matching input hashes. Tests cover rejection of partial/failed reports and edits after validation.

@@ -116,7 +116,7 @@ compatibility work without proving better detection.
 ## Sources
 
 - Live install, executable metadata, `UE4SS.log`, and `loader.log` on this machine.
-- Repository `README_EN.txt`, `DEVELOPMENT.md`, JavaScript modules, Lua hooks and tests.
+- Repository `README.txt`, `DEVELOPMENT.md`, JavaScript modules, Lua hooks and tests.
 - Universal Modder field note:
   `knowledge/games/phantom-blade-zero/hold-start-hud-toggle-and-per-group-combat-vfx-switches-ue4s.md`.
 - Universal Modder Unreal playbook and safety rules.

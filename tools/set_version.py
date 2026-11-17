@@ -31,9 +31,7 @@ MENTIONS = (
     'src/lua/observation-hooks.lua',
     'src/lua/tests/observer-schema2-wire-fixture.json',
     'README.txt',
-    'docs/README_EN.txt',
     'docs/PBZForewarn.example.txt',
-    'docs/player/README.txt',
 )
 # History: never rewritten.
 HISTORY = ('docs/CHANGELOG.txt',)

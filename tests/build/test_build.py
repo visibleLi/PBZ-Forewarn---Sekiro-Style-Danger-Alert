@@ -102,8 +102,13 @@ class BuildTests(unittest.TestCase):
             self.assertEqual({name.split('/')[0] for name in archive.namelist()},
                              {'ProjectPBZ', 'platform', 'README.txt'})
             self.assertEqual(len(archive.namelist()), 24)
-            self.assertIn('中文', archive.read('README.txt').decode('utf-8-sig'))
-            self.assertIn('English', archive.read('README.txt').decode('utf-8-sig'))
+            # One player document only: the installer copy must be the repository
+            # README verbatim, so a second player copy cannot drift back in.
+            packaged = archive.read('README.txt').decode('utf-8-sig')
+            self.assertEqual(packaged.replace('\r\n', '\n'),
+                             (self.root / 'README.txt').read_text(encoding='utf-8-sig').replace('\r\n', '\n'))
+            self.assertIn('中文', packaged)
+            self.assertIn('English', packaged)
             self.assertIn(b'durationSeconds: 0.25', archive.read(
                 'ProjectPBZ/PBZModLoader/mods/PBZForewarn/wwise-bank-config.js'))
         self.assertFalse(json.loads((destination / 'PACKAGE_CHECK.json').read_text(encoding='utf8'))['matchesOriginalRuntime'])

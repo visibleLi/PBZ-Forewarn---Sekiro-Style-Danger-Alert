@@ -83,7 +83,7 @@ matches_baseline = runtime_hashes == frozen
 if args.check_baseline and not matches_baseline:
     raise SystemExit('Runtime hashes differ from the original 0.5 baseline.')
 bank_manifest = json.loads((ROOT / 'tools/audio-bank/generated/manifest.json').read_text(encoding='utf8'))
-player_readme = (ROOT / 'docs/player/README.txt').read_text(encoding='utf-8-sig')
+player_readme = (ROOT / 'README.txt').read_text(encoding='utf-8-sig')
 files = dict(runtime)
 files['README.txt'] = ('\ufeff' + '\r\n'.join(player_readme.splitlines()) + '\r\n').encode('utf8')
 source_files = {path.relative_to(ROOT).as_posix(): archive_bytes(path) for path in source_paths(ROOT)} if args.source else {}

@@ -44,11 +44,9 @@ SOURCE_ROOT_FILES = (
     'tools/package.py', 'tools/verify.py', 'tools/build_state.py', 'Run-Checks.ps1',
     'requirements-test.txt', '.gitignore', '.gitattributes',
     'README.txt', 'evidence/release2-tested-runtime-hashes.json',
-    'docs/README_EN.txt', 'docs/CHANGELOG.txt', 'docs/CREDITS.md', 'docs/DEVELOPMENT.md',
+    'docs/CHANGELOG.txt', 'docs/CREDITS.md', 'docs/DEVELOPMENT.md',
     'docs/PBZForewarn.example.txt', 'docs/VALIDATION.md', 'docs/MODDING_PLAN.md',
     'docs/ROADMAP.md', 'docs/MODLOG.md',
-    'docs/player/README.txt', 'docs/player/CHANGELOG.txt', 'docs/player/CREDITS.md',
-    'docs/player/README_EN.txt', 'docs/player/VALIDATION.md',
 )
 
 
