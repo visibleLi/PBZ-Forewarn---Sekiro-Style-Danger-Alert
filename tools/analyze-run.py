@@ -43,6 +43,11 @@ BASELINE = {
 # A tick-gap record marks one main-loop iteration that took this long. Gaps under this
 # are ordinary frame pacing and are not what the dev.5 report is about.
 STALL_MS = 250
+# Above this the loop was not running at all: a level load, a menu, an alt-tab or a
+# minimised window. No frame in a shipping game takes this long, and the mod's own
+# heaviest operation is reported separately (7 ms on the run that motivated this), so
+# such a gap is not evidence about the mod either way.
+LOOP_STOPPED_MS = 2000
 # Records closer together than this cannot be told apart from the 5 s write cadence.
 CADENCE_LOW_MS = 4500
 CADENCE_HIGH_MS = 6500
@@ -74,6 +79,32 @@ def tick_gap_cadence(gaps):
     return periodic / len(usable), dict(sorted(buckets.items()))
 
 
+def paused_spans(recent):
+    """Intervals during which the mod was paused, from its own state records."""
+    spans, opened = [], None
+    for record in sorted((r for r in recent if r.get('kind') == 'state'), key=lambda r: r['at']):
+        if record.get('paused') is True:
+            opened = record['at'] if opened is None else opened
+        elif opened is not None:
+            spans.append((opened, record['at']))
+            opened = None
+    if opened is not None:
+        spans.append((opened, float('inf')))
+    return spans
+
+
+def spans_pause(record, spans):
+    """True when a tick-gap record covers time the mod was paused.
+
+    A pause stops the loop, so the first tick after resuming reports the whole
+    menu or loading screen as one gap. That is not a stall and must not be
+    counted as one.
+    """
+    end = record['at']
+    start = end - record.get('ms', 0)
+    return any(start <= close and end >= open_ for open_, close in spans)
+
+
 def analyse(saved):
     diagnostics = load(saved, 'pbzforewarn_diagnostics.json')
     observations = load(saved, 'pbzforewarn_observations.json')
@@ -81,12 +112,14 @@ def analyse(saved):
         raise SystemExit(f'no pbzforewarn_diagnostics.json in {saved}')
 
     recent = diagnostics.get('recent') or []
+    spans = paused_spans(recent)
     gaps = [record for record in recent if record.get('kind') == 'tick-gap']
+    played = [record for record in gaps if not spans_pause(record, spans)]
     cues = [record for record in recent if record.get('kind') == 'CUE']
     leads = [record['estimatedLeadGameMs'] for record in cues
              if isinstance(record.get('estimatedLeadGameMs'), (int, float))]
 
-    periodic_share, buckets = tick_gap_cadence(gaps)
+    periodic_share, buckets = tick_gap_cadence(played)
     stats = diagnostics.get('stats') or {}
     flush = diagnostics.get('flush') or {}
     observation_flush = (observations or {}).get('flush') or {}
@@ -102,7 +135,11 @@ def analyse(saved):
         'minLeadMs': min(leads) if leads else None,
         'maxLeadMs': max(leads) if leads else None,
         'tickGaps': len(gaps),
-        'stalls': [record['ms'] for record in gaps if record.get('ms', 0) >= STALL_MS],
+        'tickGapsWhilePaused': len(gaps) - len(played),
+        'stalls': sorted((record['ms'] for record in played
+                          if STALL_MS <= record.get('ms', 0) < LOOP_STOPPED_MS), reverse=True),
+        'loopStopped': sorted((record['ms'] for record in played
+                               if record.get('ms', 0) >= LOOP_STOPPED_MS), reverse=True),
         'maxTickGapMs': diagnostics.get('maxObservedTickGapMs'),
         'tickGapPeriodicShare': periodic_share,
         'tickGapBuckets': buckets,
@@ -194,8 +231,12 @@ def render(run, checks):
              f"cues   {run['cues']}"
              + (f"  lead median {run['medianLeadMs']:.0f} ms"
                 f" (min {run['minLeadMs']:.0f}, max {run['maxLeadMs']:.0f})" if run['leads'] else ''),
-             f"gaps   {run['tickGaps']} records, {len(run['stalls'])} at or above {STALL_MS} ms,"
-             f" worst {run['maxTickGapMs']} ms",
+             f"gaps   {run['tickGaps']} records"
+             f" ({run['tickGapsWhilePaused']} span a pause)"
+             f", {len(run['stalls'])} hitch(es) of {STALL_MS}-{LOOP_STOPPED_MS} ms"
+             + (f", worst {run['stalls'][0]} ms" if run['stalls'] else '')
+             + (f", {len(run['loopStopped'])} loop-stopped span(s)"
+                f" worst {run['loopStopped'][0]} ms" if run['loopStopped'] else ''),
              f"flush  {run['observationWrites']} observation writes,"
              f" peak serialize {run['maxObservationSerializeMs']} ms", '']
     if run['tickGapBuckets']:

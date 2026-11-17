@@ -1,5 +1,14 @@
 # Development journal
 
+## 2026-11-17: dev.5 in-game result
+
+- Session `mwkibq6i-e0av2xfn`, 34 minutes, build `0.6.1-dev.5` installed and byte-identical to `dist/PBZForewarn-0.6.1-dev.5.zip` across all 23 runtime files. The game root is `D:/steam/steamapps/common/PBZ`; the path came from the `bankPath` the mod logs, not from a filesystem guess.
+- The 5 s stall cadence is gone: 0 of 53 tick-gap records sit 4.5–6.5 s apart, against 96.6 % of 351 in the test.2 session that motivated dev.5.
+- Observation serialization peak fell 403 ms to 7 ms, and observation writes fell to 61 over 34 minutes (one per 20 s of changed content, as designed).
+- 37 cues: 29 standard, 5 `semantic-fallback` (Acolyte Yanru), 3 `cast-warning` (No. 3 Musician Puppet). Both 0.6 additions fired in a live session. Colours red 24, blue 7, black 6. Median lead 334 ms, range 118–350 ms, against 285 ms on test.2. `missed=0`, `conditionsNotMet=6`, 2 cancels, 2 duplicate cancels suppressed, 0 errors.
+- One correction to my own tool, found by running it: it summed every tick gap and reported the worst as 23649 ms, which reads as a stall. Eight of those gaps are 10–23 s and are level loads and menus. The mod's heaviest operation that session was 7 ms, so it cannot account for them either way. Gaps overlapping a recorded pause are now excluded, and the rest split into hitches (250–2000 ms) and loop-stopped spans (2000 ms and up). The worst in-play hitch was 1528 ms.
+- Scope: one session, one machine, one build. It shows these two numbers for this session, not a distribution, and it does not re-test coverage of every enemy or move.
+
 ## 2026-11-17: one player document
 
 - The repository carried three overlapping player texts: `README.txt`, `docs/README_EN.txt` and a `docs/player/` tree (`README.txt`, `README_EN.txt`, `CHANGELOG.txt`, `CREDITS.md`, `VALIDATION.md`). The packager read `docs/player/README.txt`, so editing the root README changed nothing a player saw, and the two copies had already diverged: root described the dev.5 stall fix, the packaged copy described it in shorter form, and `docs/README_EN.txt` was a third English wording.

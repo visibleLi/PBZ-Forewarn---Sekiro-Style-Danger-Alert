@@ -13,11 +13,29 @@ observation save period, with that file around 840 KB and its own serialization 
 403 ms. That is correlation between our write cadence and the gaps, not proof that every
 gap was caused by this module.
 
-Offline validation passes 678 checks across 23 suites. The installer differs from the
-archived dev.5 build in `README.txt` only; all 23 runtime files are byte-identical.
+Offline validation passes 682 checks across 23 suites.
 
-**No in-game run has been performed on dev.5.** The two open questions are whether the
-5 s stall cadence is gone and whether cue lead returns toward 350 ms.
+**In-game run on 2026-11-17**, session `mwkibq6i-e0av2xfn`, 34 minutes of play. All
+seven claims pass:
+
+| Claim | test.2 | dev.5 |
+|---|---|---|
+| tick gaps 4.5–6.5 s apart | 96.6 % | **0.0 %** |
+| peak observation serialize | 403 ms | **7 ms** |
+| median cue lead | 285 ms | **334 ms** |
+| cues | 26 | 37 (red 24, blue 7, black 6) |
+| runtime errors | 0 | 0 |
+
+The 37 cues split into 29 standard, 5 `semantic-fallback` (Acolyte Yanru) and 3
+`cast-warning` (No. 3 Musician Puppet), so both 0.6 additions fired in a real session.
+Lead ranged 118–350 ms over those 37 cues; the 334 ms median sits inside the 350 ms
+target's own tolerance.
+
+Two limits on that result. It is one session on one machine, so it shows the stall and
+the lead in that session, not a distribution. And the eight multi-second gaps in the log
+are level loads and menus, not hitches: the mod's heaviest single operation that session
+was 7 ms, so it cannot account for a 23 s gap either way. The worst in-play hitch was
+1528 ms.
 
 `tools/analyze-run.py` answers both from the logs the mod already writes, while the game
 is still running:
@@ -44,6 +62,13 @@ Two of its checks deliberately refuse to guess. A log whose tick-gap timestamps 
 absent or repeated reports `UNVERIFIED` rather than scoring 0 % periodic, because 0 %
 would read as "the cadence is gone" when the clock simply was not recorded. A session
 with no cues reports `UNVERIFIED` for lead rather than passing.
+
+It also separates gap kinds instead of summing them. Gaps overlapping a recorded pause
+are excluded, because resuming makes the first tick report the whole menu as one gap.
+Remaining gaps split into hitches (250–2000 ms) and loop-stopped spans (2000 ms and up,
+i.e. level loads, menus or a minimised window). Reporting a 23 s load as a stall would
+overstate the problem, and the mod's own worst operation is printed next to it so its
+contribution stays bounded.
 
 ## 0.6.1-dev.4
 

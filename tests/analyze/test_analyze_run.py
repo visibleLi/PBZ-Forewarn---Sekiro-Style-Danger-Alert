@@ -23,15 +23,19 @@ def gap(ms, at):
     return {'kind': 'tick-gap', 'ms': ms, 'at': at}
 
 
+def state(paused, at):
+    return {'kind': 'state', 'paused': paused, 'at': at}
+
+
 def diagnostics(version='0.6.1-dev.5', gaps=(), cues=(), errors=0, serialize=40,
-                settings=None):
+                settings=None, states=()):
     return {
         'version': version, 'session': 'synthetic',
         'settings': settings if settings is not None else {'ObservationFlushMs': 20000, 'LeadMs': 350},
         'stats': {'errors': errors, 'recognized': len(cues), 'missed': 0, 'cancels': 0},
         'flush': {'observationWrites': 10, 'maxObservationSerializeMs': serialize},
         'maxObservedTickGapMs': max((g['ms'] for g in gaps), default=0),
-        'recent': list(gaps) + list(cues),
+        'recent': list(gaps) + list(cues) + list(states),
     }
 
 
@@ -170,6 +174,27 @@ class AnalyzeRunTests(unittest.TestCase):
         preserved = json.loads((kept / 'pbzforewarn_diagnostics.json').read_text(encoding='utf8'))
         self.assertEqual(preserved['session'], 'synthetic')
         self.assertTrue((snapshots / 'later' / 'pbzforewarn_diagnostics.json').is_file())
+
+    def test_a_gap_spanning_a_pause_is_not_counted_as_a_hitch(self):
+        # Resuming after a menu makes the first tick report the whole menu as one
+        # gap; the run that motivated this had eight such spans of 10-23 s.
+        gaps = [gap(15_000, 20_000)] + [gap(120, 20_000 + (i + 1) * 20_000) for i in range(6)]
+        states = [state(True, 6_000), state(False, 20_000)]
+        _, payload = self.analyse(diagnostics(gaps=gaps, cues=[cue(340)], states=states))
+        self.assertEqual(payload['run']['tickGapsWhilePaused'], 1)
+        self.assertEqual(payload['run']['loopStopped'], [])
+
+    def test_a_multi_second_gap_is_reported_as_a_stopped_loop(self):
+        gaps = [gap(23_649, 30_000)] + [gap(120, 30_000 + (i + 1) * 20_000) for i in range(6)]
+        _, payload = self.analyse(diagnostics(gaps=gaps, cues=[cue(340)]))
+        self.assertEqual(payload['run']['loopStopped'], [23_649])
+        self.assertEqual(payload['run']['stalls'], [])
+
+    def test_a_sub_second_hitch_is_reported_as_a_hitch(self):
+        gaps = [gap(1_528, 30_000)] + [gap(120, 30_000 + (i + 1) * 20_000) for i in range(6)]
+        _, payload = self.analyse(diagnostics(gaps=gaps, cues=[cue(340)]))
+        self.assertEqual(payload['run']['stalls'], [1_528])
+        self.assertEqual(payload['run']['loopStopped'], [])
 
 
 

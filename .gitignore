@@ -7,5 +7,6 @@ src/lua/tests/*-results.json
 __pycache__/
 dist/
 /verification/
+/runs/
 /evidence/*
 !/evidence/release2-tested-runtime-hashes.json
