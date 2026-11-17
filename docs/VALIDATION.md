@@ -33,9 +33,9 @@ target's own tolerance.
 
 Two limits on that result. It is one session on one machine, so it shows the stall and
 the lead in that session, not a distribution. And the eight multi-second gaps in the log
-are level loads and menus, not hitches: the mod's heaviest single operation that session
-was 7 ms, so it cannot account for a 23 s gap either way. The worst in-play hitch was
-1528 ms.
+end at a world/player reset (seven) or immediately before a pause (one), not mid-fight
+hitches: the mod's heaviest single operation that session was 7 ms, so it cannot account
+for a 23 s gap either way. The worst in-play hitch was 1528 ms.
 
 `tools/analyze-run.py` answers both from the logs the mod already writes, while the game
 is still running:

@@ -1,12 +1,20 @@
 # Development journal
 
+## 2026-11-18: engineering close-out and project rules
+
+- `AGENTS.md` is now a gateway; the rules live in twelve modules under `.agent/rules/`. `docs/DEVELOPMENT.md` only carries build, verify and package steps.
+- `dev` was branched from `feature/0.6.1` at `16517a0`; `feature/0.6.1` stays as the historical 0.6.1 line. `main` remains `257b421` (0.6.0-preview).
+- The Source ZIP includes `AGENTS.md` and `.agent/rules/`; the Nexus installer still excludes them. The source inventory is `tools/build_state.py`.
+- Gate: 23 suites / 682 checks; installer unchanged except `README.txt`; CI green on `dev`.
+- Open: GuiChai P1 `GEx` `condition-not-met` (6), the 118 ms observation-delay case, the observation-chain default (D1), the same-map long-stall run, and the six legacy CRLF blobs.
+
 ## 2026-11-17: dev.5 in-game result
 
 - Session `mwkibq6i-e0av2xfn`, 34 minutes, build `0.6.1-dev.5` installed and byte-identical to `dist/PBZForewarn-0.6.1-dev.5.zip` across all 23 runtime files. The game root is `D:/steam/steamapps/common/PBZ`; the path came from the `bankPath` the mod logs, not from a filesystem guess.
-- The 5 s stall cadence is gone: 0 of 53 tick-gap records sit 4.5–6.5 s apart, against 96.6 % of 351 in the test.2 session that motivated dev.5.
-- Observation serialization peak fell 403 ms to 7 ms, and observation writes fell to 61 over 34 minutes (one per 20 s of changed content, as designed).
+- The 5 s stall cadence is gone: 0 of 50 tick-gap records sit 4.5–6.5 s apart, against 96.6 % of 351 in the test.2 session that motivated dev.5.
+- Observation serialization peak fell 403 ms to 7 ms, and observation writes fell to 59 over 34 minutes (one per 20 s of changed content, as designed).
 - 37 cues: 29 standard, 5 `semantic-fallback` (Acolyte Yanru), 3 `cast-warning` (No. 3 Musician Puppet). Both 0.6 additions fired in a live session. Colours red 24, blue 7, black 6. Median lead 334 ms, range 118–350 ms, against 285 ms on test.2. `missed=0`, `conditionsNotMet=6`, 2 cancels, 2 duplicate cancels suppressed, 0 errors.
-- One correction to my own tool, found by running it: it summed every tick gap and reported the worst as 23649 ms, which reads as a stall. Eight of those gaps are 10–23 s and are level loads and menus. The mod's heaviest operation that session was 7 ms, so it cannot account for them either way. Gaps overlapping a recorded pause are now excluded, and the rest split into hitches (250–2000 ms) and loop-stopped spans (2000 ms and up). The worst in-play hitch was 1528 ms.
+- One correction to my own tool, found by running it: it summed every tick gap and reported the worst as 23649 ms, which reads as a stall. Seven of those gaps end at a world/player reset and one immediately precedes a pause; the mod's heaviest operation that session was 7 ms, so it cannot account for them either way. Gaps overlapping a recorded pause are now excluded, and the rest split into hitches (250–2000 ms) and loop-stopped spans (2000 ms and up). The worst in-play hitch was 1528 ms.
 - Scope: one session, one machine, one build. It shows these two numbers for this session, not a distribution, and it does not re-test coverage of every enemy or move.
 
 ## 2026-11-17: one player document
