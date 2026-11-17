@@ -44,7 +44,7 @@ SOURCE_ROOT_FILES = (
     'tools/package.py', 'tools/verify.py', 'tools/build_state.py', 'tools/analyze-run.py',
     'tools/regen-gold.js', 'Run-Checks.ps1',
     'requirements-test.txt', '.gitignore', '.gitattributes',
-    'README.txt', 'evidence/release2-tested-runtime-hashes.json',
+    'README.txt', 'AGENTS.md', 'evidence/release2-tested-runtime-hashes.json',
     'docs/CHANGELOG.txt', 'docs/CREDITS.md', 'docs/DEVELOPMENT.md',
     'docs/PBZForewarn.example.txt', 'docs/VALIDATION.md', 'docs/MODDING_PLAN.md',
     'docs/ROADMAP.md', 'docs/MODLOG.md',
@@ -59,6 +59,7 @@ def source_paths(root):
         ('src/lua', ('*.lua', '*.md', '*.py', '*fixture.json')),
         ('tools/audio-bank', ('*.py', '*.md')),
         ('tests', ('*.py',)),
+        ('.agent/rules', ('*.md',)),
     )
     for folder, globs in patterns:
         for pattern in globs:
