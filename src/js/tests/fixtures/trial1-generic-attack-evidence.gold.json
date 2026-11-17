@@ -1,0 +1,457 @@
+{
+ "note": "Generated from the current implementation. This records observed behaviour, not verified ground truth; see generic-attack-gold.test.js.",
+ "source": "trial1-generic-attack-evidence.json",
+ "build": "26367565",
+ "rows": [
+  {
+   "index": 0,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 1,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 2,
+   "kind": "native-frame",
+   "color": "red",
+   "typeName": "RedEye",
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 3,
+   "kind": "native-frame",
+   "color": "red",
+   "typeName": "RedEye",
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 4,
+   "kind": "native-frame-ended",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 5,
+   "kind": "native-frame-ended",
+   "color": "red",
+   "typeName": "RedEye",
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 6,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 7,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 8,
+   "kind": "native-frame-ended",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 9,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 10,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 11,
+   "kind": "native-frame-ended",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 12,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 13,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 14,
+   "kind": "native-frame-ended",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 15,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 16,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 17,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 18,
+   "kind": "native-frame-ended",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 19,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 20,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 21,
+   "kind": "native-frame-ended",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 22,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 23,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 24,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 25,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 26,
+   "kind": "native-frame-ended",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 27,
+   "kind": "native-frame",
+   "color": "red",
+   "typeName": "RedEye",
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 28,
+   "kind": "native-frame",
+   "color": "red",
+   "typeName": "RedEye",
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 29,
+   "kind": "native-frame-ended",
+   "color": "red",
+   "typeName": "RedEye",
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 30,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 31,
+   "kind": "native-frame",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 32,
+   "kind": "native-frame-ended",
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 33,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 34,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 35,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 36,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 37,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 38,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 39,
+   "kind": null,
+   "color": "red",
+   "typeName": "RedEye",
+   "evidencePolicy": "duration-bullet-observe",
+   "timingBasis": "authored-action-coordinates",
+   "cueEnabled": false
+  },
+  {
+   "index": 40,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 41,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 42,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 43,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 44,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 45,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 46,
+   "kind": null,
+   "color": "blue",
+   "typeName": "BlueEye",
+   "evidencePolicy": "duration-bullet-observe",
+   "timingBasis": "authored-action-coordinates",
+   "cueEnabled": false
+  },
+  {
+   "index": 47,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": null,
+   "timingBasis": null,
+   "cueEnabled": null
+  },
+  {
+   "index": 48,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": "duration-bullet-observe",
+   "timingBasis": "authored-action-coordinates",
+   "cueEnabled": false
+  },
+  {
+   "index": 49,
+   "kind": null,
+   "color": null,
+   "typeName": null,
+   "evidencePolicy": "duration-bullet-observe",
+   "timingBasis": "authored-action-coordinates",
+   "cueEnabled": false
+  }
+ ]
+}
