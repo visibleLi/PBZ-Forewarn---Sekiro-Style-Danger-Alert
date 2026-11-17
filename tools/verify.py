@@ -15,8 +15,22 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--node', default=shutil.which('node'))
 parser.add_argument('--check-baseline', action='store_true', help='also require the original 0.5 audio')
 args = parser.parse_args()
-node = shutil.which(args.node) if args.node else None
-args.node = node or args.node
+def resolve_node(value):
+    if not value:
+        return shutil.which('node')
+    path = Path(value)
+    if path.is_file():
+        return str(path)
+    # Git Bash passes MSYS paths such as /c/Program Files/nodejs/node.exe.
+    match = re.fullmatch(r'/([A-Za-z])/(.+)', value)
+    if match:
+        path = Path(match.group(1).upper() + ':/' + match.group(2))
+        if path.is_file():
+            return str(path)
+    return shutil.which(value)
+
+
+args.node = resolve_node(args.node)
 if not args.node or not Path(args.node).is_file():
     parser.error('Node.js is required; pass --node PATH')
 OUT = ROOT / 'verification'
@@ -33,7 +47,7 @@ def run(case):
     result = subprocess.run([executable, str(ROOT / relative)], cwd=ROOT, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True, encoding='utf8', errors='replace')
     (OUT / (name + '.txt')).write_text(result.stdout, encoding='utf8')
-    count = len(re.findall(r'^PASS ', result.stdout, flags=re.MULTILINE))
+    count = len(re.findall(r'^\.?PASS ', result.stdout, flags=re.MULTILINE))
     if is_python_suite(relative) and result.returncode == 0:
         try:
             count = json.loads(result.stdout)['checks']
