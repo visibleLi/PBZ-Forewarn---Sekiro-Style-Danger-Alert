@@ -7,7 +7,8 @@ description: "In-game logs, saved evidence, and VALIDATION claims. Read before r
 | Item | Rule |
 |---|---|
 | Live game logs | `%LOCALAPPDATA%\ProjectPBZ\Saved\pbzforewarn_*.json` plus `PBZForewarn.txt` |
-| After every session | `python tools/analyze-run.py --save E:/dev/pbz-runs` before starting another run |
+| Live log watch during play | `python tools/analyze-run.py` (no save); the agent reads the current logs on request |
+| After a validation run you intend to cite | `python tools/analyze-run.py --save E:/dev/pbz-runs` before starting another run; ordinary play does not need it |
 | Local evidence store | `E:\dev\pbz-runs\<session-id>\`, outside the repository, never committed |
 | Release evidence | copy to `G:\PBZForewarn-evidence\runs\<session-id>\` for long-term retention |
 | Inside the repository | `runs/` is a temporary working copy, gitignored, safe to delete |
