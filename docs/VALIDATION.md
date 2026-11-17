@@ -13,11 +13,31 @@ observation save period, with that file around 840 KB and its own serialization 
 403 ms. That is correlation between our write cadence and the gaps, not proof that every
 gap was caused by this module.
 
-Offline validation passes 665 checks across 22 suites. The installer differs from the
+Offline validation passes 678 checks across 23 suites. The installer differs from the
 archived dev.5 build in `README.txt` only; all 23 runtime files are byte-identical.
-**No in-game run has been performed on dev.5**, so the stall fix is unverified: the open
-questions are whether the 5 s cadence is gone and whether cue lead returns to roughly
-300 ms.
+
+**No in-game run has been performed on dev.5.** The two open questions are whether the
+5 s stall cadence is gone and whether cue lead returns toward 350 ms.
+
+`tools/analyze-run.py` answers both from the logs the mod already writes, while the game
+is still running:
+
+```text
+python tools/analyze-run.py            # reads %LOCALAPPDATA%\ProjectPBZ\Saved
+python tools/analyze-run.py --json
+```
+
+It prints one verdict per claim — `PASS`, `PARTIAL`, `FAIL` or `UNVERIFIED` — and exits
+non-zero on any `FAIL`. `UNVERIFIED` means the session did not exercise the claim (no
+combat, no usable timestamps), which is not a failure. The comparison point is the
+user's own test.2 session `mwhygcbb-hczgj5hb`: 26 cues, median lead 285 ms, 351 tick-gap
+records of which 96.6 % sat 4.5–6.5 s apart, peak observation serialize 403 ms. Those are
+one session's figures, not a distribution.
+
+Two of its checks deliberately refuse to guess. A log whose tick-gap timestamps are
+absent or repeated reports `UNVERIFIED` rather than scoring 0 % periodic, because 0 %
+would read as "the cadence is gone" when the clock simply was not recorded. A session
+with no cues reports `UNVERIFIED` for lead rather than passing.
 
 ## 0.6.1-dev.4
 

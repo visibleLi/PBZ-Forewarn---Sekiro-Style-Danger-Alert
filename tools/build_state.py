@@ -41,7 +41,8 @@ def is_python_suite(relative):
 
 
 SOURCE_ROOT_FILES = (
-    'tools/package.py', 'tools/verify.py', 'tools/build_state.py', 'Run-Checks.ps1',
+    'tools/package.py', 'tools/verify.py', 'tools/build_state.py', 'tools/analyze-run.py',
+    'tools/regen-gold.js', 'Run-Checks.ps1',
     'requirements-test.txt', '.gitignore', '.gitattributes',
     'README.txt', 'evidence/release2-tested-runtime-hashes.json',
     'docs/CHANGELOG.txt', 'docs/CREDITS.md', 'docs/DEVELOPMENT.md',

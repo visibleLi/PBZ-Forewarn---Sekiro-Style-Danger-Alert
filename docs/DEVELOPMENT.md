@@ -63,6 +63,10 @@ Byte reproducibility is checked under the same Python/zlib environment, not prom
 5. Test the candidate in PBZ: QiShu_Huo's two moves, existing red/blue/black moves, sound, lock/unlocked,
    duplicate suppression, cancellation, performance, and normal exit. Save logs before starting another run.
 6. Audit by actor and actual cue source, not just `missed=0`. Missing recognition can leave `missed=0`.
+7. Run `python tools/analyze-run.py` straight after the session, before starting another one:
+   it reads the logs the mod already wrote and prints a verdict per claim, so a run either
+   supports the stall fix and the lead target or says which one it contradicts. It reads
+   the files while the game is still running, so quitting is not required.
 
 `SemanticFallback=0` disables the new rules; this is the bounded observation version's standard path,
 not a byte-identical 0.5 rollback. Reinstall the 0.5 archive for that. Lua-side switches need a full restart.
