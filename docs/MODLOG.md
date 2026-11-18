@@ -1,5 +1,14 @@
 # Development journal
 
+## 2026-11-18: dev.6 third session, 214 cues
+
+- `mwm40tnt-sv9ktdi1`, build `0.6.1-dev.6`, 20:40:57–22:56:15. 214 cues (red 59 / blue 96 / black 59), lead median 328 ms (179–350), 2 missed, 20 `condition-not-met`, 37 cancels (35 duplicate suppressed), 0 errors; `analyze-run.py` verdict PASS on all seven claims.
+- The 20 skips are two new `require-tags` families: `GA_WuXuan_Skill_01_C` / `_Loop_C` requiring `btk` (16) and `GA_GuWanYue_GEx_04_C` requiring `CharacterState.AbilityState.Common.Hidden` (4). Both requirements are read from the resource catalog; `lateBy` 82–130 ms is when the scheduler noticed them, not why they were skipped.
+- Both misses are `past-window`. `GA_EMei_Sword_Special_04_C` is the first record with `endedBeforeObservation=true` (observed 2.316 s against a node that ended at 1.975 s); `GA_SpearMan_Ride_Skill_05_C` was still running when noticed 418 ms after start.
+- Loop health: 82 tick-gap records, 27 spanning pauses, 4.5–6.5 s cadence share 3.8 % (test.2 96.6 %), observation serialize peak 7 ms (test.2 403 ms). Two played-time `loopStopped` spans: 17.4 s at session start and 13.2 s after a BossRush autosave plus a `BindBellDelegate` rebind; no level-load trace exists.
+- Retention: `recent` 1386/2048 entries with 0 dropped; activity lane 181 of 9834 retained (byte cap); resource catalog 128 of 1759 retained.
+- Evidence: `E:/dev/pbz-runs/mwm40tnt-sv9ktdi1/` with `FINAL_REPORT.md` and `WATCH_NOTES.md`.
+
 ## 2026-11-18: dev.6 in-game skip classification
 
 - Both dev.6 sessions are classified: `mwlpnl9v-aqz64nw9` (18 cues, red 11 / blue 6 / black 1, lead median 331 ms, 4 skips, 2 cancels) and `mwlp07zq-xe9li6vx` (9 cues, red 7 / blue 2, lead median 338 ms, 5 skips; ended by the user's graphics-settings crash). Zero errors in both; `analyze-run.py` verdict PASS for both.

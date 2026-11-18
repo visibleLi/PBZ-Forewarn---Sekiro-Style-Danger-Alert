@@ -12,28 +12,44 @@ the dev.5 session on the next run instead of guessing.
 hard-coded dev.5 string, and reports retained skip reasons. Its claims still
 compare against the test.2 baseline.
 
-**In-game runs on 2026-11-18** (dev.6 diagnostic build; both sessions end with
-the `analyze-run.py` verdict PASS for build identity, observation flush, stall
-cadence, serialization peak, cue lead and zero errors):
+**In-game runs on 2026-11-18** (dev.6 diagnostic build; all three sessions end
+with the `analyze-run.py` verdict PASS for build identity, observation flush,
+stall cadence, serialization peak, cue lead and zero errors):
 
 | Session | Cues (red/blue/black) | Lead median (min–max) | `condition-not-met` | Skip reason | Errors |
 |---|---|---:|---|---|---:|
 | `mwlpnl9v-aqz64nw9` | 18 (11/6/1) | 331 ms (200–346) | 4 | `require-tags` ×4 | 0 |
 | `mwlp07zq-xe9li6vx` | 9 (7/2/0) | 338 ms (322–342) | 5 | `require-tags` ×5 | 0 |
+| `mwm40tnt-sv9ktdi1` | 214 (59/96/59) | 328 ms (179–350) | 20 | `require-tags` ×20 | 0 |
 
-All nine retained skips are the same node, `GA_GuiChai_Red_P1_GEx_01_C`, and
-each records `eligibilityReason=require-tags`. The resource catalog written by
-the same sessions lists that node requiring the gameplay tag `ddsd`, a
-debug-style value; the failing check is the adapter's
-`HasAllMatchingGameplayTags` call. These nodes are excluded by their asset tag
-requirement. The recorded `lateBy` (84–119 ms against an 80 ms grace) is when
-the scheduler noticed them past the window, not the cause of the skip. This
-resolves the six dev.5 records cited above.
+Every retained skip records `eligibilityReason=require-tags`; each names a tag
+the node's asset requires, and the failing check is the adapter's
+`HasAllMatchingGameplayTags` call. Three node families appear. The first two
+sessions' nine skips are `GA_GuiChai_Red_P1_GEx_01_C` requiring `ddsd`. The
+third session adds `GA_WuXuan_Skill_01_C` and `_Loop_C` requiring `btk`
+(16 records) and `GA_GuWanYue_GEx_04_C` requiring
+`CharacterState.AbilityState.Common.Hidden` (4 records). `ddsd` and `btk` are
+debug-style values; the GuWanYue tag is a real character-state gate. The
+recorded `lateBy` (82–130 ms against an 80 ms grace) is when the scheduler
+noticed them past the window, not the cause of the skip. This resolves the six
+dev.5 records cited above.
 
-Limits: two sessions on one machine and one boss; log-level classification
-only, no audio or screen measurement; `missed=0` means no queued cue was
-missed, not full move coverage. The second session ended early when the user's
-graphics change crashed the process; its counts cover the played span.
+The third session is the first to separate the two `missed` shapes with the new
+fields. Both are `past-window`. `GA_SpearMan_Ride_Skill_05_C` was noticed
+418 ms after node start while the node was still running (end 1.443 s);
+`GA_EMei_Sword_Special_04_C` was noticed 1080 ms after start, after the node
+had already ended (end 1.975 s, observed 2.316 s), so it carries
+`endedBeforeObservation=true`. Its two played-time `loopStopped` spans are
+17.4 s at session start and 13.2 s directly after a BossRush autosave and a
+`BindBellDelegate` UI rebind; no level-load trace exists, so that attribution
+is adjacency, not proof.
+
+Limits: three sessions on one machine and three bosses; log-level
+classification only, no audio or screen measurement; `missed=0` means no queued
+cue was missed, not full move coverage. The second session ended early when the
+user's graphics change crashed the process; its counts cover the played span.
+The third session's activity lane is byte-capped and retained 181 of 9834
+records.
 
 ## 0.6.1-dev.5
 
