@@ -82,11 +82,12 @@ and its conditions, never a fixed schedule of future enemy choices.
 7. The agent captures the logs and reports through the Live log watch procedure
    in `.agent/rules/evidence.md`; the user does not need to run Python or leave
    the game early. Preserve the exact capture being cited, including its timestamp.
-   For the dev.5 stall comparison, the agent may additionally run
-   `python tools/analyze-run.py --save E:/dev/pbz-runs`. That helper checks the
-   dev.5-specific claims and copies two JSON logs; it is neither the watcher nor
-   a general acceptance test for later versions. Keep separate capture times
-   distinct so a later snapshot cannot replace evidence behind an earlier report.
+   For the stall and skip-reason comparison, the agent may additionally run
+   `python tools/analyze-run.py --save E:/dev/pbz-runs`. That helper follows the
+   checkout's `build_state.VERSION` and copies two JSON logs; it is neither the
+   watcher nor a general acceptance test for other versions.
+   Keep separate capture times distinct so a later snapshot cannot replace the
+   evidence behind an earlier report.
 
 `SemanticFallback=0` disables the new rules; this is the bounded observation
 version's standard path, not a byte-identical 0.5 rollback. Reinstall the 0.5
