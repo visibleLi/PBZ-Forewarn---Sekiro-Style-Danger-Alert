@@ -4,7 +4,9 @@ description: "Build, verify, and package gates. Read before running checks or cl
 
 # Gates
 
-Environment: Python 3.12, Node.js 24, `lupa==2.8`.
+Environment: Python 3.12, Node.js 24, `lupa==2.8`. The vendored `lupa` ships
+cp312 wheels only, so the gate must run under 3.12; a 3.13/3.14 interpreter
+fails at import in `test_observation` with `checks 0`.
 
 Full gate, fixed order:
 
@@ -18,7 +20,7 @@ python tools/package.py
 Rules:
 
 - `verify.py` must have every suite at exit 0 and every suite with `checks > 0`.
-  Current baseline: 23 suites / 682 checks. Trust `verification/summary.json`.
+  Current baseline: 23 suites / 684 checks. Trust `verification/summary.json`.
 - `package.py` must succeed. It rejects a stale summary, a version mismatch, or
   inputs changed after validation.
 - Any runtime, test, build-script or packaging-doc change requires a fresh
