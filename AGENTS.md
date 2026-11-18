@@ -51,6 +51,7 @@ python -m pip install --target src/lua/tests/lib -r requirements-test.txt
 python tools/audio-bank/build_bank.py
 python tools/verify.py --node <node-path-or-node-on-PATH>
 python tools/package.py
-python tools/analyze-run.py --save E:/dev/pbz-runs
-python tools/set_version.py <new-version> --previous <old-version>
+python tools/analyze-run.py # dev.5-specific analysis; evidence handling is in .agent/rules/evidence.md
+# To bump: first edit VERSION in tools/build_state.py, then synchronize carriers:
+python tools/set_version.py --previous <old-version>
 ```

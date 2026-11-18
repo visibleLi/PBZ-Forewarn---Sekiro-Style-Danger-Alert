@@ -1,5 +1,13 @@
 # Development journal
 
+## 2026-11-18: workflow-audit corrections
+
+- Corrected the version-bump instructions to match the existing two-step tool: edit `tools/build_state.py:VERSION`, then run `tools/set_version.py --previous <old-version>`.
+- Added the omitted `tools/set_version.py` to the Source ZIP inventory. Archive tests now check the gateway/rules boundary and execute the extracted version checker, including a mismatched-carrier rejection.
+- The 50/59 and 53/61 readings below are two capture times from the same dev.5 session, not conflicting counts. Neither raw snapshot was replaced. The earlier correction that treated 53/61 as a transcription error was mistaken.
+- GitHub branch protection remains unverified. NativeRecovery investigation history is recoverable from the archived bundle, not an assumed current investigation branch.
+- Restored the agreed Live log watch workflow in the evidence guidance. It is agent-operated; the dev.5 analyzer is optional and is not a universal release gate. No gameplay behavior or version change is part of this correction.
+
 ## 2026-11-18: engineering close-out and project rules
 
 - `AGENTS.md` is now a gateway; the rules live in twelve modules under `.agent/rules/`. `docs/DEVELOPMENT.md` only carries build, verify and package steps.
@@ -10,11 +18,12 @@
 
 ## 2026-11-17: dev.5 in-game result
 
-- Session `mwkibq6i-e0av2xfn`, 34 minutes, build `0.6.1-dev.5` installed and byte-identical to `dist/PBZForewarn-0.6.1-dev.5.zip` across all 23 runtime files. The game root is `D:/steam/steamapps/common/PBZ`; the path came from the `bankPath` the mod logs, not from a filesystem guess.
-- The 5 s stall cadence is gone: 0 of 50 tick-gap records sit 4.5–6.5 s apart, against 96.6 % of 351 in the test.2 session that motivated dev.5.
-- Observation serialization peak fell 403 ms to 7 ms, and observation writes fell to 59 over 34 minutes (one per 20 s of changed content, as designed).
+- Session `mwkibq6i-e0av2xfn`, build `0.6.1-dev.5`. Installed runtime was compared with `dist/PBZForewarn-0.6.1-dev.5.zip` across all 23 runtime files. Two saved captures cover approximately 24.5 and 34 minutes of this same session; these are capture spans, not separate test runs. The game root recorded in the log is `D:/steam/steamapps/common/PBZ`.
+- Earlier capture: `E:/dev/pbz-runs/mwkibq6i-e0av2xfn/pbzforewarn_diagnostics.json`, `at=1794910241455` (2026-11-17 18:10:41.455 UTC+08:00), 50 retained tick-gap records and 59 observation writes. This is the capture used by the accompanying `FINDINGS.md`.
+- Later capture: `E:/dev/pbz-forewarn/runs/mwkibq6i-e0av2xfn/pbzforewarn_diagnostics.json`, `at=1794910788343` (2026-11-17 18:19:48.343 UTC+08:00), 53 retained tick-gap records and 61 observation writes. Do not replace one capture with the other or mix their counts and time spans.
+- Both saved analysis reports show 0.0% of consecutive tick-gap intervals in the 4.5–6.5 s band, versus 96.6% in the test.2 baseline. Both captures record a 7 ms peak observation serialization time, versus 403 ms in that baseline.
 - 37 cues: 29 standard, 5 `semantic-fallback` (Acolyte Yanru), 3 `cast-warning` (No. 3 Musician Puppet). Both 0.6 additions fired in a live session. Colours red 24, blue 7, black 6. Median lead 334 ms, range 118–350 ms, against 285 ms on test.2. `missed=0`, `conditionsNotMet=6`, 2 cancels, 2 duplicate cancels suppressed, 0 errors.
-- One correction to my own tool, found by running it: it summed every tick gap and reported the worst as 23649 ms, which reads as a stall. Seven of those gaps end at a world/player reset and one immediately precedes a pause; the mod's heaviest operation that session was 7 ms, so it cannot account for them either way. Gaps overlapping a recorded pause are now excluded, and the rest split into hitches (250–2000 ms) and loop-stopped spans (2000 ms and up). The worst in-play hitch was 1528 ms.
+- The earlier capture's manual review associated seven long gaps with world/player resets and one with a nearby pause. This is correlation, not proof of cause. The analyzer separates pause-overlapping records and duration bands; its 2000 ms threshold alone cannot prove a gap was loading rather than a stall, and the measured 7 ms serialization peak does not bound all game-thread work. The reported 1528 ms maximum applies only to its 250–2000 ms category.
 - Scope: one session, one machine, one build. It shows these two numbers for this session, not a distribution, and it does not re-test coverage of every enemy or move.
 
 ## 2026-11-17: one player document

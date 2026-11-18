@@ -51,6 +51,11 @@ normalized. Byte reproducibility is checked under the same Python/zlib
 environment, not promised across arbitrary compressors. `--check-baseline` is an
 optional historical comparison; this branch is expected to differ from 0.5.
 
+To change the development version, edit `VERSION` in `tools/build_state.py`, then
+run `python tools/set_version.py --previous <old-version>`. Without arguments the
+script only checks consistency. It has no positional new-version argument; update
+CHANGELOG and validation/release notes separately.
+
 ## Provenance
 
 The two QiShu_Huo rules come from captured actor/ability/action/type facts in
@@ -74,13 +79,14 @@ and its conditions, never a fixed schedule of future enemy choices.
    performance, and normal exit. Save logs before starting another run.
 6. Audit by actor and actual cue source, not just `missed=0`. Missing
    recognition can leave `missed=0`.
-7. Run `python tools/analyze-run.py --save E:/dev/pbz-runs` straight after the
-   session: it reads the logs the mod already wrote and prints a verdict per
-   claim, so a run either supports the stall fix and the lead target or says
-   which one it contradicts. It reads the files while the game is still
-   running, so quitting is not required. `--save` matters because the mod
-   rewrites both log files every session; without it the next run erases the
-   evidence.
+7. The agent captures the logs and reports through the Live log watch procedure
+   in `.agent/rules/evidence.md`; the user does not need to run Python or leave
+   the game early. Preserve the exact capture being cited, including its timestamp.
+   For the dev.5 stall comparison, the agent may additionally run
+   `python tools/analyze-run.py --save E:/dev/pbz-runs`. That helper checks the
+   dev.5-specific claims and copies two JSON logs; it is neither the watcher nor
+   a general acceptance test for later versions. Keep separate capture times
+   distinct so a later snapshot cannot replace evidence behind an earlier report.
 
 `SemanticFallback=0` disables the new rules; this is the bounded observation
 version's standard path, not a byte-identical 0.5 rollback. Reinstall the 0.5

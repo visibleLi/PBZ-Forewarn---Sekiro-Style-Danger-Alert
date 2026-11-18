@@ -17,7 +17,9 @@ description: "Branch model, merge rules, and tag rules. Read before creating, me
 Rules:
 
 - `main` never receives direct commits. Only `release/*` or `hotfix/*` merges.
-- `main` is protected: `verify` must pass, force push is forbidden.
+- Required policy for `main`: `verify` must pass and force pushes are forbidden.
+  Whether GitHub branch protection enforces this is unverified; do not report it
+  as enabled without checking the repository setting.
 - `dev` is the next-version integration branch. Behavior changes go through short branches.
 - Short branches start from `dev`, rebase onto `dev`, then merge with `--ff-only`.
 - `release/*` may change only version carriers, CHANGELOG, VALIDATION, README and release docs.

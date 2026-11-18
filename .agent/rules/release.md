@@ -5,13 +5,14 @@ description: "Release steps from freeze to Nexus upload. Read before cutting or 
 # Release
 
 1. Cut `release/vX.Y.Z` from `dev`.
-2. Bump with `tools/set_version.py`.
+2. Set `tools/build_state.py:VERSION` to the release version, then run
+   `python tools/set_version.py --previous <old-version>` to synchronize carriers.
 3. Update `docs/CHANGELOG.txt`, `docs/VALIDATION.md`, `README.txt`, `docs/ROADMAP.md`.
-4. Run the full gate. If runtime or audio changed, test in game and, before quitting:
-
-```bash
-python tools/analyze-run.py --save E:/dev/pbz-runs
-```
+4. Run the full gate. If runtime or audio changed, validate the agreed behavior
+   in game. The agent handles watching and evidence capture as described in
+   `evidence.md`; the user does not need to run Python commands. Preserve the
+   cited snapshot before another session overwrites it. `analyze-run.py` checks
+   dev.5-specific claims, not arbitrary future versions or features.
 
 5. Commit and push. CI must be green.
 6. Merge `release/vX.Y.Z` into `main` with `--no-ff`. Tag `vX.Y.Z` on `main`

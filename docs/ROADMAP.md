@@ -18,7 +18,7 @@ MODDING_PLAN.md负责引擎与工具选择，DEVELOPMENT.md负责构建流程；
 
 ## 0.6.1当前边界
 
-- 0.6.1修复线（现`dev`；`feature/0.6.1`保留为历史线）从已发布标签`v0.6.0-preview`建立；失败的NativeRecovery只保留在调查分支，不进入发布线。
+- 0.6.1修复线（现`dev`；`feature/0.6.1`保留为历史线）从已发布标签`v0.6.0-preview`建立；失败的NativeRecovery调查线保存在`G:\PBZForewarn-recovery-2026-11-16`的Git bundle中，不作为开发或发布基座。
 - 覆盖审计和来招记录继续作为只读诊断，不直接发危。`NativeRecovery=1`已经实机证明会重复普通危，当前没有真实正收益样本，因此不从旧的0.6.1测试包续写。
 - `test.2`实机没有past-window或补危收益；其自动补危已从源码移除。
 - 本轮先修自己新增的摘要：超限在写入时淘汰技能明细，保存只组装缓存，保留敌人基础计数、会话计数和丢失量。不是新的检测或补危规则。
@@ -118,7 +118,7 @@ C++或大型动作库只在现有接口存在已证实缺口时引入；更换�
 ## Git与产物纪律
 
 当前发布修复线为`dev`；`v0.5-preview`、`v0.6.0-trial.1`和`v0.6.0-preview`保持原提交。
-`feature/0.6.1-coverage-audit`的提交只保留在`G:\PBZForewarn-recovery-2026-11-16`的bundle，不作为发布基座。
+`feature/0.6.1-coverage-audit`的历史提交可从`G:\PBZForewarn-recovery-2026-11-16`的bundle恢复；这不表示当前仍存在同名本地或远端分支，不作为发布基座。
 trial.2的观察结论已随0.6.1提交；功能开发前仍要保证源码与diff可回溯。
 每次提交前排除音源、生成bank、个人日志、依赖和临时patch。push、打发布tag、Nexus上传按用户安排进行。
 验证报告、源码ZIP、安装ZIP必须能对应到同一份源码；已经交付的版本不再同名换内容。

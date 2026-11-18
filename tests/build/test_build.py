@@ -22,7 +22,7 @@ class BuildTests(unittest.TestCase):
         self.root = Path(self.temporary.name) / 'source'
         self.root.mkdir()
         ignored = shutil.ignore_patterns('lib', '__pycache__', 'generated', 'cue.wav', '*results.json')
-        for folder in ('src', 'tools', 'tests', 'docs', 'evidence'):
+        for folder in ('src', 'tools', 'tests', 'docs', 'evidence', '.agent'):
             shutil.copytree(ROOT / folder, self.root / folder, ignore=ignored)
         for name in SOURCE_ROOT_FILES:
             (self.root / name).parent.mkdir(parents=True, exist_ok=True)
@@ -102,6 +102,9 @@ class BuildTests(unittest.TestCase):
             self.assertEqual({name.split('/')[0] for name in archive.namelist()},
                              {'ProjectPBZ', 'platform', 'README.txt'})
             self.assertEqual(len(archive.namelist()), 24)
+            self.assertFalse(any('AGENTS.md' in Path(name).parts or
+                                 any(part in ('.agent', '.omp') for part in Path(name).parts)
+                                 for name in archive.namelist()))
             # One player document only: the installer copy must be the repository
             # README verbatim, so a second player copy cannot drift back in.
             packaged = archive.read('README.txt').decode('utf-8-sig')
@@ -121,6 +124,13 @@ class BuildTests(unittest.TestCase):
         with zipfile.ZipFile(self.root / f'dist/PBZForewarn-{VERSION}-Source.zip') as archive:
             self.assertIn('tools/build_state.py', archive.namelist())
             self.assertIn('tests/build/test_build.py', archive.namelist())
+            self.assertIn('tools/set_version.py', archive.namelist())
+            self.assertIn('AGENTS.md', archive.namelist())
+            expected_rules = {path.relative_to(self.root).as_posix()
+                              for path in (self.root / '.agent/rules').rglob('*.md')}
+            self.assertIn('.agent/rules/versioning.md', expected_rules)
+            self.assertTrue(expected_rules <= set(archive.namelist()))
+            self.assertFalse(any('.omp' in Path(name).parts for name in archive.namelist()))
             self.assertFalse(any(name.lower().endswith(('.wav', '.bnk', '.wem')) for name in archive.namelist()))
             self.assertFalse(any('/generated/' in name for name in archive.namelist()))
             self.assertIn('docs/PBZForewarn.example.txt', archive.namelist())
@@ -142,6 +152,11 @@ class BuildTests(unittest.TestCase):
             self.assertEqual({path.relative_to(source_root).as_posix() for path in source_paths(source_root)},
                              {path.relative_to(self.root).as_posix() for path in source_paths(self.root)})
             self.assertTrue(all(path.is_file() for path in source_paths(source_root)))
+            version = subprocess.run([sys.executable, str(source_root / 'tools/set_version.py')],
+                                     cwd=source_root, capture_output=True, text=True,
+                                     encoding='utf8', errors='replace')
+            self.assertEqual(version.returncode, 0, version.stdout + version.stderr)
+            self.assertIn(f'all carriers report {VERSION}', version.stdout)
             self.write_source_fixture_audio(source_root)
             build = subprocess.run([sys.executable, str(source_root / 'tools/audio-bank/build_bank.py')],
                                    cwd=source_root, capture_output=True, text=True,
@@ -151,6 +166,15 @@ class BuildTests(unittest.TestCase):
                                   cwd=source_root, capture_output=True, text=True,
                                   encoding='utf8', errors='replace')
             self.assertEqual(bank.returncode, 0, bank.stdout + bank.stderr)
+            main = source_root / 'src/js/PBZForewarn/main.js'
+            main.write_text(main.read_text(encoding='utf8').replace(
+                f'const VERSION = "{VERSION}";',
+                'const VERSION = "0.0.0-mismatch";'), encoding='utf8')
+            mismatch = subprocess.run([sys.executable, str(source_root / 'tools/set_version.py')],
+                                      cwd=source_root, capture_output=True, text=True,
+                                      encoding='utf8', errors='replace')
+            self.assertEqual(mismatch.returncode, 1, mismatch.stdout + mismatch.stderr)
+            self.assertIn('src/js/PBZForewarn/main.js', mismatch.stderr)
 
     def test_changed_source_requires_new_validation(self):
         self.build()

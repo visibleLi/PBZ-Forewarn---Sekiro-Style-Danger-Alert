@@ -15,8 +15,19 @@ gap was caused by this module.
 
 Offline validation passes 682 checks across 23 suites.
 
-**In-game run on 2026-11-17**, session `mwkibq6i-e0av2xfn`, 34 minutes of play. All
-seven claims pass:
+**In-game run on 2026-11-17**, session `mwkibq6i-e0av2xfn`. Two saved captures
+from this same run have seven passing checks in their saved analysis reports.
+They are not independent test runs:
+
+| Diagnostics capture (UTC+08:00) | Saved directory | Retained tick gaps | Observation writes |
+|---|---|---:|---:|
+| 2026-11-17 18:10:41.455 (`at=1794910241455`) | `E:/dev/pbz-runs/mwkibq6i-e0av2xfn/` | 50 | 59 |
+| 2026-11-17 18:19:48.343 (`at=1794910788343`) | `E:/dev/pbz-forewarn/runs/mwkibq6i-e0av2xfn/` | 53 | 61 |
+
+The earlier capture is the approximately 24.5-minute span reviewed in `FINDINGS.md`;
+the later capture spans approximately 34 minutes. Counts in this table come from
+each diagnostics snapshot; the observation JSON has its own capture timestamp.
+Neither snapshot is overwritten or substituted for the other. Shared metrics:
 
 | Claim | test.2 | dev.5 |
 |---|---|---|
@@ -28,14 +39,16 @@ seven claims pass:
 
 The 37 cues split into 29 standard, 5 `semantic-fallback` (Acolyte Yanru) and 3
 `cast-warning` (No. 3 Musician Puppet), so both 0.6 additions fired in a real session.
-Lead ranged 118–350 ms over those 37 cues; the 334 ms median sits inside the 350 ms
-target's own tolerance.
+Lead ranged 118–350 ms over those 37 retained cues. The 334 ms median is a
+game-clock estimate relative to the warning node, not a screen/audio measurement
+or a guaranteed lead for every attack.
 
-Two limits on that result. It is one session on one machine, so it shows the stall and
-the lead in that session, not a distribution. And the eight multi-second gaps in the log
-end at a world/player reset (seven) or immediately before a pause (one), not mid-fight
-hitches: the mod's heaviest single operation that session was 7 ms, so it cannot account
-for a 23 s gap either way. The worst in-play hitch was 1528 ms.
+This is one session on one machine, not a distribution. In the earlier capture,
+manual review correlated seven long gaps with world/player resets and one with
+a nearby pause. Those associations do not establish the cause of every gap.
+The analyzer's duration categories do not prove that gaps of 2000 ms or more are
+loads/menus, and a 7 ms serialization peak cannot exclude all other causes of a
+long game-thread delay. Its 1528 ms maximum refers only to the 250–2000 ms category.
 
 `tools/analyze-run.py` answers both from the logs the mod already writes, while the game
 is still running:
@@ -65,10 +78,10 @@ with no cues reports `UNVERIFIED` for lead rather than passing.
 
 It also separates gap kinds instead of summing them. Gaps overlapping a recorded pause
 are excluded, because resuming makes the first tick report the whole menu as one gap.
-Remaining gaps split into hitches (250–2000 ms) and loop-stopped spans (2000 ms and up,
-i.e. level loads, menus or a minimised window). Reporting a 23 s load as a stall would
-overstate the problem, and the mod's own worst operation is printed next to it so its
-contribution stays bounded.
+Remaining gaps are reported in duration bands (250–2000 ms and 2000 ms and up).
+The label `loop-stopped` names the latter bucket; it is not a diagnosis of a
+level load, menu, minimised window or mod-independent cause. Retain the long-gap
+records and their context rather than treating the label as evidence of safety.
 
 ## 0.6.1-dev.4
 
