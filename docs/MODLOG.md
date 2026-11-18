@@ -1,11 +1,17 @@
 # Development journal
 
+## 2026-11-18: dev.6 in-game skip classification
+
+- Both dev.6 sessions are classified: `mwlpnl9v-aqz64nw9` (18 cues, red 11 / blue 6 / black 1, lead median 331 ms, 4 skips, 2 cancels) and `mwlp07zq-xe9li6vx` (9 cues, red 7 / blue 2, lead median 338 ms, 5 skips; ended by the user's graphics-settings crash). Zero errors in both; `analyze-run.py` verdict PASS for both.
+- Every retained `condition-not-met` record is `GA_GuiChai_Red_P1_GEx_01_C` with `eligibilityReason=require-tags`, and the same sessions' resource catalogs list that node requiring the gameplay tag `ddsd`. The six dev.5 records were therefore asset-requirement exclusions, not late-window decisions; `lateBy` 84–119 ms is when the scheduler noticed them past the window.
+- Evidence: `E:/dev/pbz-runs/mwlpnl9v-aqz64nw9/` and `E:/dev/pbz-runs/mwlp07zq-xe9li6vx/`, copied to `G:/PBZForewarn-evidence/runs/`.
+
 ## 2026-11-18: dev.6 skip-reason diagnostics
 
 - `condition-not-met` now records `eligibilityReason` (from the adapter's tag check), `lateBy`, `lateGrace` and `endedBeforeObservation`. No scheduling or cue decision changed.
 - The first target is GuiChai P1 `GA_GuiChai_Red_P1_GEx_01`: the dev.5 captures have six `conditions-not-met` records, all 86–117 ms after the node start against an 80 ms grace, but the old payload dropped the tag-check reason.
 - `analyze-run.py` follows `build_state.VERSION` and prints retained skip reasons; its tests use the same version source.
-- Version bumped to `0.6.1-dev.6`; offline 684 checks. No in-game run yet.
+- Version bumped to `0.6.1-dev.6`; offline 684 checks, then the two in-game sessions above.
 
 ## 2026-11-18: workflow-audit corrections
 

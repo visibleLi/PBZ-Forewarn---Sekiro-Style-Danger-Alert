@@ -1,7 +1,7 @@
 PBZForewarn 0.6.1-dev.6 — 跳过原因诊断
 
 - condition-not-met 记录新增 eligibilityReason（require-tags / ignore-tags / tag-query / requirements-error 等）、lateBy、lateGrace、endedBeforeObservation；不改变任何发危、跳过或撤回判定。
-- 新字段用于区分“设计如此”和“判定过严”；dev.6 尚未实机验证，不能据此宣称已修复。
+- 实机验证（2026-11-18，两次会话）：9条跳过全部为 require-tags；目标节点 GA_GuiChai_Red_P1_GEx_01 需要的 ddsd 标签是资产调试值——属资产条件排除，不是窗口或宽限判定过严。18+9条危，提前量中位数331/338ms，0错误，analyze-run.py判定PASS。
 - tools/analyze-run.py 的版本门禁改为跟随 build_state.VERSION，不再写死 dev.5；报告新增保留的 condition-not-met 汇总。
 - 离线684项通过。
 

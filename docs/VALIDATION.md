@@ -12,9 +12,28 @@ the dev.5 session on the next run instead of guessing.
 hard-coded dev.5 string, and reports retained skip reasons. Its claims still
 compare against the test.2 baseline.
 
-Offline validation passes 684 checks across 23 suites. **No in-game run has
-been performed on dev.6**; the new fields are unverified until a live session
-records them.
+**In-game runs on 2026-11-18** (dev.6 diagnostic build; both sessions end with
+the `analyze-run.py` verdict PASS for build identity, observation flush, stall
+cadence, serialization peak, cue lead and zero errors):
+
+| Session | Cues (red/blue/black) | Lead median (min–max) | `condition-not-met` | Skip reason | Errors |
+|---|---|---:|---|---|---:|
+| `mwlpnl9v-aqz64nw9` | 18 (11/6/1) | 331 ms (200–346) | 4 | `require-tags` ×4 | 0 |
+| `mwlp07zq-xe9li6vx` | 9 (7/2/0) | 338 ms (322–342) | 5 | `require-tags` ×5 | 0 |
+
+All nine retained skips are the same node, `GA_GuiChai_Red_P1_GEx_01_C`, and
+each records `eligibilityReason=require-tags`. The resource catalog written by
+the same sessions lists that node requiring the gameplay tag `ddsd`, a
+debug-style value; the failing check is the adapter's
+`HasAllMatchingGameplayTags` call. These nodes are excluded by their asset tag
+requirement. The recorded `lateBy` (84–119 ms against an 80 ms grace) is when
+the scheduler noticed them past the window, not the cause of the skip. This
+resolves the six dev.5 records cited above.
+
+Limits: two sessions on one machine and one boss; log-level classification
+only, no audio or screen measurement; `missed=0` means no queued cue was
+missed, not full move coverage. The second session ended early when the user's
+graphics change crashed the process; its counts cover the played span.
 
 ## 0.6.1-dev.5
 
