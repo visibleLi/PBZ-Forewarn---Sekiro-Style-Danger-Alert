@@ -40,6 +40,7 @@ README.txt            the only player document (packaged verbatim)
 | add or move documentation         | `.agent/rules/docs.md`          |
 | touch audio or build assets       | `.agent/rules/assets.md`        |
 | act as an agent                   | `.agent/rules/agent-conduct.md` |
+| delegate work to a subagent       | `.agent/rules/delegation.md`    |
 | check what is enforced            | `.agent/rules/enforcement.md`   |
 | change these rules                | `.agent/rules/rule-changes.md`  |
 | check default choices             | `.agent/rules/decisions.md`     |
