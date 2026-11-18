@@ -1,4 +1,4 @@
-PBZForewarn 0.6.1-dev.5 — Sekiro-Style Danger Alert
+PBZForewarn 0.6.1-dev.6 — Sekiro-Style Danger Alert
 只狼风格“危”预警
 
 English
@@ -32,7 +32,7 @@ Both PBZModLoader and UE4SS are required.
 
 INSTALL
 Mod Manager: close the game, install both requirements, disable older Forewarn,
-import PBZForewarn-0.6.1-dev.5.zip, and enable all of its parts.
+import PBZForewarn-0.6.1-dev.6.zip, and enable all of its parts.
 
 Manual: with both requirements already installed, merge ProjectPBZ and platform
 into the game root. Keep every file and fully restart.
@@ -131,7 +131,7 @@ PBZModLoader 和 UE4SS 都必须安装。
 
 安装
 管理器：完全退出游戏，装好两个前置，停用旧 Forewarn，导入
-PBZForewarn-0.6.1-dev.5.zip，并把包内全部部分启用。
+PBZForewarn-0.6.1-dev.6.zip，并把包内全部部分启用。
 
 手动：前置已装好的情况下，把包内 ProjectPBZ 和 platform 合并到游戏根目录。
 保留全部文件并完全重启。

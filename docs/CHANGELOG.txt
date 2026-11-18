@@ -1,3 +1,10 @@
+PBZForewarn 0.6.1-dev.6 — 跳过原因诊断
+
+- condition-not-met 记录新增 eligibilityReason（require-tags / ignore-tags / tag-query / requirements-error 等）、lateBy、lateGrace、endedBeforeObservation；不改变任何发危、跳过或撤回判定。
+- 新字段用于区分“设计如此”和“判定过严”；dev.6 尚未实机验证，不能据此宣称已修复。
+- tools/analyze-run.py 的版本门禁改为跟随 build_state.VERSION，不再写死 dev.5；报告新增保留的 condition-not-met 汇总。
+- 离线684项通过。
+
 PBZForewarn 0.6.1-dev.5 — 周期卡顿修复
 
 - 实机日志证据：116个tick-gap精确相隔5秒，与观察日志保存周期一致；该文件约840KB，自身记录序列化峰值403ms。

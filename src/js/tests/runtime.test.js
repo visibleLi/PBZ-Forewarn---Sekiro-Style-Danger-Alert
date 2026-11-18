@@ -375,7 +375,22 @@ test('editor preview condition is counted as inactive instead of a missed attack
     const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
     assert.equal(e.cues().length,0); assert.equal(report.stats.missed,0);
     assert.equal(report.stats.conditionsNotMet,1); assert.equal(report.stats.previewOnlySkipped,1);
-    assert(report.recent.some(x=>x.kind==='condition-not-met' && x.reason==='editor-preview-only'));
+    const skip=report.recent.find(x=>x.kind==='condition-not-met');
+    assert.equal(skip.reason,'editor-preview-only'); assert.equal(skip.eligibilityReason,'require-tags');
+    assert(Math.abs(skip.lateBy-0.2)<1e-6); assert(Math.abs(skip.lateGrace-0.08)<1e-6);
+    assert.equal(skip.endedBeforeObservation,false);
+});
+
+test('a tag-blocked warning records why it was skipped and how late it was seen', () => {
+    const e=fixture(); e.first.action.ActivationRequirements.RequireTags=['CharacterState.NotOwned'];
+    e.tick(0.7); e.tick(1.2,500); e.mod.stop();
+    const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
+    assert.equal(e.cues().length,0); assert.equal(report.stats.conditionsNotMet,1);
+    const skip=report.recent.find(x=>x.kind==='condition-not-met');
+    assert.equal(skip.reason,'conditions-not-met-through-window');
+    assert.equal(skip.eligibilityReason,'require-tags');
+    assert(Math.abs(skip.lateBy-0.2)<1e-6);
+    assert.equal(report.stats.previewOnlySkipped,0);
 });
 
 test('diagnostics off with fallback disabled skips deep sampling but keeps warning identity and withdrawal', () => {

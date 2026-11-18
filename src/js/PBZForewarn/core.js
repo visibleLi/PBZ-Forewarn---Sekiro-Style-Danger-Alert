@@ -248,7 +248,8 @@ class Scheduler {
                     taskKey: task.key, eventKey: key, generation: task.generation,
                     time: input.time, start: event.start, end: event.end,
                     reason: event.eligible === true ? 'past-window' : 'ineligible-through-window',
-                    meta: event.meta || {}
+                    lateBy: input.time - event.start, lateGrace: this.options.lateGrace,
+                    endedBeforeObservation: ended, meta: event.meta || {}
                 });
                 continue;
             }

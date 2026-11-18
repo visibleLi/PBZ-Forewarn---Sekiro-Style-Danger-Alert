@@ -13,6 +13,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 ANALYZER = ROOT / 'tools/analyze-run.py'
+sys.path.insert(0, str(ROOT / 'tools'))
+from build_state import VERSION
 
 
 def cue(lead):
@@ -27,15 +29,17 @@ def state(paused, at):
     return {'kind': 'state', 'paused': paused, 'at': at}
 
 
-def diagnostics(version='0.6.1-dev.5', gaps=(), cues=(), errors=0, serialize=40,
-                settings=None, states=()):
+def diagnostics(version=VERSION, gaps=(), cues=(), errors=0, serialize=40,
+                settings=None, states=(), skipped=()):
     return {
         'version': version, 'session': 'synthetic',
         'settings': settings if settings is not None else {'ObservationFlushMs': 20000, 'LeadMs': 350},
         'stats': {'errors': errors, 'recognized': len(cues), 'missed': 0, 'cancels': 0},
         'flush': {'observationWrites': 10, 'maxObservationSerializeMs': serialize},
         'maxObservedTickGapMs': max((g['ms'] for g in gaps), default=0),
-        'recent': list(gaps) + list(cues) + list(states),
+        'stats': {'errors': errors, 'recognized': len(cues), 'missed': 0, 'cancels': 0,
+                  'conditionsNotMet': len(skipped)},
+        'recent': list(gaps) + list(cues) + list(states) + list(skipped),
     }
 
 
@@ -66,7 +70,7 @@ class AnalyzeRunTests(unittest.TestCase):
         cues = [cue(lead) for lead in (340, 345, 350, 335)]
         result, payload = self.analyse(diagnostics(gaps=gaps, cues=cues))
         self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertEqual(payload['run']['version'], '0.6.1-dev.5')
+        self.assertEqual(payload['run']['version'], VERSION)
         self.assertEqual({c['verdict'] for c in payload['checks']}, {'PASS'})
 
     def test_a_test2_log_is_rejected_before_anything_else(self):
@@ -165,7 +169,7 @@ class AnalyzeRunTests(unittest.TestCase):
 
         # A second, different session landing on the same filenames must not touch
         # the first session's copy.
-        other = diagnostics(version='0.6.1-dev.5', gaps=[], cues=[], errors=9)
+        other = diagnostics(version=VERSION, gaps=[], cues=[], errors=9)
         other['session'] = 'later'
         (folder / 'pbzforewarn_diagnostics.json').write_text(json.dumps(other), encoding='utf8')
         second = subprocess.run([sys.executable, str(ANALYZER), '--saved', str(folder),
@@ -196,6 +200,18 @@ class AnalyzeRunTests(unittest.TestCase):
         self.assertEqual(payload['run']['stalls'], [1_528])
         self.assertEqual(payload['run']['loopStopped'], [])
 
+
+    def test_skipped_warnings_report_the_eligibility_reason_and_lateness(self):
+        gaps = [gap(120, 1_000 + i * 20_000) for i in range(6)]
+        skipped = [{'kind': 'condition-not-met', 'ability': 'GA_GuiChai_Red_P1_GEx_01_C_1',
+                    'reason': 'conditions-not-met-through-window',
+                    'eligibilityReason': 'require-tags', 'lateBy': 0.109,
+                    'lateGrace': 0.08, 'at': 5_000}]
+        _, payload = self.analyse(diagnostics(gaps=gaps, cues=[cue(340)], skipped=skipped))
+        self.assertEqual(payload['run']['conditionsNotMet'], 1)
+        record = payload['run']['skipped'][0]
+        self.assertEqual(record['eligibilityReason'], 'require-tags')
+        self.assertEqual(record['lateByMs'], 109)
 
 
 class ReportingResult(unittest.TextTestResult):

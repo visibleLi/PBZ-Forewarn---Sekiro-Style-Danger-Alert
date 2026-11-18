@@ -10,7 +10,7 @@ const { createAudioEnvironmentProbe } = require("./audio-environment");
 const { createTargetFilter } = require("./target-filter");
 const { createDiagnosticStore } = require("./diagnostic-store");
 const { createCastFollowup } = require("./cast-followup");
-const VERSION = "0.6.1-dev.5";
+const VERSION = "0.6.1-dev.6";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
     Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, SemanticFallback: true, GenericAttack: false,
@@ -18,7 +18,7 @@ const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanM
     YuZanCastWarning: true, YuZanCastLeadMs: 350,
     OnlyLockedTarget: false, SoundOn: true, SoundVolume: 0.8,
     FontPath: "/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font" };
-const TEMPLATE = "# PBZForewarn 0.6.1-dev.5; restart game after changes\n" +
+const TEMPLATE = "# PBZForewarn 0.6.1-dev.6; restart game after changes\n" +
     "# Extra cue lead in GAME seconds (ms input); original warning is unchanged.\n" +
     "LeadMs=350\nYuZanCastWarning=1\nYuZanCastLeadMs=350\nRangeCm=3500\nBlackOn=1\nSemanticFallback=1\nGenericAttack=0\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\nObservationFlushMs=20000\n";
 let state = null;
@@ -101,6 +101,12 @@ function start() {
     }
     function compactEvent(data) {
         const result = { ...data }; delete result.meta;
+        // The scheduler reports why it skipped an event in meta.reason
+        // (require-tags, ignore-tags, tag-query, requirements-error...). Dropping
+        // meta with the rest of the payload made "conditions-not-met" impossible
+        // to diagnose without a second in-game run.
+        if (data && data.meta && typeof data.meta.reason === "string" && data.meta.reason !== "eligible")
+            result.eligibilityReason = data.meta.reason;
         if (data && data.meta) {
             result.resourceId = resourceId(data.meta);
             result.ability = shortPath(data.meta.ability); result.actor = shortPath(data.meta.actor);

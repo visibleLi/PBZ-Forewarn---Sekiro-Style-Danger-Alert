@@ -23,6 +23,12 @@ import shutil
 import statistics
 import sys
 
+# The expected build is the checkout's VERSION, not a frozen dev.5 string: the
+# claims below are compared against test.2, and a diagnostic-only bump must not
+# make the analyzer reject its own build.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build_state import VERSION
+
 DEFAULT_SAVED = Path(os.environ.get('LOCALAPPDATA', '')) / 'ProjectPBZ' / 'Saved'
 
 # The build whose behaviour dev.5 is meant to change.
@@ -118,6 +124,7 @@ def analyse(saved):
     cues = [record for record in recent if record.get('kind') == 'CUE']
     leads = [record['estimatedLeadGameMs'] for record in cues
              if isinstance(record.get('estimatedLeadGameMs'), (int, float))]
+    skipped = [record for record in recent if record.get('kind') == 'condition-not-met']
 
     periodic_share, buckets = tick_gap_cadence(played)
     stats = diagnostics.get('stats') or {}
@@ -151,6 +158,12 @@ def analyse(saved):
         'missed': stats.get('missed'),
         'cancels': stats.get('cancels'),
         'saved': str(saved),
+        'conditionsNotMet': stats.get('conditionsNotMet'),
+        'skipped': [{'ability': record.get('ability'), 'reason': record.get('reason'),
+                     'eligibilityReason': record.get('eligibilityReason'),
+                     'lateByMs': round(record['lateBy'] * 1000)
+                     if isinstance(record.get('lateBy'), (int, float)) else None,
+                     'at': record.get('at')} for record in skipped],
     }
 
 
@@ -161,18 +174,18 @@ def verdicts(run):
     def add(claim, verdict, detail):
         out.append({'claim': claim, 'verdict': verdict, 'detail': detail})
 
-    if run['version'] != '0.6.1-dev.5':
-        add('this run is the dev.5 build', 'FAIL',
-            f"log says {run['version']!r}; install dev.5 and restart before testing")
+    if run['version'] != VERSION:
+        add('this run is the current build', 'FAIL',
+            f"log says {run['version']!r}; this checkout builds {VERSION!r}")
         return out
-    add('this run is the dev.5 build', 'PASS', run['version'])
+    add('this run is the current build', 'PASS', run['version'])
 
     if 'ObservationFlushMs' in run['settingsKeys']:
         add('ObservationFlushMs is active', 'PASS',
             'present in the settings snapshot the mod wrote')
     else:
         add('ObservationFlushMs is active', 'FAIL',
-            'absent from the settings snapshot; this is not a dev.5 runtime')
+            'absent from the settings snapshot; this build does not write ObservationFlushMs')
 
     if run['tickGapPeriodicShare'] is None:
         add('the 5 s stall cadence is gone', 'UNVERIFIED', 'fewer than two tick-gap records')
@@ -239,6 +252,14 @@ def render(run, checks):
                 f" worst {run['loopStopped'][0]} ms" if run['loopStopped'] else ''),
              f"flush  {run['observationWrites']} observation writes,"
              f" peak serialize {run['maxObservationSerializeMs']} ms", '']
+    if run['skipped']:
+        counts = collections.Counter(f"{item['eligibilityReason'] or 'unknown'}"
+                                     for item in run['skipped'])
+        lines.append(f"skips  {len(run['skipped'])} retained condition-not-met record(s): "
+                     + ', '.join(f'{reason} x{n}' for reason, n in counts.most_common()))
+        for item in run['skipped'][:5]:
+            lines.append(f"       {item['ability']}  late {item['lateByMs']} ms")
+        lines.append('')
     if run['tickGapBuckets']:
         lines.append('tick-gap spacing (consecutive record timestamps):')
         for low, count in run['tickGapBuckets'].items():

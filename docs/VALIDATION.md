@@ -1,5 +1,21 @@
 # Validation / 自检边界
 
+## 0.6.1-dev.6
+
+Diagnostic-only change; no cue, skip or cancellation decision was altered.
+`condition-not-met` records now carry `eligibilityReason` (the scheduler's
+tag-check reason), `lateBy`, `lateGrace` and `endedBeforeObservation`. The
+purpose is to classify the six skipped `GA_GuiChai_Red_P1_GEx_01` records from
+the dev.5 session on the next run instead of guessing.
+
+`tools/analyze-run.py` now gates on the checkout's `VERSION` rather than a
+hard-coded dev.5 string, and reports retained skip reasons. Its claims still
+compare against the test.2 baseline.
+
+Offline validation passes 684 checks across 23 suites. **No in-game run has
+been performed on dev.6**; the new fields are unverified until a live session
+records them.
+
 ## 0.6.1-dev.5
 
 Observation logging moved off the main loop's 5 s snapshot: it now flushes on its own

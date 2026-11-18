@@ -1,5 +1,12 @@
 # Development journal
 
+## 2026-11-18: dev.6 skip-reason diagnostics
+
+- `condition-not-met` now records `eligibilityReason` (from the adapter's tag check), `lateBy`, `lateGrace` and `endedBeforeObservation`. No scheduling or cue decision changed.
+- The first target is GuiChai P1 `GA_GuiChai_Red_P1_GEx_01`: the dev.5 captures have six `conditions-not-met` records, all 86–117 ms after the node start against an 80 ms grace, but the old payload dropped the tag-check reason.
+- `analyze-run.py` follows `build_state.VERSION` and prints retained skip reasons; its tests use the same version source.
+- Version bumped to `0.6.1-dev.6`; offline 684 checks. No in-game run yet.
+
 ## 2026-11-18: workflow-audit corrections
 
 - Corrected the version-bump instructions to match the existing two-step tool: edit `tools/build_state.py:VERSION`, then run `tools/set_version.py --previous <old-version>`.
