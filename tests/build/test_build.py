@@ -21,7 +21,8 @@ class BuildTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix='forewarn-build-')
         self.root = Path(self.temporary.name) / 'source'
         self.root.mkdir()
-        ignored = shutil.ignore_patterns('lib', '__pycache__', 'generated', 'cue.wav', '*results.json')
+        ignored = shutil.ignore_patterns('lib', '__pycache__', 'generated', 'node_modules',
+                                        'cue.wav', '*results.json')
         for folder in ('src', 'tools', 'tests', 'docs', 'evidence', '.agent'):
             shutil.copytree(ROOT / folder, self.root / folder, ignore=ignored)
         for name in SOURCE_ROOT_FILES:
@@ -103,7 +104,8 @@ class BuildTests(unittest.TestCase):
                              {'ProjectPBZ', 'platform', 'README.txt'})
             self.assertEqual(len(archive.namelist()), 24)
             self.assertFalse(any('AGENTS.md' in Path(name).parts or
-                                 any(part in ('.agent', '.omp') for part in Path(name).parts)
+                                 any(part in ('.agent', '.claude', '.omp', 'tools', 'node_modules')
+                                     for part in Path(name).parts)
                                  for name in archive.namelist()))
             # One player document only: the installer copy must be the repository
             # README verbatim, so a second player copy cannot drift back in.
@@ -126,6 +128,12 @@ class BuildTests(unittest.TestCase):
             self.assertIn('tests/build/test_build.py', archive.namelist())
             self.assertIn('tools/set_version.py', archive.namelist())
             self.assertIn('AGENTS.md', archive.namelist())
+            for name in ('.claude/skills/pbzforewarn-dev/SKILL.md',
+                         'tools/check-interfaces.cjs', 'tools/dev-types/package.json',
+                         'tools/dev-types/package-lock.json', 'tools/dev-types/.gitignore',
+                         'tools/dev-types/audio-environment.d.ts'):
+                self.assertIn(name, archive.namelist())
+            self.assertFalse(any('node_modules' in Path(name).parts for name in archive.namelist()))
             expected_rules = {path.relative_to(self.root).as_posix()
                               for path in (self.root / '.agent/rules').rglob('*.md')}
             self.assertIn('.agent/rules/versioning.md', expected_rules)

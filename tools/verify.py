@@ -4,6 +4,7 @@ import argparse
 import concurrent.futures
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -45,7 +46,8 @@ def run(case):
     name, relative = case
     executable = sys.executable if is_python_suite(relative) else args.node
     result = subprocess.run([executable, str(ROOT / relative)], cwd=ROOT, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True, encoding='utf8', errors='replace')
+                            stderr=subprocess.STDOUT, text=True, encoding='utf8', errors='replace',
+                            env={**os.environ, 'PBZ_NODE': args.node})
     (OUT / (name + '.txt')).write_text(result.stdout, encoding='utf8')
     count = len(re.findall(r'^\.?PASS ', result.stdout, flags=re.MULTILINE))
     if is_python_suite(relative) and result.returncode == 0:

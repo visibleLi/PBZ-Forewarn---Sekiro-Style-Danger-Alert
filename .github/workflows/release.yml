@@ -66,6 +66,9 @@ jobs:
       - name: Install test dependency
         run: python -m pip install --target src/lua/tests/lib -r requirements-test.txt
 
+      - name: Install pinned interface checker
+        run: npm --prefix tools/dev-types ci --include=dev --ignore-scripts --no-audit --no-fund
+
       - name: Download cue.wav
         run: |
           curl -fsSL --retry 3 --retry-delay 5 -o src/js/PBZForewarn/cue.wav "$CUE_WAV_URL"
