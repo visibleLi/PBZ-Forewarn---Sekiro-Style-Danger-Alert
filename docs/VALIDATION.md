@@ -1,5 +1,62 @@
 # Validation / 自检边界
 
+## 2026-11-21: research absorption implementation boundary
+
+Build: `0.6.1-dev.6`, feature branch based on `755398f`. Session: offline
+implementation only; no PBZ session, installed-mod change or player-log reading.
+
+A fresh pre-change gate on Python 3.12.16, Node 24.22.3 and `lupa==2.8`
+passes all 23 suites / 684 checks and packaging. This is an offline baseline,
+not a new game compatibility or audio/screen result. Global interpreter
+defaults were not changed; the required Python was installed separately.
+
+The optional Menu single-config integration gate has **not passed**. Native
+registration selects another settings path, and the reviewed shared-hub
+consumer does not establish publisher lifecycle or preserve an edit-time
+revision for the required stale-field conflict handling. Its ordinary error
+channel says "Not saved", so it cannot by itself describe verified persistence
+followed by live-application failure. A possible public-toast workaround and
+additional file capabilities remain unverified.
+
+An isolated third-party-source execution request was denied by the permission
+layer. Investigation remained static and was not rerouted through tests or
+another executor. Per the specification's failure gate, no production Menu
+adapter, second settings authority or partial live-apply path was added.
+The local tracker gate report records the exact evidence and alternatives.
+Nothing here proves all possible Menu integration strategies impossible.
+
+Developer-support result: a project-owned skill and a real-source interface
+checker were added without changing the runtime source. TypeScript 5.9.3 is
+the single pinned development-only dependency, with a lockfile and no install
+scripts; the small handwritten probe contract is not a game SDK. The checker
+annotates the actual audio-environment probe in memory, emits no code and checks
+that bounded interface surface, not the whole project in strict mode.
+
+The isolated `adapter.path(cached, true)` mutation passes the unchanged
+17 JS suites / 502 assertions and all 36 JS syntax checks, but the new checker
+rejects it at the actual call with `TS2554` (one argument expected, two supplied).
+A misspelled adapter member is also rejected, and an absent compiler exits
+nonzero with the exact preparation command instead of skipping the check.
+The original runtime source is unchanged after the mutation tests.
+
+The integrated ordered gate passes **24 suites / 687 checks**, followed by
+installer and Source ZIP packaging. An independent rebuild from only the
+extracted Source ZIP, supplied audio and documented pinned development/test
+dependencies also passes 24 suites / 687 checks. Both rebuilt archives have
+identical extracted content and identical raw bytes under the same Python/zlib.
+The Source ZIP includes checker inputs and the project skill, but no compiler
+packages or audio. A review correction made excluded local tracker/domain
+guides optional, with distributed-document fallbacks in the skill. A second
+review correction adds checker preparation to the canonical gate, agent gateway
+and PowerShell check wrapper; the development instructions match these entrypoints.
+
+The player installer remains 24 files and byte-identical to the pre-change
+local baseline: SHA-256
+`f8b8eb3521515e38f064e5975be2097c054ff7a27e8764f74efdd96ba1e7de82`.
+No development tools enter it. These are developer-tooling, source-rebuild and
+archive assertions only: no new game run, audible result, screen measurement,
+compatibility support, Menu implementation or public release is claimed.
+
 ## 0.6.1-dev.6
 
 Diagnostic-only change; no cue, skip or cancellation decision was altered.

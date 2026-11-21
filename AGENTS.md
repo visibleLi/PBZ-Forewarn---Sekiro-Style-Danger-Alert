@@ -48,6 +48,7 @@ README.txt            the only player document (packaged verbatim)
 ## Commands
 
 ```bash
+npm --prefix tools/dev-types ci --include=dev --ignore-scripts --no-audit --no-fund
 python -m pip install --target src/lua/tests/lib -r requirements-test.txt
 python tools/audio-bank/build_bank.py
 python tools/verify.py --node <node-path-or-node-on-PATH>

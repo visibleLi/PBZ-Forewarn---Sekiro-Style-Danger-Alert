@@ -9,6 +9,7 @@ release or evidence rules.
 - Python 3.12
 - Node.js 24
 - `lupa==2.8` for the Lua mock tests
+- the project-pinned TypeScript 5.9.3 development-only interface checker
 
 Audio you have the right to use goes at `src/js/PBZForewarn/cue.wav`.
 Supported input: uncompressed 44100 Hz stereo 16-bit PCM WAV, 0.01–30 seconds.
@@ -19,6 +20,7 @@ third-party runtimes.
 ## Build
 
 ```bash
+npm --prefix tools/dev-types ci --include=dev --ignore-scripts --no-audit --no-fund
 python -m pip install --target src/lua/tests/lib -r requirements-test.txt
 python tools/audio-bank/build_bank.py
 python tools/verify.py --node <node-path-or-node-on-PATH>
@@ -37,6 +39,58 @@ description verbatim, bilingual, and the packager copies it into the installer
 unchanged. Do not add a second player copy under `docs/`; that is how the two
 used to drift apart. Everything under `docs/` is developer-facing and never
 reaches a player.
+
+## Interface check
+
+Before verification (including a rebuild from an extracted Source ZIP), prepare
+its single pinned development-only checker:
+
+```bash
+npm --prefix tools/dev-types ci --include=dev --ignore-scripts --no-audit --no-fund
+node tools/check-interfaces.cjs
+python tests/interfaces/test_interfaces.py
+```
+
+Use the stated Node.js 24 and Python 3.12 environment. The full verifier passes
+its resolved `--node` executable through `PBZ_NODE` to the Python checker suite;
+for a standalone suite with a different PATH, set `PBZ_NODE` to that executable.
+The local `tools/dev-types/package-lock.json` pins TypeScript 5.9.3 and its
+registry integrity. `npm ci` is a development preparation step, never a player
+installation step; it needs registry access or a populated npm cache. Missing or
+wrong-version checker inputs fail explicitly with the preparation command.
+
+The existing validator runs JavaScript syntax and mocked behavior checks; neither
+checks call signatures, and no static type checker was present. The new dependency
+provides this bounded increment: the real `audio-environment.js` is checked
+against the handwritten `tools/dev-types/audio-environment.d.ts` probe contract.
+The checker adds only its entry-parameter JSDoc in memory, checks the whole
+module, maps diagnostics back to original source positions, and emits no files.
+Runtime source bytes, settings and player dependencies remain unchanged.
+
+The Python suite copies real source and original JS tests to a temporary folder.
+It injects `adapter.path(cached, true)`: original syntax checks and unchanged JS
+suites still pass, while the new check rejects it at the probe call with
+`TS2554: Expected 1 arguments, but got 2`. A property-typo case and missing-checker
+case also assert useful diagnostics and nonzero exits. To inspect an isolated
+copy directly, use `node tools/check-interfaces.cjs --source <copy-path>`.
+
+Scope is deliberately limited: adapter `valid`/`path` and optional UE object
+lookup are described from local source/tests, not a redistributed official SDK.
+Reflected values remain unknown until runtime guards inspect them. Other
+unannotated helpers are not strict/whole-project coverage. This does not prove
+game-build compatibility, runtime member availability or audible output; existing
+capability checks and evidence requirements still apply. Compiler packages live
+only in ignored `tools/dev-types/node_modules/`; Source ZIPs carry reproducibility
+inputs and the project skill, while player archives carry neither.
+
+## Project development skill
+
+`.claude/skills/pbzforewarn-dev/SKILL.md` is the project-owned `pbzforewarn-dev`
+skill. In a project-aware Claude Code session, invoke `/pbzforewarn-dev` or let
+its warning-rule/settings/audio description select it. Other agents can read the
+file directly. It routes each task to actual modules, existing regression tests
+and authoritative evidence rules; it does not install a global skill or replace
+`AGENTS.md`.
 
 ## What the scripts own
 
@@ -68,8 +122,9 @@ and its conditions, never a fixed schedule of future enemy choices.
 ## Candidate verification
 
 1. Run offline suites and package integrity checks.
-2. Extract only the Source ZIP into an empty directory. Supply audio and install
-   the stated test dependency there.
+2. Extract only the Source ZIP into an empty directory. Supply audio and prepare
+   the pinned interface checker plus Lua test dependency using the Build commands.
+   Neither dependency is bundled in the source archive.
 3. Rebuild the bank, run full verification, and generate both ZIPs from the
    extracted source.
 4. Compare runtime files and archive hashes with the candidate; preserve the
