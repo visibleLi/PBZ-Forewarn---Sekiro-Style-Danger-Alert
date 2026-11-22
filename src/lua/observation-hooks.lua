@@ -5,7 +5,7 @@ local KEY = "__PBZForewarnObservationHooks_v1"
 local prior = rawget(_G, KEY)
 if type(prior) == "table" then return prior end
 local M = {}; rawset(_G, KEY, M)
-local VERSION = "0.7.0-test.3"
+local VERSION = "0.7.0"
 local PREFIX = "[PBZForewarnObserver] "
 local MAX_EVENTS, MAX_BYTES, MAX_DYNAMIC = 512, 393216, 32
 local MAX_PATHS, MAX_PATH_BYTES, MAX_FOCUS = 2048, 131072, 64

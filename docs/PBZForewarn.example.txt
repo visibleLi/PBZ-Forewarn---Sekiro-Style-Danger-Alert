@@ -1,4 +1,4 @@
-# PBZForewarn 0.7.0-test.3; legacy migration example only, not automatically installed.
+# PBZForewarn 0.7.0; legacy migration example only, not automatically installed.
 # New builds import this format once, then read PBZForewarnHooks.config.json.
 # Editing this TXT after JSON creation has no effect; all settings require restart.
 LeadMs=350

@@ -1,5 +1,29 @@
 # Validation / 自检边界
 
+## 2026-11-22: 0.7.0 publication scope
+
+Release build `0.7.0` integrates feature commit `b6fd692` from `dev`. The release
+cut changes version carriers and release documentation only; warning rules,
+settings logic, defaults and audio source are unchanged from the accepted
+`0.7.0-test.3` candidate. Fresh offline gate and package evidence belong to this
+release's `verification/summary.json` and `PACKAGE_CHECK.json`; CI installers use
+a synthetic cue and are structural artifacts, not distributable release audio.
+Local release gate on 2026-11-22, offline session `v070-publication-20261122`:
+Python 3.12.16, Node 24.22.3 and lupa 2.8; all 26 suites exit zero with checks
+above zero, 915 total. Real-audio bank build and installer/source packaging pass;
+the installer contains 25 runtime files plus README. The final gate is rerun
+after this evidence entry so the packaged input hashes include the record.
+
+In-game evidence remains sessions `mwrhcgk8-wkabhr6e` (test.3 font-size changes)
+and `mwrdgjsf-pzf6ps76` (test.2 output switches), detailed below. The former
+matches 25/25 installed runtime files to its accepted package, not to a newly
+installed 0.7.0 asset. No new 0.7.0 installation, game launch or acoustic/screen
+measurement is claimed by the publication process. The recovered observer write
+failure and all coverage/retention limits below remain open. In particular,
+all 16 live settings, full language/input coverage, full move coverage, hit-time
+lead and absence of stutter remain unverified in game. GitHub asset download
+and integrity checks alone do not constitute installation or smoke acceptance.
+
 ## 2026-11-22: test.3 acceptance for the 0.7.0 release candidate
 
 Observed build `0.7.0-test.3`, session `mwrhcgk8-wkabhr6e`, diagnostic interval

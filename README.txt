@@ -1,12 +1,14 @@
-PBZForewarn 0.7.0-test.3 — Sekiro-Style Danger Alert
+PBZForewarn 0.7.0 — Sekiro-Style Danger Alert
 只狼风格“危”预警
 
 English
 =======
 
-WHAT'S NEW IN 0.6
-- Acolyte Yanru: danger cues for the fire-ring and assault-end moves.
-- No. 3 Musician Puppet: a warning and sound before the spinning cast.
+WHAT'S NEW IN 0.7
+- Optional Mods Menu settings with English, Simplified and Traditional Chinese help.
+- One JSON config imports the old TXT once and keeps it as a backup.
+- 16 editable settings apply after a successful Menu save; seven rows stay read only.
+- Includes the existing Acolyte Yanru and No. 3 Musician Puppet extra warnings.
 
 All ordinary warnings from 0.5 remain. Not every move is covered.
 
@@ -32,7 +34,7 @@ Both PBZModLoader and UE4SS are required.
 
 INSTALL
 Mod Manager: close the game, install both requirements, disable older Forewarn,
-import PBZForewarn-0.7.0-test.3.zip, and enable all of its parts.
+import PBZForewarn-0.7.0.zip, and enable all of its parts.
 
 Manual: with both requirements already installed, merge ProjectPBZ and platform
 into the game root. Keep every file and fully restart.
@@ -40,7 +42,7 @@ into the game root. Keep every file and fully restart.
 Press Alt+F9 to preview the warning sound.
 
 SETTINGS
-0.7.0-test.3 includes English, Simplified Chinese and Traditional Chinese labels
+0.7.0 includes English, Simplified Chinese and Traditional Chinese labels
 and help for every setting, including read-only rows. Test sessions confirmed
 saved output-switch changes and font-size updates in logs; the user reported normal
 operation. Other settings have offline checks but were not all changed in game.
@@ -134,9 +136,11 @@ AI assisted research, coding and debugging.
 中文
 ====
 
-0.6 更新内容
-- 灭法之法·炎茹：火环、突进收招红危。
-- 三号·乐师偶·玉瓒：转圈施法前的黑危和声音。
+0.7 更新内容
+- 可选 Mods Menu 设置页，包含英文、简中、繁中逐项说明。
+- 设置统一到一个 JSON，首次导入旧 TXT 并保留原件备份。
+- 16个可编辑设置在菜单保存成功后应用，7个保留项仍只读。
+- 包含已有炎茹火环/突进收招补充危，以及玉瓒转圈施法提示。
 
 0.5 的普通提示全部保留，但不是全招覆盖。
 
@@ -161,7 +165,7 @@ PBZModLoader 和 UE4SS 都必须安装。
 
 安装
 管理器：完全退出游戏，装好两个前置，停用旧 Forewarn，导入
-PBZForewarn-0.7.0-test.3.zip，并把包内全部部分启用。
+PBZForewarn-0.7.0.zip，并把包内全部部分启用。
 
 手动：前置已装好的情况下，把包内 ProjectPBZ 和 platform 合并到游戏根目录。
 保留全部文件并完全重启。
@@ -169,7 +173,7 @@ PBZForewarn-0.7.0-test.3.zip，并把包内全部部分启用。
 按 Alt+F9 试听危音效。
 
 设置
-0.7.0-test.3 的所有设置（含只读项）均提供英文、简中、繁中名称与说明。
+0.7.0 的所有设置（含只读项）均提供英文、简中、繁中名称与说明。
 测试会话日志确认输出开关保存与字号更新，用户反馈运行正常；其他设置虽有离线检查，
 尚未逐项在游戏中切换。这些观察不是声画测量或完整语言、操作方式覆盖。
 配置位置（相对游戏根目录）：

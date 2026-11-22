@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib
 
 
-VERSION = '0.7.0-test.3'
+VERSION = '0.7.0'
 
 # Every suite is discovered, not listed: a new test file runs automatically.
 # Order is deterministic (sorted by path) so verification summaries are stable.
