@@ -21,7 +21,7 @@ function utf8Bytes(text) {
 }
 
 function createDiagnosticStore(options = {}) {
-    const enabled = options.enabled !== false;
+    let enabled = options.enabled !== false;
     const now = typeof options.now === "function" ? options.now : () => Date.now();
     const limits = {};
     for (const [name, maximum] of Object.entries(MAX)) {
@@ -171,7 +171,8 @@ function createDiagnosticStore(options = {}) {
     function markCatalogSaved(value) {
         if (Number.isInteger(value) && value >= 0 && value <= version) savedVersion = Math.max(savedVersion, value);
     }
-    return { record, catalog, hasCatalog, promote, snapshot, catalogSnapshot, markCatalogSaved, catalogDirty: () => savedVersion !== version };
+    return { record, catalog, hasCatalog, promote, snapshot, catalogSnapshot, markCatalogSaved,
+        setEnabled: value => { enabled = value === true; }, catalogDirty: () => savedVersion !== version };
 }
 
 module.exports = { createDiagnosticStore };

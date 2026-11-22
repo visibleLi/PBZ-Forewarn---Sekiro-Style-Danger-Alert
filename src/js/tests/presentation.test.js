@@ -148,6 +148,32 @@ run('disabling glyphs after creation hides an existing canvas', env => {
     const p = env.create(); p.update({}, redCue, false); env.settings.GlyphOn = false;
     p.update({}, redCue, false); assert.equal(env.latest().visibility, 'Collapsed');
 });
+run('live size and position rebuild only the owned canvas with the current warning window', env => {
+    const p=env.create(); p.update({}, redCue, false); const old=env.latest();
+    env.settings.GlyphFontSize=180; env.settings.GlyphY=0.6;
+    p.update({}, redCue, false); const next=env.latest();
+    assert.notStrictEqual(next,old); assert.equal(old.parent,null);
+    assert.equal(next.children[0].font.Size,180); assert.equal(next.slots[0].anchors.Minimum.Y,0.6);
+    assert.equal(env.hud.overlay.children.length,1);
+    env.settings.GlyphY=0.2; p.update({},[],false);
+    assert.equal(next.parent,null); assert.equal(env.hud.overlay.children.length,0);
+});
+run('contained HUD failure is observable and clears after a successful output update', env => {
+    const p = env.create(); const original = env.UE.PBZHUDLayout.GetHUDLayout;
+    env.UE.PBZHUDLayout.GetHUDLayout = () => { throw Error('layout unavailable'); };
+    assert.deepEqual(p.update({}, redCue, false), []); assert(p.status().failure.includes('layout unavailable'));
+    env.UE.PBZHUDLayout.GetHUDLayout = original; env.settings.GlyphOn = false;
+    p.update({}, redCue, false); assert.equal(p.status().failure, '');
+});
+run('reenabling shows only the current active window and keeps expired glyphs hidden', env => {
+    const p = env.create(); p.update({}, redCue, false); const canvas = env.latest();
+    env.settings.GlyphOn = false; p.update({}, redCue, false);
+    env.settings.GlyphOn = true; p.update({}, redCue, false);
+    assert.equal(canvas.visibility, 'HitTestInvisible');
+    env.settings.GlyphOn = false; p.update({}, [], false);
+    env.settings.GlyphOn = true; p.update({}, [], false);
+    assert.equal(canvas.visibility, 'Collapsed'); assert.equal(env.canvases.length, 1);
+});
 run('dispose removes the overlay child and can be repeated safely', env => {
     const p = env.create(); p.update({}, redCue, false); const c = env.latest();
     p.dispose(); p.dispose(); assert.equal(c.parent, null); assert.equal(env.hud.overlay.children.length, 0);

@@ -40,6 +40,47 @@ unchanged. Do not add a second player copy under `docs/`; that is how the two
 used to drift apart. Everything under `docs/` is developer-facing and never
 reaches a player.
 
+## Optional Mods Menu test build
+
+`src/lua/PBZForewarnHooks.modsmenu.json` defines the optional UE4SS menu rows.
+Every keyed row, including reserved read-only settings, has English, Simplified
+Chinese and Traditional Chinese labels/help explaining effect and application
+mode. Descriptor tests enforce complete coverage and Menu's 80/400 UTF-16-unit
+label/help limits; no translated setting keys or values are introduced.
+The installer places it in `platform/steam/ue4ss/Mods/PBZForewarnHooks/` and
+ships `Scripts/settings-config.lua`, but deliberately never ships a live
+`PBZForewarnHooks.config.json`. Lua creates that JSON beside `Scripts/` on
+first startup, importing the legacy Saved TXT once and verifying the write.
+Existing JSON bytes are never rewritten during startup. JS and Lua use the JSON
+on subsequent starts. All 16 editable settings also update after a complete Menu
+save notice. Seven reserved controls remain startup-only. Lua startup can
+precede or follow JS: on first migration JS can still read the same legacy
+values, and the next full restart uses JSON throughout. Menu and Bridge are
+optional third-party downloads, not archive contents.
+
+Run `node src/js/tests/runtime.test.js` and
+`python src/lua/tests/test_settings.py` for authority/migration regressions,
+then the full Build gate. These mocks do not prove actual Menu discovery,
+Bridge saves, translations, controller use, or the resulting sound/glyph output.
+Keep existing TXT as a downgrade backup; JSON edits are not synchronized back.
+Test.2 introduced the notification route; test.3 extends it to every editable
+setting. JS and Lua each check the small `PBZModsMenuBridge/events-PBZForewarnHooks.txt` at most
+once per 500 wall-clock milliseconds inside the existing JS tick (also while
+paused). Only a complete higher Changed number triggers a canonical JSON read.
+Missing/malformed/unreadable JSON retains current output values and retries the
+notice. Neither live reader writes either config file. JS updates existing
+scheduler options and stable-key recognition without resetting fired/past history.
+Layout changes rebuild only the owned canvas. Observation enablement is reversible,
+with listener disposal and distinct observer epochs. Lua owns one 500ms watcher,
+coalesces game-thread transitions, and pauses capture/publication while disabled;
+registered callbacks remain inert until terminal unload. Reserved values remain
+startup snapshots; no scheduler restart or historical cue replay is introduced.
+Output update calls and failures are retained in diagnostics under menuSettings,
+config-saved and config-output-update. These are not audible/screen measurements
+or application receipts shown by the third-party Menu. Strict edit-baseline
+conflicts remain excluded. See `docs/VALIDATION.md` for current verification
+limits and the root README for player instructions.
+
 ## Interface check
 
 Before verification (including a rebuild from an extracted Source ZIP), prepare
@@ -146,4 +187,5 @@ and its conditions, never a fixed schedule of future enemy choices.
 
 `SemanticFallback=0` disables the new rules; this is the bounded observation
 version's standard path, not a byte-identical 0.5 rollback. Reinstall the 0.5
-archive for that. Lua-side switches need a full restart.
+archive for that. Editable Lua switches update after a successful Menu save in
+test.3; manual JSON edits without a complete Menu notice still require restart.

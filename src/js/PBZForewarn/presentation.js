@@ -1,7 +1,8 @@
 "use strict";
 function createPresentation(UE, cpp, adapter, settings, diagnostic) {
-    let hud = null, canvas = null, glyphs = {}, lastStatus = "", failedAt = -Infinity;
+    let hud = null, canvas = null, glyphs = {}, lastStatus = "", failedAt = -Infinity, lastFailure = "";
     const colors = ['red', 'blue', 'black'];
+    let layoutSize = settings.GlyphFontSize, layoutY = settings.GlyphY;
     const { valid } = adapter;
     const slotKey = "__PBZForewarnCanvas";
     function report(kind, data) { try { diagnostic(kind, data); } catch (_) {} }
@@ -21,6 +22,7 @@ function createPresentation(UE, cpp, adapter, settings, diagnostic) {
         removeCanvas(old);
     }
     function failure(error) {
+        lastFailure = String(error);
         const now = Date.now();
         if (now - failedAt >= 1500) report("hud-error", { error: String(error) });
         failedAt = now;
@@ -69,8 +71,11 @@ function createPresentation(UE, cpp, adapter, settings, diagnostic) {
     }
     function update(world, active, paused) {
         try {
+            if (layoutSize !== settings.GlyphFontSize || layoutY !== settings.GlyphY) {
+                dispose(); layoutSize = settings.GlyphFontSize; layoutY = settings.GlyphY;
+            }
             if (!settings.GlyphOn || paused || !active.length) {
-                if (valid(canvas)) canvas.SetVisibility(UE.ESlateVisibility.Collapsed); lastStatus = ""; return [];
+                if (valid(canvas)) canvas.SetVisibility(UE.ESlateVisibility.Collapsed); lastStatus = ""; lastFailure = ""; return [];
             }
             if (!ensure(world)) return [];
             const visible = colors.filter(c => active.some(x => x.color === c));
@@ -82,6 +87,7 @@ function createPresentation(UE, cpp, adapter, settings, diagnostic) {
             }
             const status = visible.map(c => c === 'black' ? 'K' : c[0].toUpperCase()).join('');
             if (status !== lastStatus) { report("hud-show", { colors: status }); lastStatus = status; }
+            lastFailure = "";
             return visible.map(color => active.find(x => x.color === color)).filter(Boolean);
         } catch (e) {
             // UI failures are independent of combat/audio scheduling. Rebuild
@@ -90,6 +96,6 @@ function createPresentation(UE, cpp, adapter, settings, diagnostic) {
             return [];
         }
     }
-    return { update, dispose };
+    return { update, dispose, status: () => ({ failure: lastFailure }) };
 }
 module.exports = { createPresentation };

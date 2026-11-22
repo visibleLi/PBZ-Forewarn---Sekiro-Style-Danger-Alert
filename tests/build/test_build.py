@@ -102,7 +102,14 @@ class BuildTests(unittest.TestCase):
         with zipfile.ZipFile(destination / f'PBZForewarn-{VERSION}.zip') as archive:
             self.assertEqual({name.split('/')[0] for name in archive.namelist()},
                              {'ProjectPBZ', 'platform', 'README.txt'})
-            self.assertEqual(len(archive.namelist()), 24)
+            expected_runtime = len(list((self.root / 'src/js/PBZForewarn').glob('*.js'))) + 8
+            self.assertEqual(len(archive.namelist()), expected_runtime)
+            hooks = 'platform/steam/ue4ss/Mods/PBZForewarnHooks/'
+            self.assertIn(hooks + 'Scripts/settings-config.lua', archive.namelist())
+            self.assertIn(hooks + 'PBZForewarnHooks.modsmenu.json', archive.namelist())
+            self.assertNotIn(hooks + 'PBZForewarnHooks.config.json', archive.namelist())
+            self.assertIn('src/lua/PBZForewarnHooks.modsmenu.json',
+                          {p.relative_to(self.root).as_posix() for p in source_paths(self.root)})
             self.assertFalse(any('AGENTS.md' in Path(name).parts or
                                  any(part in ('.agent', '.claude', '.omp', 'tools', 'node_modules')
                                      for part in Path(name).parts)

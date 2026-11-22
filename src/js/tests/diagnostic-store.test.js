@@ -4,6 +4,15 @@ const { createDiagnosticStore } = require("../PBZForewarn/diagnostic-store");
 let checks = 0;
 function test(name, run) { run(); checks++; console.log("PASS " + name); }
 
+test("live diagnostic gating retains history while suppressing and resuming optional detail", () => {
+    const store=createDiagnosticStore(); store.record('CUE',{id:'keep'}); store.catalog({color:'red'},'keep');
+    store.setEnabled(false); store.record('task-found',{task:'hidden'}); store.catalog({color:'blue'},'hidden');
+    store.record('config-saved',{change:1});
+    assert.equal(store.snapshot().activity.length,0); assert.equal(store.snapshot().catalog.count,1);
+    store.setEnabled(true); store.record('task-found',{task:'new'}); store.catalog({color:'blue'},'new');
+    assert.equal(store.snapshot().activity.length,1); assert.equal(store.snapshot().catalog.count,2);
+    assert.equal(store.snapshot().recent[0].id,'keep');
+});
 test("thousands of noisy records cannot evict battle history", () => {
     const store = createDiagnosticStore(); store.record("CUE", { id: "cue-1", at: 100 });
     for (let i = 0; i < 4000; i++) {

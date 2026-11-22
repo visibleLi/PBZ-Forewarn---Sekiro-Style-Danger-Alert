@@ -11,7 +11,7 @@ const EVENTS = Object.freeze([
 const TYPE_FIELDS = Object.freeze(["DeflectBulletType", "Deflect Bullet Type", "DeflectType"]);
 
 function createNativeAttackObserver(UE, puerts, adapter, options = {}) {
-    const enabled = options.enabled === true;
+    let enabled = options.enabled === true;
     const onRecord = typeof options.onRecord === "function" ? options.onRecord : () => {};
     const maximum = Number.isSafeInteger(options.maxFrames) ? Math.max(1, Math.min(512, options.maxFrames)) : 128;
     const slotLimit = Math.max(1024, maximum * 8);
@@ -253,8 +253,8 @@ function createNativeAttackObserver(UE, puerts, adapter, options = {}) {
         }
     }
     function update(input = {}) {
-        if (stopped || !enabled) return;
         tick++; cleanRetired();
+        if (stopped || !enabled) return;
         try {
             const playerPath = path(input.player);
             const next = { worldKey: typeof input.worldKey === "string" ? input.worldKey : "", playerPath,
@@ -285,15 +285,22 @@ function createNativeAttackObserver(UE, puerts, adapter, options = {}) {
             else { mapState = "component-unavailable"; report("deflect-component-unavailable"); }
         } catch (_) { counters.errors++; report("observer-update-failed"); }
     }
-    function dispose() {
+    function setEnabled(value) {
         if (stopped) return;
+        const next = value === true;
+        if (next === enabled) return;
+        if (!next) { unbind("settings-disabled"); context = null; }
+        enabled = next;
+    }
+    function dispose() {
+        if (stopped) { cleanRetired(); return; }
         unbind("disposed"); stopped = true; cleanRetired(); context = null;
     }
     function status() {
         return { enabled, stopped, mode: "observe-only", mapState, tracked: records.size, maximum,
             listeners: listeners.length, pendingListenerCleanup: retired.length, ...counters };
     }
-    return { update, dispose, status };
+    return { update, dispose, status, setEnabled };
 }
 
 module.exports = { createNativeAttackObserver, EVENTS };

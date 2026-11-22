@@ -1,5 +1,193 @@
 # Validation / 自检边界
 
+## 2026-11-22: test.3 acceptance for the 0.7.0 release candidate
+
+Observed build `0.7.0-test.3`, session `mwrhcgk8-wkabhr6e`, diagnostic interval
+14:52:51.532–15:07:12.323 +08:00 (860.791 seconds). User reports no perceived
+abnormality. All 25 installed runtime hashes match the delivered test.3 package;
+all 23 canonical values equal final runtime, and all 16 editable values equal
+menu saved state. Preserved evidence: local analysis folder
+`menu-test3-acceptance-20261122-151250`, 45 source files with stable-copy hashes,
+FINAL_REPORT.md, SUMMARY.json and MANIFEST.json. Raw logs remain outside Git.
+
+There are 17 complete saved/runtime/output triples, 15 with changes, all for
+GlyphFontSize (120 through values 30–135 and back to 120). The other 15 editable
+settings were not hot-changed in this session. No retained config read/refresh
+error or restart-required result. Log notice-to-read 131–529 ms and update-return
+0–6 ms are software timestamps, not measured physical output latency. Runtime:
+four cues (black two/red one/blue one), one cancel, zero missed/errors; audio four
+played, zero dropped/errors. Fallback/cast cues are zero, so this session does not
+validate those scoped extra rules. Final native listener cleanup is zero pending.
+Lua timeline/observer registrations are two/six with no registration/capture errors.
+Hook/observation-setting toggles were not exercised here.
+
+One observer JSON write reports Permission denied, then recovery 267 ms later;
+writeFailures=1, recoveries=1, currentlyFailing=false. Cause remains unknown and
+no persistent cue failure is demonstrated. Recent retains115/115; activity drops
+477/642 and observation events evict802/913. A 12047ms tick gap immediately precedes
+a resumed state; no combat hitch attribution follows. UE4SS startup detour warnings
+precede Forewarn registration and have no established causal link. A stale startup
+message about restart-only edits is corrected before integration; behavior is unchanged.
+
+Acceptance supports this smoke session and logged font-size updates together with
+the earlier output-switch session and offline lifecycle matrix. It does not establish
+all16 game settings, keyboard/controller/language coverage, acoustic/screen output,
+full move coverage, hit-time lead or absence of stutter. Unexercised behavior remains
+unverified in game. The final test.3 offline candidate passed26 suites/915 checks;
+source gate/package must run again after this record and message correction.
+
+## 2026-11-22: combat feedback and complete localized setting help
+
+Observed build: `0.7.0-test.2`. The user reports one actual fight, testing output
+on/off combinations during play, with normal game and mod behavior. This is a
+single user-observed session, not an acoustic/screen measurement, exhaustive
+combination matrix, measured apply latency or general compatibility guarantee.
+Preserved session: `mwrdgjsf-pzf6ps76`, cutoff 2026-11-22 13:10:57.030 +08:00.
+Retained config-saved/output-update pairs: seven, comprising one startup notice
+without changes and six actual changes (SoundOn four, GlyphOn two); UE4SS retains
+six canonical writes. SoundVolume stayed 0.8. Final saved/runtime settings agree.
+Every output update returned unverified, with no restart-required field. Runtime
+stats: 13 cues (black 8/red 3/blue 2), two cancels, zero missed and errors. Six
+conditions-not-met are editor-preview exclusions. Missed=0 is not move coverage.
+There are 18 nonzero-PlayingID play calls (11 previews/seven combat), 11 disabled
+drops (five previews/six combat), and 16 successful stop returns (10 new-cue/four
+paused/two cancelled). Disabled drops occur in SoundOn=false intervals; one
+combat play call follows re-enable. There is no retained sound-setting stop, so
+stopping an already playing sound specifically by the switch is not proven.
+Recent retains all 174 rows; activity retains 133/272 and observer events 115/545.
+No retained owned sound/HUD failures are present, but evicted activity is incomplete.
+The 16-file snapshot manifest hashes were independently checked. Evidence: local
+`menu-combat-evidence-20261122-131846-204082` analysis folder, with FINAL_REPORT.md,
+SUMMARY.json, MANIFEST.json and raw files. This is not a live watch or atomic
+cross-file snapshot; logs remain outside Git.
+
+New build: `0.7.0-test.3`, offline session `menu-help-offline-20261122`.
+All 23 keyed settings, including seven reserved read-only rows, have English,
+Simplified Chinese and Traditional Chinese labels/help. Text describes effects,
+units/ranges where applicable, dependencies, application mode and read-only
+limits. FontPath explicitly remains fixed and ignores manual replacement; generic
+attack timing policies remain empty. The user additionally authorized every
+editable setting live. All 16 editable values update after complete Menu notices;
+seven reserved values remain startup-only. Existing scheduler/adapters are updated
+without resetting fired/past history, layout rebuilds only the owned canvas, and
+observation/Lua toggles have reversible lifecycles. Lua disables capture/publication
+while registrations remain inert until terminal unload. JS and Lua independently
+validate the same canonical JSON on bounded notifications; cross-runtime updates
+are not atomic and no per-output receipt is displayed by third-party Menu.
+Timing changes affect pending warnings, filters can withdraw active warnings,
+and none of these changes promise replay of disabled, ended or consumed cues.
+Expanded live settings are not covered by the test.2 game session above.
+
+Descriptor regressions require complete label/help coverage, preserve reserved
+row types and numeric bounds, and enforce the inspected Menu's 80/400 UTF-16-unit
+label/help limits. The targeted descriptor suite passes four checks, including
+exact runtime/descriptor editable-key agreement. Independent JS review reproduced
+two lifecycle defects: disabling capture lost dirty observations, and failed native
+listener retirement was discarded before re-enable. The corrections flush an
+explicit disabled boundary (retryable at shutdown), retain the observer/cleanup
+queue across suspend/resume, and block new listener bindings until cleanup drains.
+Native cleanup may remain pending if the engine continues rejecting EndAction;
+stale callbacks are guarded, and the final unload performs cleanup attempts.
+Targeted checks pass under Python 3.12.16 / Node 24.22.3: runtime 142, native
+observer 40, presentation 25, diagnostic store 13; Lua settings 157, timeline 57,
+observation 68, entry 30. These include initially disabled enablement, repeated
+toggles, queued unload, read/scheduling failure retry, reserved isolation and
+retained evidence. This is owned-code validation, not execution of third-party
+Menu. Full gate/package results below must correspond to the final source hashes.
+Actual translated
+layout, overflow, help visibility and language switching of test.3 remain
+**unverified in game**. Full gate/package evidence is retained in the candidate's
+external PACKAGE_CHECK.json and verification/summary.json.
+
+## 2026-11-22: Menu save evidence and limited live-output candidate
+
+Observed build: `0.7.0-test.1`, game session `mwrbqsef-e2fltjgn`. The user
+confirmed Forewarn discovery under UE4SS Mods and changed two settings without
+combat. A preserved canonical JSON has GlyphOn=false and SemanticFallback=false;
+the final Bridge write is 12:21:21 +08:00. The later 12:23:10.896 diagnostic
+snapshot still has both true, demonstrating saved-vs-startup behavior, not a
+failed save. Snapshot manifest and raw evidence are outside Git under local
+`menu-save-evidence-20261122-123041-990451` in the analysis evidence store.
+JSON SHA-256: `265b6a233a930b6dfd10ea1a559bbc5625c9b5f585b3990283f33eba674278fe`.
+This confirms file persistence in one session. Restart application, combat,
+keyboard/controller coverage, audibility and visible glyph effects are not proven.
+
+New candidate: `0.7.0-test.2`, offline session `menu-live-offline-20261122`.
+Only SoundOn, SoundVolume and GlyphOn update from the canonical JSON after a
+complete higher Changed notice from the existing Menu. The existing JS tick
+checks that small event file at most once per 500 wall-clock milliseconds; JSON
+is read only on a new complete notice, with failed reads retaining values and
+retrying. This is explicit event-file polling. Lua, recognition, timing and glyph
+layout remain startup snapshots. No config writer or second authority is added.
+
+Targeted runtime regressions cover the existing timer/scheduler, restart-only
+field isolation, paused updates, notice cadence/deduplication, partial/missing/
+malformed save retry, retained persistence on isolated output failure, and no
+old-cue replay or expired-glyph resurrection. Existing Wwise checks exercise stop,
+private volume and consumed-cue behavior; a glyph regression exercises re-enable
+with current vs expired windows. These execute owned code with mocked APIs only.
+Diagnostic update-returned statuses do not prove audible/visible application;
+Menu save UI does not receive per-output application receipts. Strict stale-edit
+conflicts remain deferred. Live sound/glyph effects of test.2 are **unverified in
+game**. The first integrated gate passed **26 suites / 796 checks**, all exit
+zero with positive counts, plus JavaScript syntax and version carriers, under
+Python 3.12.16 / Node 24.22.3 / lupa 2.8. Focused independent review then caught
+contained HUD failures being recorded as ordinary returns; presentation now
+exposes failure status. The corrected targeted suites pass 131 runtime and 24
+presentation cases. Original audio is unchanged. A fresh integrated gate and
+package readback are required for the corrected candidate; final counts and
+archive hashes live in verification/summary.json and external PACKAGE_CHECK.json.
+
+## 2026-11-22: optional Mods Menu restart-only test build
+
+Build: `0.7.0-test.1`, branch `feat/mods-menu-settings`. Session ID:
+`menu-preview-offline-20261122`; no game session, installed-mod changes or player
+log inspection. This is a local preview, not a published release.
+
+The user authorized the reduced first preview after static inspection of an
+independent UE4SS Menu adapter: project-owned `.modsmenu.json`, one canonical
+`PBZForewarnHooks.config.json` created by Lua, and startup-only settings reads.
+Existing Saved TXT is imported once and left untouched as a downgrade backup;
+JSON is never bundled or overwritten on startup. The full earlier Menu spec's
+strict edit-baseline conflicts, original TXT path, three live output changes and
+per-output apply results are deferred, not claimed passed. Menu and Bridge remain
+optional external downloads; no third-party implementation is redistributed.
+
+Targeted owned-code tests cover authoritative JSON precedence, legacy import,
+write/readback/rename failures, malformed/unreadable JSON preservation, both Lua
+startup orders, no Menu dependency, restart snapshots, default/bounds behavior,
+reserved-key metadata and existing cue/cancel behavior. Tests use mocked engine
+and file APIs; they do not execute the third-party Menu or prove discovery,
+Bridge save interaction, controller navigation, translated layout, sound or glyph
+output in game. The first integrated gate found a faulty regex in the new
+descriptor test; the assertion was corrected to inspect the complete defaults
+object. A second gate caught the descriptor suite's mixed unittest/JSON output
+being counted as zero; the suite now emits the standard PASS lines without
+weakening its assertions.
+
+The initial integrated gate passed **26 suites / 780 checks**, all exit zero and
+all with positive counts, on Python 3.12.16, Node 24.22.3 and lupa 2.8. Final
+review then identified three more parser parity cases. The corrected targeted
+suites pass 124 actual-JS runtime cases and 83 Lua settings checks. The packaged
+source is subject to a fresh integrated gate, with final suite/check totals kept
+in verification/summary.json and the external PACKAGE_CHECK.json. Review corrections
+cover empty legacy EOF vs read errors, numeric boolean forms, deterministic
+case-alias ordering, legacy inline comments, numeric-string grammar, a shared
+64-KiB UTF-8 bound and lone-surrogate rejection. The actual Lua entry/helper/both
+hooks are loaded together under functioning engine stubs with disabled/enabled
+controls, rather than relying solely on missing APIs to disable hooks.
+The final parity corrections decode BOM-marked UTF-16LE/BE legacy files, refuse
+truncated/invalid legacy encoding without creating a default replacement, normalize
+ECMAScript Unicode whitespace, and validate overwritten JSON members as well as
+final values so duplicates cannot hide nested objects, infinities or lone surrogates.
+
+Installer and Source ZIP packaging succeeds. The installer contains the descriptor
+and helper, excludes a seeded live JSON and excludes third-party Menu/Bridge and
+development tools. Archive integrity and exact per-file readback are checked by
+the packager. Outputs and their final hashes are retained in the external local
+candidate folder's PACKAGE_CHECK.json. Runtime discovery, actual Bridge saving,
+keyboard/controller layout and sound/glyph behavior remain **unverified in game**.
+
 ## 2026-11-21: research absorption implementation boundary
 
 Build: `0.6.1-dev.6`, feature branch based on `755398f`. Session: offline

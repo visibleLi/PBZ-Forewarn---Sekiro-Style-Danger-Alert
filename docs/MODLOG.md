@@ -1,5 +1,30 @@
 # Development journal
 
+## 2026-11-22: test.3 smoke acceptance and release preparation
+
+- User authorizes conditional push/tag v0.7.0 and subsequent scoped-warning review. Session `mwrhcgk8-wkabhr6e` matches delivered runtime25/25; 17 save/runtime/output triples include15 font-size changes, four cues, zero runtime errors. Other15 editable controls were not changed in this session. Full evidence/limits are in VALIDATION.md.
+- One observer write denial recovered after267ms; no persistent cue failure found. Retention and pause-related gaps limit claims. Corrected stale CONFIG_CREATED restart wording without changing behavior.
+- Untracked third-party reference descriptions, raw logs and build output remain excluded from selective commits. Release requires a fresh gate and green remote CI; network/CLI availability is recorded in the external delivery report.
+
+## 2026-11-22: combat toggle feedback and complete setting help
+
+- User reports one actual test.2 fight with output-toggle combinations and normal game/mod operation. This is user observation, not an acoustic, screen or latency measurement. Preserved log audit and limits are recorded in VALIDATION.md.
+- Test.3 supplies en/zh-Hans/zh-Hant labels and help for every setting, including all reserved read-only rows. Descriptions trace to consumers, explain application modes and dependencies, and retain setting identifiers/values. The user then authorized all editable controls live: update existing scheduler/adapters/layout and reversible observation/Lua lifecycle without replaying consumed cues. Seven reserved settings stay startup-only.
+- Descriptor regressions require localized help/name coverage for every keyed row and respect Menu's actual 80/400 UTF-16-unit text limits. Full gate and packaging results are recorded with the local candidate.
+
+## 2026-11-22: saved settings audit and limited live outputs
+
+- User confirmed Menu discovery and requested immediate saving/application. Preserved session `mwrbqsef-e2fltjgn`: canonical JSON has GlyphOn=false and SemanticFallback=false, while the later runtime snapshot retained true for both. Bridge write logs confirm persistence; test.1 intentionally had no live application. No combat, acoustic or display-effect claim follows.
+- Test.2 consumes complete monotonically increasing Menu Changed notices with 500ms bounded event-file checks. Only SoundOn, SoundVolume and GlyphOn mutate the existing output settings; scheduler, recognition, layout and Lua controls remain startup values. JS never writes settings; bad reads retain current values and retry.
+- Save/update diagnostics distinguish file contents from output call results; output failures retain saved preferences. Strict edit-baseline conflict handling and Menu application receipts remain deferred. Full gate and game evidence limits are recorded in VALIDATION.md.
+
+## 2026-11-22: restart-only optional Mods Menu preview
+
+- User authorized unattended delivery of a reduced first preview; implementation is on `feat/mods-menu-settings`, version `0.7.0-test.1`. Original strict single-TXT/live-apply gate is superseded for this local preview only; fuller behavior remains deferred.
+- Added project-owned UE4SS Menu metadata and a Lua startup settings helper. One JSON in the hook mod folder becomes authoritative after verified one-time migration; legacy TXT remains untouched. Installer deliberately carries no live JSON, so updates cannot seed defaults over user preferences.
+- JS and Lua consume startup snapshots; every setting requires full restart. No new settings polling, live output seam, cue scheduling rule or third-party runtime is added. Reserved controls remain read-only in metadata.
+- Owned runtime, migration and packaging tests exercise preservation and failure paths. Review corrected empty legacy EOF, numeric booleans, alias ordering, comments, numeric grammar, byte limits, Unicode, UTF-16 migration and invalid overwritten JSON members. Final verification/package evidence is recorded in VALIDATION.md; no game run or public release is claimed.
+
 ## 2026-11-21: research absorption baseline and Menu gate
 
 - Implementation started from clean `dev` commit `755398f` on `feat/research-absorption`. The developer-support and optional Menu specifications remain independently scoped; no third-party compatibility matrix is part of this work.

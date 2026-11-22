@@ -5,6 +5,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent / 'lib'))
 from lupa import LuaRuntime
+from settings_fixture import install, DIRECTORY
 
 ROOT = Path(__file__).parents[1]
 SOURCE = (ROOT / 'observation-hooks.lua').read_text(encoding='utf-8')
@@ -94,8 +95,9 @@ def check(v,label):
 def fresh(before=''):
     lua=LuaRuntime(unpack_returned_tuples=True)
     lua.execute(BASE)
+    install(lua)
     lua.execute(before)
-    mod=lua.execute(SOURCE)
+    mod=lua.execute(SOURCE, name='@'+DIRECTORY+'\\observation-hooks.lua')
     lua.globals().M=mod
     return lua,mod
 
@@ -238,7 +240,8 @@ check(z.globals().T.arrayElements<=514,'runtime candidate discovery caps total i
 
 for setting in ('ObserveAttacks=0','Diagnostics=0','Hooks=0','observeattacks=false','\ufeffDiagnostics=false'):
     z,m=fresh('T.config='+json.dumps(setting,ensure_ascii=False))
-    check(not m.status()['active'] and len(z.globals().T.loops)==0 and len(z.globals().T.scheduled)==0,'startup switch suppresses all observer activity: '+setting)
+    z.execute('game();maintenance();publish()')
+    check(not m.status()['active'] and len(z.globals().T.loops)==1 and len(z.globals().T.hooks)==0 and len(z.globals().T.writes)==0,'startup switch pauses observer capture with resident loops: '+setting)
 z,m=fresh('IsInGameThread=nil')
 check(not m.status()['active'] and len(z.globals().T.loops)==0,'missing thread verification API safely disables only observer')
 z,m=fresh('T.scheduleFail=true')
@@ -246,6 +249,35 @@ check(not m.status()['active'] and m.status()['stopped'],'setup scheduling failu
 z,m=fresh('T.scriptBackend=true');z.execute("game();a,task,actor,tl=ability();w=warning(a,task,actor);tl.Actions=arr({{Action=w}});invoke(PLAY,'pre',a,param(tl),param(1),param(0),param(0),param(''));invoke(PLAY,'post',a,param(tl),param(1),param(0),param(0),param(''));T.allLoaded=true;for i=1,12 do T.now=T.now+1;maintenance()end;for i=1,70 do invoke(BLUE..':Received_ActionBegin','pre',w,param(0),param(0.4),param(0.7))end;maintenance();publish()")
 warnings=[e for e in data(z)['events'] if e['kind']=='warning-call']
 check(len(warnings)==70 and all(e['phase']=='call' and e['matching']=='single-script-callback-no-post' for e in warnings),'script-hook equal IDs yield single observations without imaginary post callbacks or pairing-stack overflow')
+
+z,m=fresh('T.config="Hooks=0"');z.execute('game();ExecuteInGameThread(function()M.applySettings({Hooks=true,Diagnostics=true,ObserveAttacks=true})end);game()')
+check(m.status()['active'] and len(z.globals().T.hooks)==2 and len(z.globals().T.gameLoops)==1,
+      'startup-paused observer enables with one existing maintenance loop')
+z.execute('a,task,actor,tl=ability();invoke(PLAY,"pre",a,param(tl),param(1),param(0),param(0),param(""));ExecuteInGameThread(function()M.applySettings({Hooks=true,Diagnostics=false,ObserveAttacks=true})end);game()')
+check(not m.status()['active'] and m.status()['health']['abandonedPres']==1 and data(z)['heartbeat']==0,
+      'diagnostics pause invalidates output and abandons pending pre calls')
+seq=m.status()['seq'];writes=len(z.globals().T.writes);reads=z.globals().T.gameReads
+z.execute('maintenance();publish();invoke(PLAY,"post",a,param(tl),param(1),param(0),param(0),param(""))')
+check(m.status()['seq']==seq and len(z.globals().T.writes)==writes and z.globals().T.gameReads==reads,
+      'paused observer does no capture discovery rebuild file writes or UE reads')
+for hooks in (False,True):
+    for diagnostics in (False,True):
+        for observe in (False,True):
+            settings=z.table_from({'Hooks':hooks,'Diagnostics':diagnostics,'ObserveAttacks':observe})
+            z.globals().NEXT_SETTINGS=settings
+            z.execute('ExecuteInGameThread(function()M.applySettings(NEXT_SETTINGS)end);game()')
+            check(m.status()['active']==(hooks and diagnostics and observe),
+                  'live observer flag truth table '+str((hooks,diagnostics,observe)))
+check(len(z.globals().T.hooks)==2 and len(z.globals().T.loops)==1 and len(z.globals().T.gameLoops)==1,
+      'repeated observer flag changes do not duplicate registrations or loops')
+z.execute('publish()')
+check(data(z)['active'] is True and data(z)['heartbeat']>0 and m.status()['seq']==seq,
+      'same-second observer resume replaces tombstone and preserves bounded prior evidence')
+z.execute('invoke(PLAY,"post",a,param(tl),param(1),param(0),param(0),param(""))')
+check(m.status()['health']['unmatchedPosts']==1, 'resume cannot pair a post with a pre from before pause')
+z.execute('M.stop();ExecuteInGameThread(function()M.applySettings({Hooks=true,Diagnostics=true,ObserveAttacks=true})end);game()')
+check(m.status()['stopped'] and not m.status()['active'] and z.eval('publish()') is True,
+      'final observer unload remains terminal after a queued resume')
 
 out={'checks':len(passed),'passed':passed,'scope':'Lua runtime, thread-checking UE4SS and file stubs; no PBZ execution or runtime ABI certification.'}
 (Path(__file__).parent/'observer-results.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')

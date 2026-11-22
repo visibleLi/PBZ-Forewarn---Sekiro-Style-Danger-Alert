@@ -14,9 +14,21 @@ end}
 function print(text) T.logs[#T.logs+1]=text end
 debug.getinfo=function() return {source=T.source} end
 os.execute=function() error('process launch prohibited') end
-io.open=function() error('entry point file/audio IPC prohibited') end
+io.open=function(path,mode)
+  assert(path:match('PBZModsMenuBridge[\\/]events%-PBZForewarnHooks%.txt$') and mode=='rb','unexpected file access')
+  if not T.notice then return nil,'missing',2 end
+  return {read=function(self,count)return T.notice:sub(1,count)end,close=function()return true end}
+end
+function LoopAsync(ms,fn)assert(ms==500);T.watch=fn end
+function ExecuteInGameThread(fn)T.apply=fn end
 loadfile=function(path)
   T.loads[#T.loads+1]=path
+  if path:match('settings%-config%.lua$') then
+    if T.helperMissing then return nil,'settings helper missing' end
+    return function() return {load=function(directory) T.settingsDirectory=directory;T.settingsReady=true end,
+      refresh=function()T.refreshes=(T.refreshes or 0)+1;return {Hooks=true}end} end
+  end
+  assert(T.settingsReady or T.helperMissing,'settings must initialize before hooks')
   if path:match('observation%-hooks%.lua$') and T.observerMissing then return nil,'optional observer missing' end
   if T.loadThrows then error('load exception') end
   if T.loadMissing then return nil,'missing file' end
@@ -25,6 +37,10 @@ loadfile=function(path)
     local isObserver=path:match('observation%-hooks%.lua$')~=nil
     local label=isObserver and 'observer' or 'timeline'
     local m={status=function()return {active=not T.observerDisabled}end,
+      applySettings=function()
+        T[label..'Applies']=(T[label..'Applies'] or 0)+1
+        if T[label..'ApplyThrows']then error(label..' apply failed')end
+      end,
       stop=function()T.stops[#T.stops+1]=label;if T[label..'StopThrows']then error(label..' stop failed')end end}
     if isObserver and T.observerPartialThrows then __PBZForewarnObservationHooks_v1=m;error('observer partial startup')end
     if isObserver and T.observerRunThrows then error('observer startup')end
@@ -48,8 +64,10 @@ def check(condition,label):
     passed.append(label);print('PASS '+label)
 def logs(state):return '\n'.join(state.logs[i] for i in range(1,len(state.logs)+1))
 
-t=run();check(t.runs==2 and len(t.loads)==2,'loads legacy hints and independent sibling observation module')
-check(t.loads[1]==r'C:\Games\PBZ\Mods\PBZForewarnHooks\Scripts\timeline-hooks.lua','resolves hook module beside actual entry')
+t=run();check(t.runs==2 and len(t.loads)==3,'loads settings then legacy hints and independent sibling observation module')
+check(t.loads[2]==r'C:\Games\PBZ\Mods\PBZForewarnHooks\Scripts\timeline-hooks.lua','resolves hook module beside actual entry')
+check(t.settingsDirectory==r'C:\Games\PBZ\Mods\PBZForewarnHooks\Scripts','initializes settings beside entry before either hook starts')
+t=run(helperMissing=True);check(t.runs==2 and 'CONFIG_UNAVAILABLE' in logs(t),'missing helper preserves original warning bridge startup')
 check('ENTRY_READY' in logs(t),'reports hooks-only startup')
 VERSION = __import__('re').search(r'local VERSION = "([^"]+)"', SOURCE).group(1)
 check(f'ENTRY_READY version={VERSION}' in logs(t) and f'OBSERVER_READY version={VERSION}' in logs(t),
@@ -75,5 +93,13 @@ check([t.stops[i] for i in range(1,len(t.stops)+1)]==['observer','timeline','pre
 t=run(observerStopThrows=True,timelineStopThrows=True,previousThrows=True);t.unload();t.unload()
 check(len(t.stops)==3 and t.oldCalls==1 and 'UNLOAD_STOP_FAILED observer' in logs(t) and 'UNLOAD_STOP_FAILED timeline' in logs(t) and 'UNLOAD_PREVIOUS_FAILED' in logs(t),'independent cleanup failures never skip the other module or previous callback')
 t=run(noModRef=True);check(t.runs==2 and t.unload is None and 'ENTRY_READY' in logs(t),'host without ModRef loads without crashing or creating a fake callback')
+t=run(observerMissing=True,notice='Changed=1\nEnd=1\n');t.watch();t.apply()
+check(t.timelineApplies==1 and t.refreshes==1, 'optional observer absence does not disable menu watcher or timeline settings')
+t=run(timelineApplyThrows=True,notice='Changed=1\nEnd=1\n');t.watch();t.apply()
+check(t.timelineApplies==1 and t.observerApplies==1 and 'CONFIG_APPLY_FAILED' in logs(t), 'one consumer settings failure does not prevent the other consumer update')
+t=run(notice='Changed=1\nEnd=1\n');t.watch();t.unload();t.apply()
+check(t.timelineApplies is None and t.observerApplies is None and t.watch() is True, 'queued settings and watcher cannot reactivate after entry unload')
+t=run(helperMissing=True)
+check(t.watch is None, 'missing settings helper preserves legacy startup without a fake live watcher')
 print('RESULT '+str(len(passed))+' launcher scenarios passed. No game or process access.')
 (Path(__file__).parent/'launcher-results.json').write_text(json.dumps({'checks':len(passed),'passed':passed},indent=2),encoding='utf8')

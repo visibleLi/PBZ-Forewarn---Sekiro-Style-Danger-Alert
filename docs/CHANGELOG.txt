@@ -1,3 +1,27 @@
+PBZForewarn 0.7.0-test.3 — 设置页三语说明补齐（本地测试版）
+
+- 所有设置补齐英文、简中、繁中名称与逐项说明，包含全部保留只读项；解释作用、单位/范围、生效方式及只读原因。
+- 全部16个可编辑项扩展为菜单保存后应用，7个保留项仍只读；包含提前量、筛选、危字布局、诊断、观察及Lua钩子。
+- 不重启预警调度、不补播已消费预警；Lua关闭时暂停捕获/发布，惰性注册保留至最终卸载。单项应用状态及失败保留日志。
+- 说明黑危与玉瓒施法开关的关系、字体路径固定以及观察/日志限制。
+- test.2 一场实战用户反馈切换组合后游戏与MOD正常；日志核对与证据边界见VALIDATION.md，不扩写为声画测量或全面兼容结论。
+- test.3扩展即时应用及生命周期，并保留原识别规则/默认值；新增实时项与文字布局仍待实机检查。
+
+PBZForewarn 0.7.0-test.2 — 菜单保存后有限即时应用（本地测试版）
+
+- SoundOn、SoundVolume、GlyphOn 在菜单保存并发出完整通知后应用，通常约半秒内；其余设置（含炎茹补充预警和危字布局）仍需完全重启。
+- 关声停止本 MOD 音效，开声不补播；危字只使用仍有效窗口，不重启预警调度、不改变识别规则。
+- 最多每500ms检查小型菜单通知文件，仅新通知重读JSON；损坏/读取失败保留当前值并重试，不写回或回滚保存文件。
+- test.1 实机已确认菜单识别与两项JSON保存；test.2 即时声画效果仍待实机检查。严格旧编辑冲突保护仍未提供。
+
+PBZForewarn 0.7.0-test.1 — 可选 Mods Menu 设置页（本地测试版）
+
+- 增加 Mods Menu UE4SS JSON 描述；需另装 Mods Menu 与 UE4SS Bridge，不附带第三方运行时。
+- 设置统一由 PBZForewarnHooks.config.json 保存；首次启动一次性导入旧 Saved/PBZForewarn.txt，旧文件原样保留作降级备份。
+- 首版所有设置保存后完全重启生效，不加入即时应用、后台配置轮询或严格旧编辑冲突保护；预警判定不变。
+- JSON 不随安装包提供，避免更新覆盖玩家设置；已有 JSON 启动时不重写，损坏时保留原件并记录错误。
+- 本地测试包，菜单发现、Bridge 保存及实机声画效果仍待验证；不是 Nexus 发布版。
+
 PBZForewarn 0.6.1-dev.6 — 跳过原因诊断
 
 - condition-not-met 记录新增 eligibilityReason（require-tags / ignore-tags / tag-query / requirements-error 等）、lateBy、lateGrace、endedBeforeObservation；不改变任何发危、跳过或撤回判定。

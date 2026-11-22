@@ -253,6 +253,22 @@ function M.stop()
     end
     -- LoopAsync has no cancellation API assumed here. Its next callback returns true.
 end
+-- Settings calls run on the game thread. Registrations stay inert while paused;
+-- only final unload unregisters them, so toggles never multiply hooks or loops.
+function M.applySettings(settings)
+    if S.stopped or not S.ready then return end
+    local on = settings.Hooks == true
+    if S.active == on then return end
+    S.active = on
+    if on then
+        S.publishedSecond = nil -- Replace the paused tombstone even within the same second.
+        if not S.installed then S.installed = true; install() end
+    else
+        S.hints = {}; S.seq = S.seq + 1
+        S.frame = {seq = S.seq, json = "[]"}
+        pcall(publish, true)
+    end
+end
 function M.status()
     return {active = S.active, stopped = S.stopped, registered = #S.hooks,
         seq = S.seq, hits = S.hits, queued = #S.hints, unregisterPending = S.unregisterPending,
@@ -264,10 +280,25 @@ local absolute = type(appData) == "string" and
     (appData:match('^[A-Za-z]:[\\/]') or appData:match('^\\\\[^\\]+\\[^\\]+'))
 if not absolute then log("DISABLED", "LOCALAPPDATA is missing or not absolute"); return M end
 local configPath = appData .. "\\ProjectPBZ\\Saved\\PBZForewarn.txt"
-local configOK, enabled = pcall(hooksEnabled, configPath)
+local configOK, enabled = pcall(function()
+    local helperOK, settings = pcall(function()
+        local info = debug.getinfo(1, "S")
+        local directory = info and info.source:match('^@(.*)[\\/][^\\/]+$')
+        local helper = rawget(_G, "__PBZForewarnSettingsConfig_v1")
+        if not helper then
+            if not directory then error("file-backed settings helper path unavailable") end
+            local chunk, why = loadfile(directory .. "/settings-config.lua")
+            if not chunk then error(why or "settings helper missing") end
+            helper = chunk()
+        end
+        return helper.load(directory)
+    end)
+    if helperOK then return settings.Hooks end
+    log("CONFIG_UNAVAILABLE", tostring(settings) .. "; using legacy startup reader")
+    return hooksEnabled(configPath)
+end)
 if configOK and not enabled then
-    log("DISABLED", "Hooks=0/false in PBZForewarn.txt; changing Lua hooks requires a game restart")
-    return M
+    log("DISABLED", "Hooks=0/false in startup settings; awaiting live settings")
 end
 if not configOK then log("CONFIG_READ_FAILED", tostring(enabled) .. "; using Hooks=1") end
 for _, name in ipairs({'RegisterHook', 'UnregisterHook', 'StaticFindObject', 'ExecuteInGameThread', 'LoopAsync'}) do
@@ -275,9 +306,10 @@ for _, name in ipairs({'RegisterHook', 'UnregisterHook', 'StaticFindObject', 'Ex
 end
 S.output = appData .. "\\ProjectPBZ\\Saved\\pbzforewarn_hooks.json"
 S.session = 'fw-' .. tostring(os.time()) .. '-' .. tostring(M):gsub('[^%w]', '')
-S.active = true
+S.ready = true
 local loopOK, loopError = pcall(LoopAsync, 50, function()
     if S.stopped then return true end
+    if not S.active then return false end
     local ok, why = pcall(publish, false)
     if not ok then
         S.health.publishExceptions = S.health.publishExceptions + 1
@@ -287,8 +319,10 @@ local loopOK, loopError = pcall(LoopAsync, 50, function()
     end
     return false
 end)
-if not loopOK then S.active = false; log("DISABLED", "publisher unavailable: " .. tostring(loopError)); return M end
-local setupOK, setupError = pcall(ExecuteInGameThread, install)
+if not loopOK then S.ready = false; S.active = false; log("DISABLED", "publisher unavailable: " .. tostring(loopError)); return M end
+local setupOK, setupError = pcall(ExecuteInGameThread, function()
+    M.applySettings({Hooks = not configOK or enabled})
+end)
 if not setupOK then
     S.active, S.stopped = false, true
     pcall(publish, true)

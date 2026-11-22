@@ -2,6 +2,7 @@ from pathlib import Path
 import json, sys
 sys.path.insert(0, str(Path(__file__).parent / 'lib'))
 from lupa import LuaRuntime
+from settings_fixture import install, DIRECTORY
 
 SOURCE = (Path(__file__).parents[1] / 'timeline-hooks.lua').read_text(encoding='utf8')
 BASE = r'''
@@ -85,8 +86,9 @@ def check(value, label):
 def fresh(before=''):
     lua=LuaRuntime(unpack_returned_tuples=True)
     lua.execute(BASE)
+    install(lua)
     if before: lua.execute(before)
-    module=lua.execute(SOURCE)
+    module=lua.execute(SOURCE, name='@'+DIRECTORY+'\\timeline-hooks.lua')
     return lua,module
 
 def payload(lua):
@@ -212,8 +214,9 @@ check(len(payload(z)['health']['lastError'])==512 and payload(z)['health']['capt
 
 for value in ['Hooks=0', 'Hooks=false', '  hOoKs = FALSE  \r\n']:
     z,mod=fresh('T.config='+json.dumps(value))
-    check(not mod.status()['active'] and len(z.globals().T.loops)==0 and len(z.globals().T.scheduled)==0,
-          'startup config disables hooks and publisher: '+repr(value))
+    z.execute('game()')
+    check(not mod.status()['active'] and len(z.globals().T.loops)==1 and len(z.globals().T.registered)==0,
+          'startup config pauses hooks with one resident publisher: '+repr(value))
 z,mod=fresh('T.config="Hooks=0\\nHooks=true\\nHooks=invalid\\n"')
 z.execute('game();tick()')
 check(mod.status()['active'] and len(z.globals().T.registered)==2,
@@ -226,6 +229,26 @@ z,mod=fresh("T.bad['/Script/LegoAbility.LegoAbility:PlayTimeline']='missing';T.b
 z.execute('game();tick()')
 check(mod.status()['registered']==0 and payload(z)['active'] is True and payload(z)['hints']==[],
       'active heartbeat denotes bridge liveness even when no hook registered')
+
+z,mod=fresh('T.config="Hooks=0"');z.globals().M=mod;z.execute('game();tick()')
+check(len(z.globals().T.writes)==0, 'paused publisher performs no file writes')
+z.execute('ExecuteInGameThread(function()M.applySettings({Hooks=true})end);game();hit(1,ability(true));tick()')
+check(mod.status()['active'] and mod.status()['hits']==1 and len(z.globals().T.registered)==2,
+      'startup-paused timeline enables on the game thread without reload')
+z.execute('ExecuteInGameThread(function()M.applySettings({Hooks=false})end);game();hit(1,ability(true))')
+check(payload(z)['heartbeat']==0 and payload(z)['hints']==[] and mod.status()['hits']==1,
+      'pause invalidates stale hints and leaves registered callbacks inert')
+writes=len(z.globals().T.writes);z.execute('tick()')
+check(len(z.globals().T.writes)==writes, 'paused resident publisher leaves inactive tombstone intact')
+z.execute('for i=1,5 do ExecuteInGameThread(function()M.applySettings({Hooks=true});M.applySettings({Hooks=false})end);game()end;ExecuteInGameThread(function()M.applySettings({Hooks=true})end);game()')
+check(len(z.globals().T.loops)==1 and len(z.globals().T.registered)==2 and mod.status()['queued']==0,
+      'repeated timeline toggles reuse one loop and two hooks without old hints')
+z.execute('tick()')
+check(payload(z)['active'] is True and payload(z)['heartbeat']>0 and payload(z)['hints']==[],
+      'same-second timeline resume replaces paused tombstone without replaying hints')
+z.execute('M.stop();ExecuteInGameThread(function()M.applySettings({Hooks=true})end);game()')
+check(mod.status()['stopped'] and not mod.status()['active'] and z.eval('tick()') is True,
+      'final timeline stop cannot resume from queued settings')
 
 result={'checks':len(checks),'passed':checks,'scope':'Lua runtime with UE4SS and file-I/O stubs; no game, hooks, or audio were executed.'}
 (Path(__file__).parent/'results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf8')

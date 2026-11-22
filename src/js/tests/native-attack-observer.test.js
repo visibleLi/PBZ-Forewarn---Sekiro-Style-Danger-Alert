@@ -143,6 +143,26 @@ test("failed EndAction disables callbacks and blocks duplicate listener registra
     assert.equal(e.created.length, 2); assert.equal(e.observer.status().pendingListenerCleanup, 2);
     e.fire(e.frame()); assert.equal(e.seen().length, 0); e.failEnd = false; e.update(); assert.equal(e.observer.status().pendingListenerCleanup, 0); e.observer.dispose();
 });
+test("live suspend retries failed cleanup and never stacks native listeners on resume", () => {
+    const e=fixture(); e.update(); e.failEnd=true; e.observer.setEnabled(false);
+    assert.equal(e.observer.status().pendingListenerCleanup,2);
+    e.fire(e.frame()); assert.equal(e.seen().length,0);
+    e.update(); const attempts=e.endCalls; assert(attempts>2);
+    e.observer.setEnabled(true); e.update(); assert.equal(e.created.length,2);
+    e.failEnd=false; e.update();
+    assert.equal(e.observer.status().pendingListenerCleanup,0);
+    assert.equal(e.created.filter(x=>x.active).length,2);
+    e.observer.setEnabled(false); e.update(); assert.equal(e.created.filter(x=>x.active).length,0);
+    e.observer.setEnabled(true); e.update(); assert.equal(e.created.filter(x=>x.active).length,2);
+    e.observer.dispose(); assert.equal(e.created.filter(x=>x.active).length,0);
+    e.observer.setEnabled(true); e.update(); assert.equal(e.created.filter(x=>x.active).length,0);
+});
+test("dispose retries failed native cleanup without registering new listeners", () => {
+    const e=fixture(); e.update(); e.failEnd=true; e.observer.dispose();
+    assert.equal(e.observer.status().pendingListenerCleanup,2);
+    e.failEnd=false; e.observer.dispose(); assert.equal(e.observer.status().pendingListenerCleanup,0);
+    e.update(); assert.equal(e.created.length,2); assert.equal(e.created.filter(x=>x.active).length,0);
+});
 test("dispose ends all own listeners, clears records and makes future updates inert", () => {
     const e = fixture(); e.map = mapOf([[1, e.frame()]]); e.update(); e.observer.dispose(); const count = e.events.length;
     e.update(); e.fire(e.frame()); assert.equal(e.events.length, count); assert.equal(e.observer.status().tracked, 0); assert.equal(e.endCalls, 2);

@@ -1,0 +1,420 @@
+{
+  "title": {
+    "en": "Forewarn — Danger Alert",
+    "zh-Hans": "Forewarn 危预警",
+    "zh-Hant": "Forewarn 危預警"
+  },
+  "description": {
+    "en": "All editable settings apply after a successful Menu save, normally within about 0.5 s; game stalls may delay this. Reserved rows remain read only. Save status confirms the file, not game output. Avoid concurrent JSON edits.",
+    "zh-Hans": "所有可编辑设置在菜单保存成功后通常约半秒内应用，游戏停顿可能延迟。保留项仍只读。保存状态只确认文件，不确认游戏效果。请勿同时手改JSON。",
+    "zh-Hant": "所有可編輯設定在選單儲存成功後通常約半秒內套用，遊戲停頓可能延遲。保留項仍唯讀。儲存狀態只確認檔案，不確認遊戲效果。請勿同時手改JSON。"
+  },
+  "settings": [
+    {
+      "type": "heading",
+      "label": {
+        "en": "Timing and targets · apply after saving",
+        "zh-Hans": "时机与目标 · 保存后应用",
+        "zh-Hant": "時機與目標 · 儲存後套用"
+      }
+    },
+    {
+      "key": "LeadMs",
+      "type": "number",
+      "label": {
+        "en": "Warning lead (ms)",
+        "zh-Hans": "预警提前量（毫秒）",
+        "zh-Hant": "預警提前量（毫秒）"
+      },
+      "min": 0,
+      "max": 1000,
+      "step": 1,
+      "default": 350,
+      "slider": true,
+      "help": {
+        "en": "Target lead before the original warning node, in milliseconds (0–1000; default 350). This is not a measured lead before a hit; short attacks or late discovery can give less time. Cast warnings use their separate lead below. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
+        "zh-Hans": "相对原预警节点的目标提前量，单位毫秒（0–1000，默认350）。不是实测命中前时间；短招或发现较晚时可能不足。施法预警使用下方独立提前量。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
+        "zh-Hant": "相對原預警節點的目標提前量，單位毫秒（0–1000，預設350）。不是實測命中前時間；短招或發現較晚時可能不足。施法預警使用下方獨立提前量。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
+      }
+    },
+    {
+      "key": "RangeCm",
+      "type": "number",
+      "label": {
+        "en": "Detection range (cm)",
+        "zh-Hans": "识别距离（厘米）",
+        "zh-Hant": "識別距離（厘米）"
+      },
+      "min": 500,
+      "max": 10000,
+      "step": 100,
+      "default": 3500,
+      "slider": true,
+      "help": {
+        "en": "Maximum player-to-enemy distance for warning eligibility, in centimeters (500–10000; default 3500 = 35 m). Increasing it can include more distant enemies; it does not add new attack recognition. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
+        "zh-Hans": "可参与预警的敌人与玩家的最大距离，单位厘米（500–10000，默认3500，即35米）。调大可包含更远敌人，不会增加新的招式识别。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
+        "zh-Hant": "可參與預警的敵人與玩家的最大距離，單位公分（500–10000，預設3500，即35公尺）。調大可包含更遠敵人，不會增加新的招式識別。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
+      }
+    },
+    {
+      "key": "OnlyLockedTarget",
+      "type": "toggle",
+      "label": {
+        "en": "Only locked target",
+        "zh-Hans": "仅锁定目标",
+        "zh-Hant": "僅鎖定目標"
+      },
+      "default": false,
+      "help": {
+        "en": "On: warn only for the confirmed locked target; without a confirmed target, warnings are suppressed. Off: eligible nearby enemies can warn even without lock-on (default). Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
+        "zh-Hans": "开启：仅提示确认锁定的目标，没有确认锁定目标时不预警。关闭：附近符合条件的敌人在未锁定时也可预警（默认）。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
+        "zh-Hant": "開啟：僅提示確認鎖定的目標，沒有確認鎖定目標時不預警。關閉：附近符合條件的敵人在未鎖定時也可預警（預設）。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
+      }
+    },
+    {
+      "key": "BlackOn",
+      "type": "toggle",
+      "label": {
+        "en": "Black attack warnings",
+        "zh-Hans": "黑光攻击预警",
+        "zh-Hant": "黑光攻擊預警"
+      },
+      "default": true,
+      "help": {
+        "en": "Include black warnings (default on), including the added Musician Puppet cast cue when its own switch is also on. Off suppresses black cues while red and blue warnings remain available. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
+        "zh-Hans": "包含黑危（默认开启），玉瓒补充施法提示还需其自身开关开启。关闭会抑制黑危，红蓝预警仍保留。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
+        "zh-Hant": "包含黑危（預設開啟），玉瓚補充施法提示還需其自身開關開啟。關閉會抑制黑危，紅藍預警仍保留。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
+      }
+    },
+    {
+      "key": "SemanticFallback",
+      "type": "toggle",
+      "label": {
+        "en": "Acolyte Yanru extra warnings",
+        "zh-Hans": "炎茹补充预警",
+        "zh-Hant": "炎茹補充預警"
+      },
+      "default": true,
+      "help": {
+        "en": "Enable the two scoped extra red-warning rules for Acolyte Yanru's fire ring and advancing attack (default on). This is not generic coverage of every enemy or move. Ordinary warning nodes remain available when off. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
+        "zh-Hans": "启用灭法之法·炎茹火环与突进的两条定向补充红危规则（默认开启）。不是所有敌人、所有招式的通用覆盖；关闭后原有预警节点仍可提示。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
+        "zh-Hant": "啟用滅法之法·炎茹火環與突進的兩條定向補充紅危規則（預設開啟）。不是所有敵人、所有招式的通用覆蓋；關閉後原有預警節點仍可提示。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
+      }
+    },
+    {
+      "key": "YuZanCastWarning",
+      "type": "toggle",
+      "label": {
+        "en": "No. 3 Musician Puppet cast warning",
+        "zh-Hans": "玉瓒施法预警",
+        "zh-Hant": "玉瓚施法預警"
+      },
+      "default": true,
+      "help": {
+        "en": "Enable the added black cue for No. 3 Musician Puppet's spinning cast, referenced to its scoped AOE marker (default on). Also requires black warnings enabled. It is a cast cue, not confirmation of a hit or every later projectile. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
+        "zh-Hans": "启用三号·乐师偶·玉瓒转圈施法的补充黑危，以限定范围内的AOE标记为参考（默认开启）。还需开启黑光攻击预警。这是施法提示，不是命中或后续每个弹体的确认。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
+        "zh-Hant": "啟用三號·樂師偶·玉瓚轉圈施法的補充黑危，以限定範圍內的AOE標記為參考（預設開啟）。還需開啟黑光攻擊預警。這是施法提示，不是命中或後續每個彈體的確認。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
+      }
+    },
+    {
+      "key": "YuZanCastLeadMs",
+      "type": "number",
+      "label": {
+        "en": "Cast warning lead (ms)",
+        "zh-Hans": "施法预警提前量（毫秒）",
+        "zh-Hant": "施法預警提前量（毫秒）"
+      },
+      "min": 0,
+      "max": 1000,
+      "step": 1,
+      "default": 350,
+      "slider": true,
+      "help": {
+        "en": "Separate target lead for the added Musician Puppet cast cue, in milliseconds (0–1000; default 350). Used only when cast warnings are enabled; it does not change ordinary warning-node lead or guarantee time before impact. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
+        "zh-Hans": "玉瓒补充施法提示的独立目标提前量，单位毫秒（0–1000，默认350）。仅在施法预警开启时使用，不改变普通预警节点提前量，也不保证命中前时长。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
+        "zh-Hant": "玉瓚補充施法提示的獨立目標提前量，單位毫秒（0–1000，預設350）。僅在施法預警開啟時使用，不改變普通預警節點提前量，也不保證命中前時長。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
+      }
+    },
+    {
+      "type": "heading",
+      "label": {
+        "en": "Sound and glyph · apply after saving",
+        "zh-Hans": "声音与危字 · 保存后应用",
+        "zh-Hant": "聲音與危字 · 儲存後套用"
+      }
+    },
+    {
+      "key": "SoundOn",
+      "type": "toggle",
+      "label": {
+        "en": "Warning sound",
+        "zh-Hans": "危音效",
+        "zh-Hant": "危音效"
+      },
+      "default": true,
+      "help": {
+        "en": "Enable Forewarn's warning sound (default on). Turning off stops this mod's playing sound; turning on does not replay old warnings. Glyphs are controlled separately. Applies after a successful Menu save, normally within about 0.5 s; game stalls may delay it.",
+        "zh-Hans": "启用Forewarn预警音效（默认开启）。关闭会停止本MOD正在播放的声音，重新开启不补播旧预警。危字由独立开关控制。菜单保存成功后通常约半秒内应用，游戏停顿可能延迟。",
+        "zh-Hant": "啟用Forewarn預警音效（預設開啟）。關閉會停止本MOD正在播放的聲音，重新開啟不補播舊預警。危字由獨立開關控制。選單儲存成功後通常約半秒內套用，遊戲停頓可能延遲。"
+      }
+    },
+    {
+      "key": "SoundVolume",
+      "type": "number",
+      "label": {
+        "en": "Forewarn volume",
+        "zh-Hans": "Forewarn 音量",
+        "zh-Hant": "Forewarn 音量"
+      },
+      "min": 0,
+      "max": 2,
+      "step": 0.05,
+      "default": 0.8,
+      "slider": true,
+      "help": {
+        "en": "Volume multiplier for Forewarn's private sound emitter (0–2; default 0.8). Zero is silent; this does not change game or other mods' volume. Sound must be enabled. Applies after a successful Menu save, normally within about 0.5 s; game stalls may delay it.",
+        "zh-Hans": "Forewarn独立音源的音量倍率（0–2，默认0.8），0为静音，不调整游戏或其他MOD音量。声音开关须开启。菜单保存成功后通常约半秒内应用，游戏停顿可能延迟。",
+        "zh-Hant": "Forewarn獨立音源的音量倍率（0–2，預設0.8），0為靜音，不調整遊戲或其他MOD音量。聲音開關須開啟。選單儲存成功後通常約半秒內套用，遊戲停頓可能延遲。"
+      }
+    },
+    {
+      "key": "GlyphOn",
+      "type": "toggle",
+      "label": {
+        "en": "Show danger glyph",
+        "zh-Hans": "显示危字",
+        "zh-Hant": "顯示危字"
+      },
+      "default": true,
+      "help": {
+        "en": "Show the danger glyph (default on). Turning off hides it; turning on can show only a warning window still active, never an expired warning. Sound is controlled separately. Applies after a successful Menu save, normally within about 0.5 s; game stalls may delay it.",
+        "zh-Hans": "显示危字（默认开启）。关闭会隐藏危字，重新开启只显示仍有效的预警窗口，不重现已过期预警。声音由独立开关控制。菜单保存成功后通常约半秒内应用，游戏停顿可能延迟。",
+        "zh-Hant": "顯示危字（預設開啟）。關閉會隱藏危字，重新開啟只顯示仍有效的預警視窗，不重現已過期預警。聲音由獨立開關控制。選單儲存成功後通常約半秒內套用，遊戲停頓可能延遲。"
+      }
+    },
+    {
+      "type": "heading",
+      "label": {
+        "en": "Glyph layout · apply after saving",
+        "zh-Hans": "危字布局 · 保存后应用",
+        "zh-Hant": "危字版面 · 儲存後套用"
+      }
+    },
+    {
+      "key": "GlyphFontSize",
+      "type": "number",
+      "label": {
+        "en": "Glyph size",
+        "zh-Hans": "危字大小",
+        "zh-Hant": "危字大小"
+      },
+      "min": 30,
+      "max": 240,
+      "step": 1,
+      "default": 120,
+      "slider": true,
+      "help": {
+        "en": "Font size for the danger glyph (30–240; default 120). Larger values also increase simultaneous color spacing. Applies after a successful Menu save by rebuilding only this mod's canvas; no expired warning is restored.",
+        "zh-Hans": "危字字体大小（30–240，默认120）。调大也会增加多色危字间距。菜单保存成功后只重建本MOD显示层，不重现已过期预警。",
+        "zh-Hant": "危字字型大小（30–240，預設120）。調大也會增加多色危字間距。選單儲存成功後只重建本MOD顯示層，不重現已過期預警。"
+      }
+    },
+    {
+      "key": "GlyphY",
+      "type": "number",
+      "label": {
+        "en": "Glyph vertical position",
+        "zh-Hans": "危字垂直位置",
+        "zh-Hant": "危字垂直位置"
+      },
+      "min": 0.1,
+      "max": 0.8,
+      "step": 0.01,
+      "default": 0.32,
+      "slider": true,
+      "help": {
+        "en": "Vertical anchor as a fraction of HUD height (0.1–0.8; default 0.32). Smaller is higher, larger is lower; horizontal placement remains centered. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
+        "zh-Hans": "危字锚点占HUD高度的比例（0.1–0.8，默认0.32）。越小越靠上，越大越靠下；水平方向保持居中。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
+        "zh-Hant": "危字錨點占HUD高度的比例（0.1–0.8，預設0.32）。越小越靠上，越大越靠下；水平方向保持置中。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
+      }
+    },
+    {
+      "type": "heading",
+      "label": {
+        "en": "Diagnostics · apply after saving",
+        "zh-Hans": "诊断 · 保存后应用",
+        "zh-Hant": "診斷 · 儲存後套用"
+      }
+    },
+    {
+      "key": "Diagnostics",
+      "type": "toggle",
+      "label": {
+        "en": "Save diagnostics",
+        "zh-Hans": "保存诊断",
+        "zh-Hant": "儲存診斷"
+      },
+      "default": true,
+      "help": {
+        "en": "Enable detailed warning diagnostics and resource evidence (default on). Off reduces detail and disables attack observations; small runtime snapshots/log messages may still be written. This is not a switch for all logging or for warnings. Applies after a successful Menu save.",
+        "zh-Hans": "启用详细预警诊断与资源证据（默认开启）。关闭会减少明细并禁用攻击观察，仍可能写入小型运行快照或日志消息；不是所有日志或预警的总开关。菜单保存成功后应用。",
+        "zh-Hant": "啟用詳細預警診斷與資源證據（預設開啟）。關閉會減少明細並停用攻擊觀察，仍可能寫入小型執行快照或日誌訊息；不是所有日誌或預警的總開關。選單儲存成功後套用。"
+      }
+    },
+    {
+      "key": "ObserveAttacks",
+      "type": "toggle",
+      "label": {
+        "en": "Read-only attack observation",
+        "zh-Hans": "只读攻击观察",
+        "zh-Hant": "唯讀攻擊觀察"
+      },
+      "default": true,
+      "help": {
+        "en": "Collect bounded read-only attack evidence for diagnosis (default on). Requires diagnostics; Lua observation also requires hooks. Observations do not themselves create extra warnings. Off keeps the existing warning pipeline. Applies after a successful Menu save.",
+        "zh-Hans": "收集有容量上限的只读攻击证据供诊断（默认开启），需要诊断开启；Lua观察还需要钩子开启。观察记录本身不产生补充预警。关闭后保留原预警主链。菜单保存成功后应用。",
+        "zh-Hant": "收集有容量上限的唯讀攻擊證據供診斷（預設開啟），需要診斷開啟；Lua觀察還需要掛鉤開啟。觀察記錄本身不產生補充預警。關閉後保留原預警主鏈。選單儲存成功後套用。"
+      }
+    },
+    {
+      "key": "Hooks",
+      "type": "toggle",
+      "label": {
+        "en": "Lua discovery hooks",
+        "zh-Hans": "Lua 发现钩子",
+        "zh-Hant": "Lua 發現掛鉤"
+      },
+      "default": true,
+      "help": {
+        "en": "Enable Lua discovery hints and JS hook import (default on). Lua attack observation also needs diagnostics and observation. Off pauses capture/publication; ordinary JS discovery continues. Registered callbacks remain inert until re-enabled and are removed at final unload. Applies after a successful Menu save.",
+        "zh-Hans": "启用Lua发现提示与JS钩子导入（默认开启），Lua攻击观察还需诊断和观察开启。关闭会暂停捕获及发布，普通JS发现继续；已注册回调保持惰性，重新开启可恢复，最终卸载时清理。菜单保存成功后应用。",
+        "zh-Hant": "啟用Lua發現提示與JS掛鉤匯入（預設開啟），Lua攻擊觀察還需診斷和觀察開啟。關閉會暫停擷取及發布，普通JS發現繼續；已註冊回呼保持惰性，重新開啟可恢復，最終卸載時清理。選單儲存成功後套用。"
+      }
+    },
+    {
+      "key": "ObservationFlushMs",
+      "type": "number",
+      "label": {
+        "en": "Observation save interval (ms)",
+        "zh-Hans": "观察保存间隔（毫秒）",
+        "zh-Hant": "觀察儲存間隔（毫秒）"
+      },
+      "min": 5000,
+      "max": 60000,
+      "step": 1000,
+      "default": 20000,
+      "slider": true,
+      "help": {
+        "en": "Minimum interval between regular JS observation-log writes, in milliseconds (5000–60000; default 20000 = 20 s). Unchanged content is skipped; shutdown may force a write. It does not set warning/sound timing or Lua snapshot frequency. Applies after a successful Menu save.",
+        "zh-Hans": "JS观察日志常规写入的最小间隔，单位毫秒（5000–60000，默认20000，即20秒）。内容未变则跳过，退出时可能强制写入。不改变预警、声音时机或Lua快照频率。菜单保存成功后应用。",
+        "zh-Hant": "JS觀察日誌例行寫入的最小間隔，單位毫秒（5000–60000，預設20000，即20秒）。內容未變則跳過，退出時可能強制寫入。不改變預警、聲音時機或Lua快照頻率。選單儲存成功後套用。"
+      }
+    },
+    {
+      "type": "heading",
+      "label": {
+        "en": "Reserved · read only",
+        "zh-Hans": "保留项 · 只读",
+        "zh-Hant": "保留項 · 唯讀"
+      }
+    },
+    {
+      "key": "GenericAttack",
+      "type": "readonly",
+      "label": {
+        "en": "Generic attack fallback",
+        "zh-Hans": "通用攻击补充预警",
+        "zh-Hant": "通用攻擊補充預警"
+      },
+      "help": {
+        "en": "Reserved experimental generic-attack switch (default off). No generic cue timing policy is enabled in this build, so this does not promise warnings for all moves. Read only here; leave it off. Any manual change requires a full restart.",
+        "zh-Hans": "保留的实验性通用攻击开关（默认关闭）。本版未启用通用发危时间策略，不代表能提示所有招式。菜单只读，建议保持关闭。手改需完全重启。",
+        "zh-Hant": "保留的實驗性通用攻擊開關（預設關閉）。本版未啟用通用發危時間策略，不代表能提示所有招式。選單唯讀，建議保持關閉。手改需完全重新啟動。"
+      }
+    },
+    {
+      "key": "TickMs",
+      "type": "readonly",
+      "label": {
+        "en": "Runtime tick interval (ms)",
+        "zh-Hans": "运行更新间隔（毫秒）",
+        "zh-Hant": "執行更新間隔（毫秒）"
+      },
+      "help": {
+        "en": "Requested interval for the JS runtime timer (default 16 ms; accepted 16–100). Larger values reduce sampling frequency and can delay or miss short warning windows. Actual timing depends on the game. Read only here to protect timing; manual changes require a full restart.",
+        "zh-Hans": "JS主循环请求的定时器间隔（默认16毫秒，可接受16–100）。调大会降低采样频率，可能延迟或错过短预警窗口，实际节奏受游戏影响。为保护时序，菜单只读；手改需完全重启。",
+        "zh-Hant": "JS主迴圈要求的計時器間隔（預設16毫秒，可接受16–100）。調大會降低取樣頻率，可能延遲或錯過短預警視窗，實際節奏受遊戲影響。為保護時序，選單唯讀；手改需完全重新啟動。"
+      }
+    },
+    {
+      "key": "DiscoverMs",
+      "type": "readonly",
+      "label": {
+        "en": "Task discovery interval (ms)",
+        "zh-Hans": "任务发现间隔（毫秒）",
+        "zh-Hant": "任務發現間隔（毫秒）"
+      },
+      "help": {
+        "en": "Minimum interval between JS discovery passes over known actors' active tasks (default 50 ms; accepted 16–250). Larger values can discover attacks later. It is separate from the actor scan below. Read only here to protect discovery timing; manual changes require a full restart.",
+        "zh-Hans": "JS对已知角色活动任务执行发现扫描的最小间隔（默认50毫秒，可接受16–250）。调大可能更晚发现攻击，与下方角色扫描不同。为保护发现时序，菜单只读；手改需完全重启。",
+        "zh-Hant": "JS對已知角色活動任務執行發現掃描的最小間隔（預設50毫秒，可接受16–250）。調大可能更晚發現攻擊，與下方角色掃描不同。為保護發現時序，選單唯讀；手改需完全重新啟動。"
+      }
+    },
+    {
+      "key": "ScanMs",
+      "type": "readonly",
+      "label": {
+        "en": "Actor scan interval (ms)",
+        "zh-Hans": "角色扫描间隔（毫秒）",
+        "zh-Hant": "角色掃描間隔（毫秒）"
+      },
+      "help": {
+        "en": "Minimum interval between JS enemy-actor list scans (default 250 ms; accepted 100–1000). Larger values can delay finding newly present enemies; Lua hints are separate. Read only here to protect discovery timing; manual changes require a full restart.",
+        "zh-Hans": "JS敌方角色列表扫描的最小间隔（默认250毫秒，可接受100–1000）。调大可能推迟发现新出现的敌人；Lua提示另行处理。为保护发现时序，菜单只读；手改需完全重启。",
+        "zh-Hant": "JS敵方角色清單掃描的最小間隔（預設250毫秒，可接受100–1000）。調大可能推遲發現新出現的敵人；Lua提示另行處理。為保護發現時序，選單唯讀；手改需完全重新啟動。"
+      }
+    },
+    {
+      "key": "LateGraceMs",
+      "type": "readonly",
+      "label": {
+        "en": "Late discovery grace (ms)",
+        "zh-Hans": "晚发现宽限（毫秒）",
+        "zh-Hant": "晚發現寬限（毫秒）"
+      },
+      "help": {
+        "en": "Timeline-time tolerance after a warning node starts (default 80 ms; accepted 0–250). A node already ended is still skipped. This is not extra lead, a parry window or permission to replay old warnings. Read only here to protect scheduling; manual changes require a full restart.",
+        "zh-Hans": "预警节点开始后的时间轴时间容差（默认80毫秒，可接受0–250），节点已结束仍跳过。不是额外提前量、格挡窗口或补播旧预警许可。为保护调度，菜单只读；手改需完全重启。",
+        "zh-Hant": "預警節點開始後的時間軸時間容差（預設80毫秒，可接受0–250），節點已結束仍跳過。不是額外提前量、格擋視窗或補播舊預警許可。為保護排程，選單唯讀；手改需完全重新啟動。"
+      }
+    },
+    {
+      "key": "MaxGlyphMs",
+      "type": "readonly",
+      "label": {
+        "en": "Maximum glyph duration (ms)",
+        "zh-Hans": "危字最长显示时间（毫秒）",
+        "zh-Hant": "危字最長顯示時間（毫秒）"
+      },
+      "help": {
+        "en": "Maximum glyph window after a cue in game time (default 1200 ms; accepted 100–3000). Node end, withdrawal or pause can hide it earlier. Natural glyph expiry does not define the sound clip's length. Read only here to protect display lifetime; manual changes require a full restart.",
+        "zh-Hans": "发危后按游戏时间计算的危字窗口上限（默认1200毫秒，可接受100–3000）。节点结束、撤回或暂停可更早隐藏。危字自然到期不决定音效长度。为保护显示生命周期，菜单只读；手改需完全重启。",
+        "zh-Hant": "發危後按遊戲時間計算的危字視窗上限（預設1200毫秒，可接受100–3000）。節點結束、撤回或暫停可更早隱藏。危字自然到期不決定音效長度。為保護顯示生命週期，選單唯讀；手改需完全重新啟動。"
+      }
+    },
+    {
+      "key": "FontPath",
+      "type": "readonly",
+      "label": {
+        "en": "Built-in glyph font",
+        "zh-Hans": "内置危字字体",
+        "zh-Hant": "內建危字字型"
+      },
+      "help": {
+        "en": "Game font asset used to draw the danger glyph. Read only: this build fixes the known font path and ignores manual replacements. Change glyph size and vertical position in the layout section instead; layout changes apply after a successful Menu save.",
+        "zh-Hans": "绘制危字使用的游戏字体资源。只读：本版固定使用已知字体路径，手改其他路径也会被忽略。请用布局分组中的大小和垂直位置调整显示，这两项在菜单保存后应用。",
+        "zh-Hant": "繪製危字使用的遊戲字型資源。唯讀：本版固定使用已知字型路徑，手改其他路徑也會被忽略。請用版面分組中的大小和垂直位置調整顯示，這兩項在選單儲存後套用。"
+      }
+    }
+  ]
+}

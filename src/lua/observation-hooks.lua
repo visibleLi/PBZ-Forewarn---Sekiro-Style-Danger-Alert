@@ -5,7 +5,7 @@ local KEY = "__PBZForewarnObservationHooks_v1"
 local prior = rawget(_G, KEY)
 if type(prior) == "table" then return prior end
 local M = {}; rawset(_G, KEY, M)
-local VERSION = "0.6.1-dev.6"
+local VERSION = "0.7.0-test.3"
 local PREFIX = "[PBZForewarnObserver] "
 local MAX_EVENTS, MAX_BYTES, MAX_DYNAMIC = 512, 393216, 32
 local MAX_PATHS, MAX_PATH_BYTES, MAX_FOCUS = 2048, 131072, 64
@@ -528,7 +528,7 @@ local function publish(stopping)
 end
 local function maintenance()
     if S.stopped then return true end
-    if not gameThread() then return false end
+    if not S.active or not gameThread() then return false end
     local now=os.time()
     if not S.lastDiscovery or now-S.lastDiscovery>=1 then
         S.lastDiscovery=now; local ok,why=pcall(discover,false)
@@ -550,6 +550,28 @@ function M.stop()
     S.active=false; S.stopped=true
     pcall(publish,true)
     if type(ExecuteInGameThread)=="function" then pcall(ExecuteInGameThread,uninstall) end
+end
+-- Called on the game thread. Keep registered callbacks inert during pauses;
+-- final stop alone tears down registrations and terminates the resident loops.
+function M.applySettings(settings)
+    if S.stopped or not S.ready or not gameThread() then return end
+    local on=settings.Hooks==true and settings.Diagnostics==true and settings.ObserveAttacks==true
+    if S.active==on then return end
+    S.active=on
+    if on then
+        S.publishedSecond=nil -- Resume must replace the inactive tombstone immediately.
+        if not S.installed then
+            S.installed=true; candidate(BLUE); candidate(BLACK); candidate(PARTICLE)
+            discover(true)
+        end
+        maintenance()
+    else
+        -- A pre callback from before the pause must not pair with a later post.
+        for _,stack in pairs(S.stacks) do S.health.abandonedPres=S.health.abandonedPres+#stack end
+        S.stacks={}; S.overflows={}; S.discoveryContext=nil
+        rebuild() -- Preserve the last bounded evidence, including the latest callbacks.
+        pcall(publish,true)
+    end
 end
 function M.status()
     local h={}; for k,v in pairs(S.health) do h[k]=v end
@@ -574,26 +596,42 @@ local function enabled(config)
 end
 local localData=os.getenv("LOCALAPPDATA")
 if type(localData)~="string" or not (localData:match('^[A-Za-z]:[\\/]') or localData:match('^\\\\[^\\]+\\[^\\]+')) then log("DISABLED","invalid LOCALAPPDATA"); return M end
-local ok,on=pcall(enabled,localData.."\\ProjectPBZ\\Saved\\PBZForewarn.txt")
-if not ok or not on then log("DISABLED",ok and "startup config" or "unreadable startup config"); return M end
+local ok,on=pcall(function()
+    local helperOK,settings=pcall(function()
+        local info=debug.getinfo(1,"S")
+        local directory=info and info.source:match('^@(.*)[\\/][^\\/]+$')
+        local helper=rawget(_G,"__PBZForewarnSettingsConfig_v1")
+        if not helper then
+            if not directory then error("file-backed settings helper path unavailable") end
+            local chunk,why=loadfile(directory.."/settings-config.lua")
+            if not chunk then error(why or "settings helper missing") end
+            helper=chunk()
+        end
+        return helper.load(directory)
+    end)
+    if helperOK then return settings.Hooks and settings.Diagnostics and settings.ObserveAttacks end
+    log("CONFIG_UNAVAILABLE",tostring(settings).."; using legacy startup reader")
+    return enabled(localData.."\\ProjectPBZ\\Saved\\PBZForewarn.txt")
+end)
+if not ok or not on then log("DISABLED",ok and "startup config; awaiting live settings" or "unreadable startup config") end
 for _,api in ipairs({"StaticFindObject","RegisterHook","UnregisterHook","ExecuteInGameThread","LoopAsync","IsInGameThread"}) do
     if type(_G[api])~="function" then log("DISABLED","missing API "..api); return M end
 end
 if type(LoopInGameThreadWithDelay)~="function" then log("DISABLED","missing game-thread maintenance API"); return M end
 S.output=localData.."\\ProjectPBZ\\Saved\\pbzforewarn_observer_hooks.json"
 S.session="fw-observe-"..tostring(os.time()).."-"..tostring(M):gsub('[^%w]','')
-S.active=true; candidate(BLUE); candidate(BLACK); candidate(PARTICLE)
+S.ready=true
 local loopOK,why=pcall(LoopAsync,100,function()
     if S.stopped then return true end
+    if not S.active then return false end
     local success,failure=pcall(publish,false)
     if not success then S.health.publishExceptions=S.health.publishExceptions+1; S.health.currentlyFailing=true; err("publish",failure) end
     return false
 end)
-if not loopOK then S.active=false; log("DISABLED",why); return M end
+if not loopOK then S.ready=false; S.active=false; log("DISABLED",why); return M end
 local setupOK,setupWhy=pcall(ExecuteInGameThread,function()
     if not gameThread() or S.stopped then return end
-    discover(true)
-    maintenance()
+    M.applySettings({Hooks=ok and on,Diagnostics=true,ObserveAttacks=true})
     local good,e=pcall(LoopInGameThreadWithDelay,50,maintenance)
     if not good then S.health.discoveryFailures=S.health.discoveryFailures+1; err("maintenance",e) end
 end)

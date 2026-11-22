@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib
 
 
-VERSION = '0.6.1-dev.6'
+VERSION = '0.7.0-test.3'
 
 # Every suite is discovered, not listed: a new test file runs automatically.
 # Order is deterministic (sorted by path) so verification summaries are stable.
@@ -61,7 +61,7 @@ def source_paths(root):
     paths = {root / name for name in SOURCE_ROOT_FILES}
     patterns = (
         ('src/js', ('*.js', '*.json')),
-        ('src/lua', ('*.lua', '*.md', '*.py', '*fixture.json')),
+        ('src/lua', ('*.lua', '*.md', '*.py', '*fixture.json', '*.modsmenu.json')),
         ('tools/audio-bank', ('*.py', '*.md')),
         ('tests', ('*.py',)),
         ('.agent/rules', ('*.md',)),

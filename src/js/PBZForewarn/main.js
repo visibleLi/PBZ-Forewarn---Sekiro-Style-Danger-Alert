@@ -10,7 +10,7 @@ const { createAudioEnvironmentProbe } = require("./audio-environment");
 const { createTargetFilter } = require("./target-filter");
 const { createDiagnosticStore } = require("./diagnostic-store");
 const { createCastFollowup } = require("./cast-followup");
-const VERSION = "0.6.1-dev.6";
+const VERSION = "0.7.0-test.3";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
     Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, SemanticFallback: true, GenericAttack: false,
@@ -18,24 +18,67 @@ const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanM
     YuZanCastWarning: true, YuZanCastLeadMs: 350,
     OnlyLockedTarget: false, SoundOn: true, SoundVolume: 0.8,
     FontPath: "/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font" };
-const TEMPLATE = "# PBZForewarn 0.6.1-dev.6; restart game after changes\n" +
-    "# Extra cue lead in GAME seconds (ms input); original warning is unchanged.\n" +
-    "LeadMs=350\nYuZanCastWarning=1\nYuZanCastLeadMs=350\nRangeCm=3500\nBlackOn=1\nSemanticFallback=1\nGenericAttack=0\nOnlyLockedTarget=0\nSoundOn=1\nSoundVolume=0.8\nGlyphOn=1\nGlyphFontSize=120\nGlyphY=0.32\nDiagnostics=1\nObserveAttacks=1\nHooks=1\nObservationFlushMs=20000\n";
+const BOUNDS = { LeadMs: [0, 1000], YuZanCastLeadMs: [0, 1000], ObservationFlushMs: [5000, 60000],
+    RangeCm: [500, 10000], TickMs: [16, 100], DiscoverMs: [16, 250], ScanMs: [100, 1000],
+    LateGraceMs: [0, 250], MaxGlyphMs: [100, 3000], GlyphFontSize: [30, 240], GlyphY: [0.1, 0.8], SoundVolume: [0, 2] };
 let state = null;
 function log(kind, data) { console.log("[PBZMOD] [Forewarn] " + kind + " " + JSON.stringify(data)); }
+function applySetting(result, name, value) {
+    const key = Object.keys(DEFAULTS).find(k => k.toLowerCase() === name.toLowerCase());
+    if (!key || value === null) return;
+    if (typeof result[key] === "boolean") {
+        if (/^(1|true|0|false)$/i.test(String(value))) result[key] = /^(1|true)$/i.test(String(value));
+    } else if (BOUNDS[key] && (typeof value === "number" || typeof value === "string" && value.trim() !== "") && Number.isFinite(Number(value))) {
+        result[key] = Math.max(BOUNDS[key][0], Math.min(BOUNDS[key][1], Number(value)));
+    }
+}
 function parseSettings(text) {
     const result = { ...DEFAULTS };
-    const bounds = { LeadMs: [0, 1000], YuZanCastLeadMs: [0, 1000], ObservationFlushMs: [5000, 60000],
-        RangeCm: [500, 10000], TickMs: [16, 100], DiscoverMs: [16, 250], ScanMs: [100, 1000],
-        LateGraceMs: [0, 250], MaxGlyphMs: [100, 3000], GlyphFontSize: [30, 240], GlyphY: [0.1, 0.8], SoundVolume: [0, 2] };
     for (const line of text.split(/\r?\n/)) {
-        const m = /^\s*([A-Za-z]+)\s*=\s*([^#;\r\n]+?)\s*$/.exec(line);
-        if (!m) continue;
-        const key = Object.keys(result).find(k => k.toLowerCase() === m[1].toLowerCase());
-        if (!key) continue;
-        if (typeof result[key] === "boolean") { if (/^(1|true|0|false)$/i.test(m[2])) result[key] = /^(1|true)$/i.test(m[2]); }
-        else if (bounds[key] && Number.isFinite(Number(m[2]))) result[key] = Math.max(bounds[key][0], Math.min(bounds[key][1], Number(m[2])));
+        const m = /^\s*([A-Za-z]+)\s*=\s*([^#;\r\n]+?)\s*(?:[#;].*)?$/.exec(line);
+        if (m) applySetting(result, m[1], m[2]);
     }
+    return result;
+}
+function parseJsonSettings(text) {
+    let bytes = 0;
+    for (let i = 0; i < text.length; i++) {
+        const code = text.charCodeAt(i);
+        if (code < 0x80) bytes++;
+        else if (code < 0x800) bytes += 2;
+        else if (code >= 0xD800 && code <= 0xDBFF && i + 1 < text.length && text.charCodeAt(i + 1) >= 0xDC00 && text.charCodeAt(i + 1) <= 0xDFFF) { bytes += 4; i++; }
+        else bytes += 3;
+        if (bytes > 65536) throw Error("Settings JSON exceeds 64 KiB");
+    }
+    const values = JSON.parse(text.replace(/^﻿/, ""));
+    if (!values || typeof values !== "object" || Array.isArray(values) ||
+        Object.values(values).some(value => value !== null && typeof value === "object" || typeof value === "number" && !Number.isFinite(value)))
+        throw Error("Settings JSON must be a flat object");
+    // Lua rejects unpaired UTF-16 escapes too, including in unknown fields.
+    const validUnicode = value => {
+        for (let i = 0; i < value.length; i++) {
+            const code = value.charCodeAt(i);
+            if (code >= 0xD800 && code <= 0xDBFF) {
+                const low = value.charCodeAt(++i);
+                if (!(low >= 0xDC00 && low <= 0xDFFF)) return false;
+            } else if (code >= 0xDC00 && code <= 0xDFFF) return false;
+        }
+        return true;
+    };
+    // Inspect every source member too: JSON.parse discards overwritten values.
+    const structure = text.replace(/^﻿/, "").replace(/"(?:[^"\\]|\\.)*"/g, token => {
+        if (!validUnicode(JSON.parse(token))) throw Error("Settings JSON contains an unpaired surrogate");
+        return '""';
+    }).trim();
+    if (/[\[\]{}]/.test(structure.slice(1, -1)) ||
+        (structure.match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g) || []).some(token => !Number.isFinite(Number(token))))
+        throw Error("Settings JSON must contain only finite scalar members");
+    const result = { ...DEFAULTS };
+    const ordered = Object.entries(values).sort(([a], [b]) => {
+        const left = a.toLowerCase(), right = b.toLowerCase();
+        return left < right ? -1 : left > right ? 1 : a < b ? -1 : a > b ? 1 : 0;
+    });
+    for (const [key, value] of ordered) applySetting(result, key, value);
     return result;
 }
 function start() {
@@ -145,8 +188,9 @@ function start() {
     const a = createAdapter(UE, puerts, (k, d) => diagnostic(k, d, k + JSON.stringify(d)),
         { semanticFallback: false, genericAttack: false });
     s.a = a;
-    function readText(file) {
+    function readText(file, required = false) {
         const out = puerts.$ref(""); const result = UE.EasyCsv.LoadStringFromLocalFile(file, out);
+        if (required && result === false) throw Error("LoadStringFromLocalFile returned false");
         const text = puerts.$unref(out); return typeof text === "string" ? text : typeof result === "string" ? result : "";
     }
     function writeText(file, body) {
@@ -156,29 +200,97 @@ function start() {
     let saved = a.safe(() => UE.BlueprintPathsLibrary.ConvertRelativePathToFull(UE.BlueprintPathsLibrary.ProjectSavedDir(), ""), "");
     if (!saved) throw Error("PBZForewarn: ProjectSavedDir unavailable; startup refused");
     saved = saved.replace(/[\\/]+$/, "") + "/"; s.saved = saved;
-    const configPath = saved + "PBZForewarn.txt";
-    s.settings = parseSettings(a.safe(() => readText(configPath), ""));
+    // Lua owns one-time creation/migration. JS never writes either settings file.
+    // Startup snapshot; editable controls refresh after a complete Menu save notice.
+    let configPath = "", configError = null;
+    s.settings = { ...DEFAULTS };
+    try {
+        const content = UE.BlueprintPathsLibrary.ProjectContentDir();
+        if (typeof content !== "string" || !content) throw Error("ProjectContentDir unavailable");
+        configPath = UE.BlueprintPathsLibrary.ConvertRelativePathToFull(content.replace(/\\/g, "/").replace(/\/+$/, "") +
+            "/../../platform/steam/ue4ss/Mods/PBZForewarnHooks/PBZForewarnHooks.config.json", "");
+        if (!configPath) throw Error("Settings path unavailable");
+        s.settings = UE.BlueprintPathsLibrary.FileExists(configPath) ? parseJsonSettings(readText(configPath, true)) :
+            parseSettings(readText(saved + "PBZForewarn.txt"));
+    } catch (error) { configError = String(error); }
     a.configureSemanticFallback(s.settings.SemanticFallback === true);
     a.configureGenericAttack(s.settings.GenericAttack === true);
     a.configureCastWarning(s.settings.YuZanCastWarning === true, s.settings.YuZanCastLeadMs / 1000);
     s.diagnostics = createDiagnosticStore({ enabled: s.settings.Diagnostics, now: () => Date.now() });
-    const requestedObserving = s.settings.Diagnostics && s.settings.ObserveAttacks;
+    if (configError) diagnostic("config-read-error", { path: configPath, error: configError, usingDefaults: true });
+    const reservedKeys = ["GenericAttack", "TickMs", "DiscoverMs", "ScanMs", "LateGraceMs", "MaxGlyphMs", "FontPath"];
+    const liveKeys = Object.keys(DEFAULTS).filter(key => !reservedKeys.includes(key));
+    const menuEventsPath = configPath.replace(/PBZForewarnHooks\/PBZForewarnHooks\.config\.json$/, "PBZModsMenuBridge/events-PBZForewarnHooks.txt");
+    let lastSettingsCheck = -Infinity, lastSettingsChange = 0;
+    s.menuSettings = { change: 0, restartRequired: [], outputs: {} };
+    function refreshOutputs(wall) {
+        if (!configPath || wall - lastSettingsCheck < 500) return;
+        lastSettingsCheck = wall;
+        try {
+            if (!UE.BlueprintPathsLibrary.FileExists(menuEventsPath)) return;
+            const notice = readText(menuEventsPath, true);
+            if (notice.length > 4096 || !/^End=1\s*$/m.test(notice)) return;
+            const match = /^Changed=(\d+)\r?$/m.exec(notice);
+            const change = match ? Number(match[1]) : 0;
+            if (!Number.isSafeInteger(change) || change <= lastSettingsChange) return;
+            // A complete Menu notice follows its save acknowledgement. Never create,
+            // repair or fall back to stale TXT if the canonical JSON is unavailable.
+            const next = parseJsonSettings(readText(configPath, true));
+            const changed = liveKeys.filter(key => next[key] !== s.settings[key]);
+            for (const key of changed) s.settings[key] = next[key];
+            lastSettingsChange = change;
+            s.menuSettings = { change, saved: Object.fromEntries(liveKeys.map(key => [key, next[key]])),
+                restartRequired: Object.keys(DEFAULTS).filter(key => !liveKeys.includes(key) && next[key] !== s.settings[key]),
+                outputs: { audio: "pending-update", glyph: "pending-update" } };
+            diagnostic("config-saved", { ...s.menuSettings, changed, outputVerified: false });
+            applyLiveSettings(changed);
+        } catch (error) {
+            // Retry this notice at the next bounded check; a torn/unreadable save
+            // must not reset the last working output values or stop combat updates.
+            diagnostic("config-refresh-error", { error: String(error), retainedCurrentSettings: true }, "config-refresh-error");
+        }
+    }
     let observing = false, createNativeAttackObserver = null, captureTimelineActions = null;
+    let observationEpoch = 0;
     // Missing/invalid optional files must not prevent the proven cue path from
     // starting, including when observations were explicitly disabled.
     s.observations = { record: () => false, snapshot: () => ({ enabled: false, events: [] }) };
-    if (requestedObserving) {
+    function configureObservation() {
+        const wanted = s.settings.Diagnostics && s.settings.ObserveAttacks;
+        if (wanted === observing) return;
+        if (!wanted) {
+            if (s.attackObserver) { try { s.attackObserver.setEnabled(false); } catch (_) { s.observationFaults++; } }
+            observe("observation-boundary", { reason: "settings-disabled", captureEnabled: false });
+            // Persist dirty evidence before capture is gated off.
+            flush(true, false);
+            observing = false;
+            return;
+        }
         try {
             const { createObservationStore } = require("./observation-store");
             createNativeAttackObserver = require("./native-attack-observer").createNativeAttackObserver;
             captureTimelineActions = require("./timeline-observation").captureTimelineActions;
             if (typeof createNativeAttackObserver !== "function" || typeof captureTimelineActions !== "function")
                 throw Error("observer-module-interface-unavailable");
-            s.observations = createObservationStore({ enabled: true, session });
-            if (!s.observations || typeof s.observations.record !== "function" || typeof s.observations.snapshot !== "function")
-                throw Error("observer-store-interface-unavailable");
+            if (!s.observationStoreReady) {
+                s.observations = createObservationStore({ enabled: true, session });
+                if (!s.observations || typeof s.observations.record !== "function" || typeof s.observations.snapshot !== "function")
+                    throw Error("observer-store-interface-unavailable");
+                s.observationStoreReady = true;
+            }
             observing = true;
-        } catch (error) { diagnostic("observation-unavailable", { error: String(error), cuePipelineContinues: true }); }
+            if (s.attackObserver) s.attackObserver.setEnabled(true);
+            else {
+                const epoch = ++observationEpoch;
+                s.attackObserver = createNativeAttackObserver(UE, puerts, a, { enabled: true,
+                    onRecord: (kind, data) => observe(kind, { ...data, observerEpoch: epoch,
+                        ...(data && data.handle != null ? { handle: "observer-" + epoch + ":" + data.handle } : {}) }) });
+            }
+            for (const r of s.records.values()) { r.observedPlans = null; r.observationLifecycle = null; beginTaskObservation(r, Date.now()); }
+        } catch (error) {
+            observing = false; s.attackObserver = null;
+            diagnostic("observation-unavailable", { error: String(error), cuePipelineContinues: true });
+        }
     }
     function observe(kind, data) {
         if (!observing) return;
@@ -271,10 +383,29 @@ function start() {
             t.previousTimelineTime = current; t.previousGameTime = s.gameNow;
         } catch (_) { s.observationFaults++; }
     }
-    try { if (observing) s.attackObserver = createNativeAttackObserver(UE, puerts, a, { enabled: true, onRecord: observe }); }
-    catch (error) { observe("observer-status", { status: "startup-failed", error: String(error) }); }
-    if (!a.safe(() => UE.BlueprintPathsLibrary.FileExists(configPath), true)) {
-        try { writeText(configPath, TEMPLATE); } catch (e) { diagnostic("config-write-error", { error: String(e) }); }
+    configureObservation();
+    function applyLiveSettings(changed) {
+        s.scheduler.options.leadSeconds = s.settings.LeadMs / 1000;
+        a.configureSemanticFallback(s.settings.SemanticFallback === true);
+        a.configureCastWarning(s.settings.YuZanCastWarning === true, s.settings.YuZanCastLeadMs / 1000);
+        s.diagnostics.setEnabled(s.settings.Diagnostics);
+        configureObservation();
+        // Recompile with stable event keys; the scheduler retains fired/past tombstones.
+        for (const r of s.records.values()) {
+            r.lastCompile = -Infinity;
+            for (const [key, id] of [...r.audioByEvent]) {
+                const event = r.events.find(e => e.key === key);
+                if (event && (!s.settings.BlackOn && event.color === "black" ||
+                    !s.settings.SemanticFallback && event.meta.semanticFallback ||
+                    !s.settings.YuZanCastWarning && event.meta.castWarning))
+                    emit("cancel", { id, taskKey: r.key, eventKey: key, reason: "settings-disabled" });
+            }
+        }
+        if (changed.includes("Diagnostics")) s.catalogedTemplates.clear();
+        if (changed.includes("Hooks") && !s.settings.Hooks) { s.hintedActors.clear(); s.hooksAlive = false; }
+        if (changed.includes("YuZanCastWarning")) { s.castFollowup.clear(); s.pendingCastDelivery.clear(); }
+        diagnostic("config-runtime-update", { changed, settings: Object.fromEntries(liveKeys.map(key => [key, s.settings[key]])),
+            observing, luaAcknowledged: false, outputVerified: false });
     }
     const contentDir = a.safe(() => UE.BlueprintPathsLibrary.ConvertRelativePathToFull(UE.BlueprintPathsLibrary.ProjectContentDir(), ""), "");
     const bankRelativePath = "PBZForewarn/PBZForewarn.bnk";
@@ -371,7 +502,7 @@ function start() {
             } else { if (kind === "missed") s.stats.missed++; diagnostic(kind, compactEvent(data)); }
         } });
     s.presentation = createPresentation(UE, cpp, a, s.settings, diagnostic);
-    function flush(force) {
+    function flush(force, captureEnabled = observing) {
         const now = Date.now();
         if (force || now - s.lastReport >= 5000) {
             // The observation file is the largest write. Serializing it on the
@@ -379,10 +510,10 @@ function start() {
             // so it keeps its own slower cadence and skips unchanged content.
             const observationDue = force || !s.lastObservationFlush ||
                 now - s.lastObservationFlush >= s.settings.ObservationFlushMs;
-            if (observing && observationDue && (force || s.observations.sequence() !== s.lastObservationSeq)) {
+            if (s.observationStoreReady && observationDue && (force || s.observations.sequence() !== s.lastObservationSeq)) {
                 try {
                     const begin = Date.now(), snapshot = s.observations.snapshot();
-                    const observationReport = { version: VERSION, session, at: now, ...snapshot,
+                    const observationReport = { version: VERSION, session, at: now, ...snapshot, enabled: captureEnabled, captureEnabled,
                         faults: s.observationFaults,
                         sampling: { maxTimelineTasksPerTick: 4, maxAttackNodesPerTask: 128,
                             deferredTaskSamples: s.observationTasksDeferred, minimumTaskSampleMs: 200,
@@ -408,7 +539,7 @@ function start() {
             const report = { version: VERSION, session, at: now, stats: s.stats, tasks: s.records.size, actors: s.actors.length,
                 hookHintsSeen: s.stats.hooks, hookBridgeAlive: s.hooksAlive, hookHealth: s.hookHealth,
                 paused: s.paused, maxObservedTickGapMs: s.maxTickGap,
-                settings: s.settings, target: s.targetStatus ? { mode: s.targetStatus.mode, key: s.targetStatus.key,
+                settings: s.settings, menuSettings: s.menuSettings, target: s.targetStatus ? { mode: s.targetStatus.mode, key: s.targetStatus.key,
                     status: s.targetStatus.status, reason: s.targetStatus.reason } : null,
                 audio: a.safe(() => s.audio.status(), null),
                 outputEvents: s.events,
@@ -838,6 +969,7 @@ function start() {
         s.ticking = true;
         const wall = Date.now();
         try {
+            refreshOutputs(wall);
             if (s.lastTickWall) {
                 const gap = wall - s.lastTickWall; s.maxTickGap = Math.max(s.maxTickGap, gap);
                 if (gap > 100 && wall - s.lastLongTick > 1000) { diagnostic("tick-gap", { ms: gap }); s.lastLongTick = wall; }
@@ -876,8 +1008,11 @@ function start() {
             s.observationContext = { worldKey: wk, player: a.path(player), clockEpoch: s.clockEpoch,
                 gameTime: gameNow, wallTime: wall };
             if (s.attackObserver) {
-                try { profileObservation("native-update", () => s.attackObserver.update({ world, player, worldKey: wk, gameTime: gameNow, wallTime: wall,
-                    paused, clockEpoch: s.clockEpoch })); }
+                try {
+                    const context = { world, player, worldKey: wk, gameTime: gameNow, wallTime: wall, paused, clockEpoch: s.clockEpoch };
+                    if (observing) profileObservation("native-update", () => s.attackObserver.update(context));
+                    else s.attackObserver.update(context); // retired-listener cleanup only while suspended
+                }
                 catch (error) { observe("observer-status", { status: "update-failed", error: String(error) }); }
             }
             profileObservation("lua-import", () => observationHints(wall, world, player));
@@ -978,17 +1113,29 @@ function start() {
             }
             s.previewDown = previewDown;
             const audioEvents = s.audioEvents.splice(0);
-            try { s.audio.update({ world, player, worldKey: wk, paused }, audioEvents); }
-            catch (e) { s.audio.dispose(); diagnostic("audio-update-error", { error: String(e) }, "audio-update-error"); }
+            const reportSettingsOutput = s.menuSettings.outputs.audio === "pending-update";
+            try {
+                s.audio.update({ world, player, worldKey: wk, paused }, audioEvents);
+                const status = s.audio.status();
+                s.menuSettings.outputs.audio = status.failure || ["failed", "disposed", "recovering"].includes(status.phase) ?
+                    "restart-required" : "update-returned-unverified";
+            }
+            catch (e) {
+                s.menuSettings.outputs.audio = "restart-required";
+                s.audio.dispose(); diagnostic("audio-update-error", { error: String(e) }, "audio-update-error");
+            }
             try {
                 const rendered = s.presentation.update(world, result.active, paused);
+                s.menuSettings.outputs.glyph = s.presentation.status().failure ? "restart-required" : "update-returned-unverified";
                 // presentation.update proves a HUD render call succeeded for the
                 // active list. Audio is acknowledged separately in diagnostic().
                 if (!paused) for (const active of Array.isArray(rendered) ? rendered : []) acceptCastDelivery(active.id);
             }
             catch (e) {
+                s.menuSettings.outputs.glyph = "restart-required";
                 s.presentation.dispose(); diagnostic("hud-update-error", { error: String(e) }, "hud-update-error");
             }
+            if (reportSettingsOutput) diagnostic("config-output-update", { ...s.menuSettings, outputVerified: false });
             // A failed tick must not leave an old request waiting to be credited
             // by an unrelated later output. Audio acknowledgements are synchronous.
             s.pendingCastDelivery.clear();

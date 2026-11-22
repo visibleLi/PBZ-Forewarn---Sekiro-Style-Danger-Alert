@@ -67,9 +67,10 @@ for script_path in sorted((ROOT / 'src/js/PBZForewarn').glob('*.js')):
 runtime[scripts_prefix + 'wwise-bank-config.js'] = archive_bytes(ROOT / 'tools/audio-bank/generated/wwise-bank-config.js')
 runtime['ProjectPBZ/Content/PBZForewarn/PBZForewarn.bnk'] = (ROOT / 'tools/audio-bank/generated/PBZForewarn.bnk').read_bytes()
 hooks_prefix = 'platform/steam/ue4ss/Mods/PBZForewarnHooks/'
-for script_name in ('main.lua', 'timeline-hooks.lua', 'observation-hooks.lua'):
+for script_name in ('main.lua', 'timeline-hooks.lua', 'observation-hooks.lua', 'settings-config.lua'):
     runtime[hooks_prefix + 'Scripts/' + script_name] = archive_bytes(ROOT / 'src/lua' / script_name)
 runtime[hooks_prefix + 'enabled.txt'] = b''
+runtime[hooks_prefix + 'PBZForewarnHooks.modsmenu.json'] = archive_bytes(ROOT / 'src/lua/PBZForewarnHooks.modsmenu.json')
 js_version = re.search(r'const VERSION = "([^"]+)";', runtime[scripts_prefix + 'main.js'].decode('utf8'))
 lua_versions = {name: re.search(r'local VERSION = "([^"]+)"',
     runtime[hooks_prefix + 'Scripts/' + name].decode('utf8'))
