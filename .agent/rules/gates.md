@@ -23,7 +23,7 @@ python tools/package.py
 Rules:
 
 - `verify.py` must have every suite at exit 0 and every suite with `checks > 0`.
-  Current baseline: 24 suites / 687 checks. Trust `verification/summary.json`.
+  Current baseline: 27 suites / 969 checks. Trust `verification/summary.json`.
 - `package.py` must succeed. It rejects a stale summary, a version mismatch, or
   inputs changed after validation.
 - Any runtime, test, build-script or packaging-doc change requires a fresh
