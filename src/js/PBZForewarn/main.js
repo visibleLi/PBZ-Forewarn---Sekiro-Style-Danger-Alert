@@ -12,7 +12,7 @@ const { createDiagnosticStore } = require("./diagnostic-store");
 const { createCastFollowup } = require("./cast-followup");
 const { createGrabReactionReader } = require("./grab-reaction");
 const { createGrabWarningCycle } = require("./grab-warning-cycle");
-const VERSION = "0.8.0-dev.5";
+const VERSION = "0.8.0";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
     Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, SemanticFallback: true, GenericAttack: false,

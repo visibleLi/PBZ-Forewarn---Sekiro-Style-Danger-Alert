@@ -1,5 +1,22 @@
 # Validation / 自检边界
 
+## 2026-11-24: 0.8.0 version promotion, no new runtime behavior
+
+Build: `0.8.0`. Promotion session: `v080-delivery-20261124`. Runtime behavior is
+carried from the accepted dev.5 build; only version declarations, the wire fixture
+and release-facing documentation change in this promotion. The gameplay evidence
+is the dev.5 session below, not a new installation/run of the 0.8.0 archive.
+GenericAttack remains default false with legacy startup compatibility; the three
+Boss-specific Menu controls are absent. This is not removal of every legacy
+comparison module or a full-content coverage claim.
+
+The user explicitly authorizes the sanitized session summaries in Git and this
+version's dev-only annotated tag/automatic GitHub workflow, while main remains
+unchanged. Offline verify/package are rerun on the final promotion bytes before
+commit. CI/workflow status, final archive hashes and source provenance are
+reported separately; no GitHub asset installation, Nexus upload or native-crash
+repair is implied. Previous build archives and raw evidence remain unchanged.
+
 ## 2026-11-24: dev.5 observed grab cycles retain only the initial warning
 
 Build: `0.8.0-dev.5`. Game session: `mwue30xg-bap6onu8`, loader START

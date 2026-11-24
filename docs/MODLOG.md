@@ -1,5 +1,11 @@
 # Development journal
 
+## 2026-11-24: accept observed dev.5 cycles and promote the 0.8 checkpoint
+
+- Parent rechecked final six-file hashes and raw CUE/sound/structured policy records for the dev.5 session in VALIDATION. Three complete observed grab chains retain initial accepted audio and discard Main/Success without a matching later CUE; two other preparations lack complete downstream evidence. Independent preparation warnings remain available. One hook permission failure recovered; no native-crash-fix claim.
+- User authorizes sanitized validation summaries, merging/pushing dev and annotating v0.8.0 without touching main, including the existing automatic tag workflow. Version promotion changes declarations/docs only; no new warning behavior or GitHub-asset gameplay claim.
+- After delivery, the next mainline starts from dev with a spec and asset-to-runtime matrix of warnable enemy attack signal structures, across Boss and ordinary enemies. Static evidence and executable/live acceptance remain separate; implement only verified structural gaps with vertical TDD.
+
 ## 2026-11-23: confirmed output seam, retrospective regression supplement
 
 - User confirmed real internal-chain output and public adapter events as test boundaries before new tests. The dev.5 repair already existed; this supplement is not represented as a new test-before-fix sequence.

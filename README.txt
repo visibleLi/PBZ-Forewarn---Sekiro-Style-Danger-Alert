@@ -1,25 +1,31 @@
-PBZForewarn 0.8.0-dev.5 — Sekiro-Style Danger Alert
+PBZForewarn 0.8.0 — Sekiro-Style Danger Alert
 只狼风格“危”预警
 
 English
 =======
 
-CURRENT DEVELOPMENT STATUS — 0.8.0-dev.5
-GenericAttack is now an editable trial switch (default off). Turn it on to test
-generic bullet-warning and grab-risk preparation cues instead of the two
-boss-scoped routes. These cues use LeadMs and authored preparation coordinates,
-not measured impact or original effect time. Grab risk does not guarantee a grab.
-After a delivered grab warning, a uniquely observed same-actor/payload handoff
-can suppress the later preparation and ordinary black cues. Ended-stage evidence
-expires after a 1 s observation gap; a new continuation timeline must follow its
-ability's ended Main stage into Success. Other branches keep their warnings.
-Missing delivery or ambiguous stages keep the fallback. This is a presentation policy, not proven
-native attack identity; the new behavior still needs gameplay validation.
-Turn it off for the prior rules. The Menu no longer offers individual boss controls.
-This build retains ordinary warning recognition across diagnostic-free recompiles;
-that repair has offline regressions but no in-game acceptance. The prior dev.4
-session showed generic lightning/fire cues, but still emitted a second grab-cycle
-black warning. No native-crash repair is claimed.
+WHAT'S NEW IN 0.8 — 0.8.0
+- Keeps the optional live Menu and shared JSON settings introduced in 0.7.
+- Replaces the two boss-scoped routes when GenericAttack is enabled, using shared
+  bullet warning resources and grab-risk structure rather than boss names.
+- Removes the three individual boss controls from Menu; GenericAttack remains
+  editable and default off. Turn it off for the prior compatibility routes.
+- Retains ordinary warning recognition across diagnostic-free recompiles, so an
+  already delivered grab preparation can suppress its observed later black cue.
+
+The dev.5 gameplay session recorded three complete grab cycles with one accepted
+initial warning and no later Main/Success warning output. Independent warnings
+also remained available in that sample. This is limited gameplay evidence, not
+all-enemy/all-move coverage or an acoustic/screen timing measurement.
+
+Generic cues use LeadMs and authored preparation coordinates, not measured impact
+or original effect time. Grab risk does not guarantee a grab. A unique observed
+same-actor/payload handoff can suppress later preparation and ordinary black cues;
+ended-stage evidence expires after a 1 s observation gap. A new continuation
+must follow its ability's ended Main into Success; other branches keep warnings.
+Missing initial delivery or ambiguous stages keep the fallback. This is a
+presentation association, not proven native attack identity. No native-crash
+repair is claimed.
 
 WHAT'S NEW IN 0.7
 - Optional Mods Menu settings with English, Simplified and Traditional Chinese help.
@@ -51,7 +57,7 @@ Both PBZModLoader and UE4SS are required.
 
 INSTALL
 Mod Manager: close the game, install both requirements, disable older Forewarn,
-import PBZForewarn-0.8.0-dev.5.zip, and enable all of its parts.
+import PBZForewarn-0.8.0.zip, and enable all of its parts.
 
 Manual: with both requirements already installed, merge ProjectPBZ and platform
 into the game root. Keep every file and fully restart.
@@ -59,7 +65,7 @@ into the game root. Keep every file and fully restart.
 Press Alt+F9 to preview the warning sound.
 
 SETTINGS
-0.8.0-dev.5 includes English, Simplified Chinese and Traditional Chinese labels
+0.8.0 includes English, Simplified Chinese and Traditional Chinese labels
 and help for every setting, including read-only rows. Test sessions confirmed
 saved output-switch changes and font-size updates in logs; the user reported normal
 operation. Other settings have offline checks but were not all changed in game.
@@ -153,17 +159,22 @@ AI assisted research, coding and debugging.
 中文
 ====
 
-当前开发状态 — 0.8.0-dev.5
-GenericAttack 现为可编辑试验开关，默认关闭。开启后用通用弹体告警资源与抓取风险
-准备提示替代两位首领专属路径，统一使用 LeadMs；时间依据是动作准备坐标，
-不是实测命中或原特效时间。抓取能力不保证实际抓取。
-抓取提示实际送达后，唯一观测到的同角色/同载荷交接可收掉后续准备提示及普通黑危；
-结束阶段证据最多保留1秒观测空档；跨时间轴须为所属能力已结束的Main转入Success，
-其他分支保留预警。首次输出失败或阶段有歧义时保留后续提示。这是展示策略，不是已证明的原生攻击身份，
-新行为仍需实机验收。
-关闭可恢复旧规则；菜单不再提供逐个首领的专属设置。本版保留不采集诊断时的普通
-告警识别来源，相关修正仅有离线回归，尚未实机验收。此前dev.4已观察到雷电/火系
-通用提示，但抓取周期仍补第二条黑危，验收失败；本版不宣称修复原生崩溃。
+0.8 更新内容 — 0.8.0
+- 保留0.7引入的可选即时菜单与统一JSON设置。
+- GenericAttack开启时，按共享弹体告警资源与抓取风险结构替代两位首领专属路径，
+  不再按Boss名字决定通用提示。
+- 菜单移除三个逐首领设置；GenericAttack可编辑、默认关闭，关闭可恢复旧兼容路径。
+- 普通告警来源在不采集诊断的重编译中仍保留，首次抓取准备提示送达后可抑制已关联的后续黑危。
+
+dev.5一场实机记录中，三轮完整抓取周期仅保留首次已接受的准备提示，后续Main/Success
+节点未输出；同场独立攻击仍有预警。这是有限实机证据，不代表全敌人、全招覆盖，
+也不是声学或屏幕时间测量。
+
+通用提示统一使用LeadMs和作者准备坐标，不是实测命中或原特效时间；抓取风险不保证
+实际抓取。唯一观测到的同角色/同载荷交接可抑制后续准备与普通黑危；结束证据最多
+保留1秒观测空档。跨时间轴须为所属能力已结束的Main转入Success，其他分支保留预警。
+首次输出失败或阶段有歧义时保留后续提示。这是展示关联，不是已证明的原生攻击身份。
+本版不宣称修复原生崩溃。
 
 0.7 更新内容
 - 可选 Mods Menu 设置页，包含英文、简中、繁中逐项说明。
@@ -194,7 +205,7 @@ PBZModLoader 和 UE4SS 都必须安装。
 
 安装
 管理器：完全退出游戏，装好两个前置，停用旧 Forewarn，导入
-PBZForewarn-0.8.0-dev.5.zip，并把包内全部部分启用。
+PBZForewarn-0.8.0.zip，并把包内全部部分启用。
 
 手动：前置已装好的情况下，把包内 ProjectPBZ 和 platform 合并到游戏根目录。
 保留全部文件并完全重启。
@@ -202,7 +213,7 @@ PBZForewarn-0.8.0-dev.5.zip，并把包内全部部分启用。
 按 Alt+F9 试听危音效。
 
 设置
-0.8.0-dev.5 的所有设置（含只读项）均提供英文、简中、繁中名称与说明。
+0.8.0 的所有设置（含只读项）均提供英文、简中、繁中名称与说明。
 测试会话日志确认输出开关保存与字号更新，用户反馈运行正常；其他设置虽有离线检查，
 尚未逐项在游戏中切换。这些观察不是声画测量或完整语言、操作方式覆盖。
 配置位置（相对游戏根目录）：
