@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib
 
 
-VERSION = '0.7.0'
+VERSION = '0.8.0-dev.5'
 
 # Every suite is discovered, not listed: a new test file runs automatically.
 # Order is deterministic (sorted by path) so verification summaries are stable.
@@ -32,7 +32,10 @@ def test_cases(root):
     for folder, pattern in SUITE_GLOBS:
         for path in sorted((root / folder).glob(pattern)):
             relative = path.relative_to(root).as_posix()
-            found.setdefault(_suite_name(relative), relative)
+            name = _suite_name(relative)
+            if name in found and found[name] != relative:
+                raise ValueError(f'Duplicate suite name {name!r}: {found[name]} and {relative}')
+            found[name] = relative
     return tuple(sorted(found.items(), key=lambda item: item[1]))
 
 

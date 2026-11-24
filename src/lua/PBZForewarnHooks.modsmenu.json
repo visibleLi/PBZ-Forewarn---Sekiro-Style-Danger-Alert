@@ -32,9 +32,9 @@
       "default": 350,
       "slider": true,
       "help": {
-        "en": "Target lead before the original warning node, in milliseconds (0–1000; default 350). This is not a measured lead before a hit; short attacks or late discovery can give less time. Cast warnings use their separate lead below. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
-        "zh-Hans": "相对原预警节点的目标提前量，单位毫秒（0–1000，默认350）。不是实测命中前时间；短招或发现较晚时可能不足。施法预警使用下方独立提前量。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
-        "zh-Hant": "相對原預警節點的目標提前量，單位毫秒（0–1000，預設350）。不是實測命中前時間；短招或發現較晚時可能不足。施法預警使用下方獨立提前量。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
+        "en": "Target lead before the original warning node, in milliseconds (0–1000; default 350). This is not a measured lead before a hit; short attacks or late discovery can give less time. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
+        "zh-Hans": "相对原预警节点的目标提前量，单位毫秒（0–1000，默认350）。不是实测命中前时间；短招或发现较晚时可能不足。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
+        "zh-Hant": "相對原預警節點的目標提前量，單位毫秒（0–1000，預設350）。不是實測命中前時間；短招或發現較晚時可能不足。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
       }
     },
     {
@@ -81,58 +81,24 @@
       },
       "default": true,
       "help": {
-        "en": "Include black warnings (default on), including the added Musician Puppet cast cue when its own switch is also on. Off suppresses black cues while red and blue warnings remain available. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
-        "zh-Hans": "包含黑危（默认开启），玉瓒补充施法提示还需其自身开关开启。关闭会抑制黑危，红蓝预警仍保留。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
-        "zh-Hant": "包含黑危（預設開啟），玉瓚補充施法提示還需其自身開關開啟。關閉會抑制黑危，紅藍預警仍保留。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
+        "en": "Include all black warnings, including generic preparation cues (default on). Off suppresses black cues while red and blue warnings remain available. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
+        "zh-Hans": "包含所有黑危，包括通用准备阶段提示（默认开启）。关闭会抑制黑危，红蓝预警仍保留。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
+        "zh-Hant": "包含所有黑危，包括通用準備階段提示（預設開啟）。關閉會抑制黑危，紅藍預警仍保留。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
       }
     },
     {
-      "key": "SemanticFallback",
+      "key": "GenericAttack",
       "type": "toggle",
+      "default": false,
       "label": {
-        "en": "Acolyte Yanru extra warnings",
-        "zh-Hans": "炎茹补充预警",
-        "zh-Hant": "炎茹補充預警"
+        "en": "Generic preparation warnings (trial)",
+        "zh-Hans": "通用准备阶段预警（试验）",
+        "zh-Hant": "通用準備階段預警（試驗）"
       },
-      "default": true,
       "help": {
-        "en": "Enable the two scoped extra red-warning rules for Acolyte Yanru's fire ring and advancing attack (default on). This is not generic coverage of every enemy or move. Ordinary warning nodes remain available when off. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
-        "zh-Hans": "启用灭法之法·炎茹火环与突进的两条定向补充红危规则（默认开启）。不是所有敌人、所有招式的通用覆盖；关闭后原有预警节点仍可提示。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
-        "zh-Hant": "啟用滅法之法·炎茹火環與突進的兩條定向補充紅危規則（預設開啟）。不是所有敵人、所有招式的通用覆蓋；關閉後原有預警節點仍可提示。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
-      }
-    },
-    {
-      "key": "YuZanCastWarning",
-      "type": "toggle",
-      "label": {
-        "en": "No. 3 Musician Puppet cast warning",
-        "zh-Hans": "玉瓒施法预警",
-        "zh-Hant": "玉瓚施法預警"
-      },
-      "default": true,
-      "help": {
-        "en": "Enable the added black cue for No. 3 Musician Puppet's spinning cast, referenced to its scoped AOE marker (default on). Also requires black warnings enabled. It is a cast cue, not confirmation of a hit or every later projectile. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
-        "zh-Hans": "启用三号·乐师偶·玉瓒转圈施法的补充黑危，以限定范围内的AOE标记为参考（默认开启）。还需开启黑光攻击预警。这是施法提示，不是命中或后续每个弹体的确认。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
-        "zh-Hant": "啟用三號·樂師偶·玉瓚轉圈施法的補充黑危，以限定範圍內的AOE標記為參考（預設開啟）。還需開啟黑光攻擊預警。這是施法提示，不是命中或後續每個彈體的確認。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
-      }
-    },
-    {
-      "key": "YuZanCastLeadMs",
-      "type": "number",
-      "label": {
-        "en": "Cast warning lead (ms)",
-        "zh-Hans": "施法预警提前量（毫秒）",
-        "zh-Hant": "施法預警提前量（毫秒）"
-      },
-      "min": 0,
-      "max": 1000,
-      "step": 1,
-      "default": 350,
-      "slider": true,
-      "help": {
-        "en": "Separate target lead for the added Musician Puppet cast cue, in milliseconds (0–1000; default 350). Used only when cast warnings are enabled; it does not change ordinary warning-node lead or guarantee time before impact. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
-        "zh-Hans": "玉瓒补充施法提示的独立目标提前量，单位毫秒（0–1000，默认350）。仅在施法预警开启时使用，不改变普通预警节点提前量，也不保证命中前时长。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
-        "zh-Hant": "玉瓚補充施法提示的獨立目標提前量，單位毫秒（0–1000，預設350）。僅在施法預警開啟時使用，不改變普通預警節點提前量，也不保證命中前時長。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
+        "en": "Experimental replacement, default off. Warns at authored preparation coordinates for supported bullet warning resources and grab capability; not measured hit timing. Replaces the two boss-scoped routes while enabled, using LeadMs. Prior timing/coverage parity is unverified. Applies after a successful Menu save without replaying consumed cues.",
+        "zh-Hans": "实验替代模式，默认关闭。对支持的弹体告警资源及抓取能力按动作准备坐标预警，非实测命中时间。开启时替代两位首领专属路径，统一使用预警提前量；原有时序与覆盖等价性尚未验证。菜单保存成功后应用，不补播已消费的预警。",
+        "zh-Hant": "實驗替代模式，預設關閉。對支援的彈體告警資源及抓取能力按動作準備座標預警，非實測命中時間。開啟時替代兩位首領專屬路徑，統一使用預警提前量；原有時序與覆蓋等價性尚未驗證。選單儲存成功後套用，不補播已消費的預警。"
       }
     },
     {
@@ -316,20 +282,6 @@
         "en": "Reserved · read only",
         "zh-Hans": "保留项 · 只读",
         "zh-Hant": "保留項 · 唯讀"
-      }
-    },
-    {
-      "key": "GenericAttack",
-      "type": "readonly",
-      "label": {
-        "en": "Generic attack fallback",
-        "zh-Hans": "通用攻击补充预警",
-        "zh-Hant": "通用攻擊補充預警"
-      },
-      "help": {
-        "en": "Reserved experimental generic-attack switch (default off). No generic cue timing policy is enabled in this build, so this does not promise warnings for all moves. Read only here; leave it off. Any manual change requires a full restart.",
-        "zh-Hans": "保留的实验性通用攻击开关（默认关闭）。本版未启用通用发危时间策略，不代表能提示所有招式。菜单只读，建议保持关闭。手改需完全重启。",
-        "zh-Hant": "保留的實驗性通用攻擊開關（預設關閉）。本版未啟用通用發危時間策略，不代表能提示所有招式。選單唯讀，建議保持關閉。手改需完全重新啟動。"
       }
     },
     {

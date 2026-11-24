@@ -2,8 +2,9 @@
 const { probeAttackSemantics } = require("./attack-semantics-probe");
 const { recognizeWarning } = require("./attack-recognition");
 const { matchSemanticFallbackScope, matchSemanticFallback } = require("./semantic-fallback");
-const { planGenericAttack } = require("./generic-attack");
+const { createBulletWarning, supportsActionClass } = require("./bullet-warning");
 const { matchCastWarning } = require("./cast-warning");
+const { createBulletSignalProbe } = require("./bullet-signal-candidates");
 // Read-only UE adapter. Never assigns to a gameplay object or timeline event.
 // Injected dependencies make the bridge testable without starting PBZ.
 function createAdapter(UE, puerts, diagnostic, options = {}) {
@@ -35,6 +36,13 @@ function createAdapter(UE, puerts, diagnostic, options = {}) {
         const loaded = safe(() => effect.Get(), null);
         if (valid(loaded)) return { path: path(loaded), source: "soft-loaded" };
         return { path: "", source: "soft-unresolved" };
+    }
+    const { probe: probeBulletSignals } = createBulletSignalProbe({ valid, path, list, effectPath });
+    const bulletWarning = createBulletWarning({ valid, path, list, effectPath, requirements: evaluateRequirements });
+    function bulletWarningEligibility(action, times, sourceASC, expectedPlan) {
+        if (!genericAttackEnabled) return { eligible: false, reason: "generic-attack-disabled" };
+        return safe(() => bulletWarning.eligibility(action, times, sourceASC, expectedPlan),
+            { eligible: false, reason: "bullet-warning-proof-error" });
     }
     function eventTimes(event) {
         const startRaw = Number(safe(() => event.StartTime, NaN));
@@ -147,6 +155,10 @@ function createAdapter(UE, puerts, diagnostic, options = {}) {
     // captureEvidence is opt-in: per-frame eligibility keeps its small existing
     // API, while inventory can record the exact requirements and live owned tags.
     function requirements(action, asc, options) {
+        if (!valid(action)) return { eligible: false, reason: "invalid-action" };
+        return evaluateRequirements(action, asc, options);
+    }
+    function evaluateRequirements(action, asc, options) {
         let req = null, iface = null, owned = null;
         const evaluations = { requireAll: null, ignoreAny: null, queryEmpty: null, queryMatches: null };
         const capture = !!(options && options.captureEvidence);
@@ -257,6 +269,9 @@ function createAdapter(UE, puerts, diagnostic, options = {}) {
                         roleCharacterClass: path(safe(() => layer.RoleCharacterClass, null)) } : {}) } });
         });
         const found = [], inventory = [], seen = new Set(), checks = new Map(), contexts = new Map();
+        let candidateScanUnresolved = false;
+        const maxCandidateActions = 32;
+        let probeActionBudget = maxCandidateActions, preparationActionBudget = maxCandidateActions;
         for (const group of groups) {
             list(group.values).forEach((event, index) => {
                 const action = safe(() => event.Action, null);
@@ -271,18 +286,20 @@ function createAdapter(UE, puerts, diagnostic, options = {}) {
                 const times = eventTimes(event);
                 const recognition = recognizeWarning({ effectPath: effect.path, actionClass }, classify);
                 let color = recognition.color;
-                const castRule = castWarningEnabled && !color ? matchCastWarning({ actor: context.actor,
+                const castRule = !genericAttackEnabled && castWarningEnabled && !color ? matchCastWarning({ actor: context.actor,
                     ability: context.ability, timeline: path(timeline), actionClass, effectPath: effect.path, layer: group.label }) : null;
-                const fallbackScope = semanticFallbackEnabled && !color ? matchSemanticFallbackScope({
+                const fallbackScope = !genericAttackEnabled && semanticFallbackEnabled && !color ? matchSemanticFallbackScope({
                     actor: path(group.execution.actor) || context.actor,
                     ability: context.ability,
                     actionClass
                 }) : null;
-                const semantics = captureDiagnostics || fallbackScope || genericAttackEnabled ?
-                    probeAttackSemantics(action) : null;
-                const genericPlan = genericAttackEnabled ? planGenericAttack({
-                    actionClass, semantics, times, standardRecognition: !!color
-                }) : null;
+                const semantics = captureDiagnostics || fallbackScope ? probeAttackSemantics(action) : null;
+                let preparationPlan = null;
+                if (genericAttackEnabled && !color && supportsActionClass(actionClass) &&
+                    !group.execution.reason && valid(group.execution.asc) && preparationActionBudget > 0) {
+                    preparationActionBudget--;
+                    preparationPlan = safe(() => bulletWarning.plan(action, times, group.execution.asc), null);
+                }
                 const semanticCandidate = !!semantics && (semantics.deflect.candidates.some(x => x.status === "read") ||
                     Object.values(semantics.timing).some(x => x.status === "read") ||
                     Object.values(semantics.arrays).some(x => x.status === "read"));
@@ -293,7 +310,7 @@ function createAdapter(UE, puerts, diagnostic, options = {}) {
                 const executionKey = group.label === "main" ? "main" : "role:" + group.execution.roleName + "|" + path(group.execution.actor);
                 const key = hasGuid ? executionKey + "|" + guid.join(":") + "|" + actionPath + "|" + times.start + "|" + times.end : baseKey;
                 const info = { ...context, key: baseKey, action: actionPath, actionClass, effect: effect.path,
-                    effectSource: effect.source, color, ...times, roleName: group.execution.roleName,
+                    effectSource: effect.source, color, recognition, ...times, roleName: group.execution.roleName,
                     roleActor: path(group.execution.actor), requirementsASC: path(group.execution.asc),
                     eligibilitySource: group.execution.source,
                     reason: color ? "recognized" : recognition.source === "unconfirmed-black-pair" ? recognition.reason :
@@ -304,13 +321,28 @@ function createAdapter(UE, puerts, diagnostic, options = {}) {
                         boundASC: path(group.execution.asc), bindingReason: group.execution.reason,
                         autoSpawnWhenUnbound: group.execution.autoSpawnWhenUnbound,
                         roleCharacterClass: group.execution.roleCharacterClass };
-                    info.recognition = recognition;
                     info.attackSemantics = { ...semantics, timingBasis: "unverified-not-scheduled", usedForScheduling: false };
+                    let bulletSignals;
+                    if (probeActionBudget <= 0) {
+                        bulletSignals = { status: "unresolved", usedForScheduling: false, candidates: [],
+                            unresolved: true, limits: { maxActions: maxCandidateActions }, issues: ["timeline-probe-cap"] };
+                    } else {
+                        probeActionBudget--;
+                        try { bulletSignals = probeBulletSignals(action, times); }
+                        catch (_) {
+                            // Observation failure must never discard ordinary warning nodes.
+                            bulletSignals = { status: "unresolved", usedForScheduling: false, candidates: [],
+                                unresolved: true, limits: {}, issues: ["probe-error"] };
+                        }
+                    }
+                    if (bulletSignals.unresolved) candidateScanUnresolved = true;
+                    if (bulletSignals.candidates.length || bulletSignals.unresolved || bulletSignals.status !== "no-bullet-data")
+                        info.bulletSignalCandidates = bulletSignals;
                     inventory.push(info);
                 }
                 // Inspect known warning nodes and semantic candidates even when
                 // not schedulable. A role binding failure is never bypassed.
-                const tagCheck = color || semanticCandidate || castRule ? requirements(action, group.execution.asc,
+                const tagCheck = color || semanticCandidate || castRule || preparationPlan ? requirements(action, group.execution.asc,
                     captureDiagnostics ? { captureEvidence: true } : undefined) : null;
                 if (tagCheck && captureDiagnostics) {
                     info.requirementsEvidence = tagCheck.evidence;
@@ -323,7 +355,7 @@ function createAdapter(UE, puerts, diagnostic, options = {}) {
                         actionClass,
                         semantics
                     }) : null;
-                    if (!rule && !genericPlan && !castRule) return;
+                    if (!rule && !preparationPlan && !castRule) return;
                     if (castRule) {
                         color = castRule.color; info.color = color;
                         info.castWarning = { ruleId: castRule.id, phase: castRule.phase,
@@ -331,12 +363,14 @@ function createAdapter(UE, puerts, diagnostic, options = {}) {
                             usedForScheduling: false, executionVerified: false };
                         info.recognition = { color, supported: true, source: "cast-warning",
                             timingBasis: castRule.timingBasis, reason: "scoped-cast-resource" };
-                    } else if (genericPlan) {
-                        color = genericPlan.color;
+                    } else if (preparationPlan) {
+                        color = preparationPlan.color;
                         info.color = color;
-                        info.genericAttack = genericPlan;
-                        info.recognition = { color, supported: true, source: "generic-attack",
-                            timingBasis: genericPlan.timingBasis, reason: "registered-timing-policy" };
+                        // Retain the original JSON-safe plan: its factory privately
+                        // owns the selected native identity proof used before emit.
+                        info.bulletWarning = preparationPlan;
+                        info.recognition = { color, supported: true, source: "bullet-preparation",
+                            timingBasis: preparationPlan.timingBasis, reason: "authored-preparation-candidate" };
                     } else {
                         color = rule.color;
                         info.color = color;
@@ -366,7 +400,6 @@ function createAdapter(UE, puerts, diagnostic, options = {}) {
                         info.attackSemantics.usedForScheduling = true;
                     }
                 }
-                if (info.genericAttack) info.genericAttack.usedForScheduling = true;
                 if (info.castWarning) info.castWarning.usedForScheduling = true;
                 // Point notifications remain exact points. The scheduler can
                 // preannounce them without manufacturing a gameplay duration.
@@ -381,7 +414,7 @@ function createAdapter(UE, puerts, diagnostic, options = {}) {
                 contexts.set(key, group.execution);
             });
         }
-        return { events: found, inventory, checks, contexts };
+        return { events: found, inventory, checks, contexts, candidateScanUnresolved };
     }
     function configureSemanticFallback(enabled) { semanticFallbackEnabled = enabled === true; }
     function configureGenericAttack(enabled) { genericAttackEnabled = enabled === true; }
@@ -391,7 +424,7 @@ function createAdapter(UE, puerts, diagnostic, options = {}) {
             Math.max(0, Math.min(1, leadSeconds)) : 0.35;
     }
     return { safe, valid, path, list, effectPath, eventTimes, requirements, activation, abilityTasks, collectAbilities,
-        events, configureSemanticFallback, configureGenericAttack, semanticFallbackEligibility,
+        events, configureSemanticFallback, configureGenericAttack, semanticFallbackEligibility, bulletWarningEligibility,
         configureCastWarning, castWarningEligibility };
 }
 module.exports = { createAdapter };

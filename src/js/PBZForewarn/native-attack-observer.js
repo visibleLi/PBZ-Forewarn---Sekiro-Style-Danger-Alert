@@ -190,6 +190,7 @@ function createNativeAttackObserver(UE, puerts, adapter, options = {}) {
                     if (stopped || !enabled || token !== installedToken || !context || context.paused || !valid(playerObject)) return;
                     try {
                         const payload = read(data, "OptionalObject");
+                        if (!valid(payload)) { counters.errors++; report("event-frame-unreadable"); return; }
                         const handle = read(payload, "Handle"), frame = read(payload, "ReceiveFrame");
                         const captureWorld = path(call(playerObject, "GetWorld"));
                         const eventGameTime = safe(() => UE.KismetSystemLibrary.GetGameTimeInSeconds(playerObject));

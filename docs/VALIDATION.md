@@ -1,5 +1,516 @@
 # Validation / 自检边界
 
+## 2026-11-24: dev.5 observed grab cycles retain only the initial warning
+
+Build: `0.8.0-dev.5`. Game session: `mwue30xg-bap6onu8`, loader START
+15:44:45.950 local UTC+08:00. Runtime initially had GenericAttack=false, then
+changed to true at15:49:46; attached/final snapshots retain true. Candidate SHA-256
+`5f276ab63d4e160c7a61b5a28516b921c6e07d7295a069017905bae635574dd4`;
+all29 non-README installer entries match, README differs. The parent rechecked
+six final snapshot hashes and actual CUE/sound/structured policy records.
+
+Twenty prospective rounds16:04:48.775–16:23:59.121 completed with maximum spacing
+60.839s, no known watch gap. Earlier session records are retrospective retained
+logs. Two successful process queries16:22:58.772 and16:23:59.121 found no PBZ;
+this completes the watch rule, not proof of a normal exit or crash freedom.
+The preserved final snapshot is `snapshot-20261124-162359-048766` in the external
+session store; raw logs and personal paths remain outside Git.
+
+YuZan produced five black execution-capability preparation CUEs, each joined to
+a same-id nonzero Wwise PlayingID. Three complete observed sequences
+(`t473e60`, `t498e63`, `t512e67`) then have Main and Success records explicitly
+discarded for `delivered-grab-preparation-cycle`, without a CUE for those
+suppressed task/ability records in the preserved loader. These three sequences
+support the first-only requirement within this session. A fourth preparation
+has Main discard only; another has no downstream discard observed. Neither is
+counted as a complete Success case. Total discarded nodes7: Main4/Success3.
+The association remains a unique observed capability handoff, not an engine
+parent/strike identifier or measured control interval.
+
+Three additional QiShu_Huo preparation cues, each joined to accepted audio,
+show independent warnings remained available in this limited sample; this is
+not a simultaneous-source or all-move test. Earlier dev.4 lightning/fire evidence
+and its failed YuZan cycles remain historical results, not rewritten as passes.
+The dev.5 observation closes that specific duplicate regression for the three
+complete observed cycles, not universal generic coverage.
+
+Session totals58 CUEs: red25/blue9/black24; all58 join sound-play with nonzero
+PlayingID. Estimated timeline lead median308.370ms/min13.376/max349.382,17 below
+100ms. Runtime errors0, missed1 (GuiChai past-window, endedBeforeObservation),
+conditionsNotMet0. JS observation writes92, peak serialization7ms, write failures0.
+One primary Lua hook open/write permission error recovered; observer-hook
+failures3/recoveries3 were already present at attachment with no new increments.
+No cause of the permission failure or native crash repair is established.
+
+Final raw loader census gives60 tick-gap records,30 at least250ms,worst17822ms;
+these include pause/load and are not confirmed hitches. Intermediate SQLite
+aggregation collapsed identical timestamp-free payloads, so its smaller totals
+are superseded. Seven loader followup-discarded JSON lines are truncated; full
+structured diagnostics, not parser absence, establish their policy and phases.
+The analyzer ran once without --save, exit0/PASS for its historical criteria;
+that verdict is not the first-only acceptance oracle. Logs prove software
+outputs, not acoustic/screen timing, coverage distribution or native stability.
+
+## 2026-11-23: agreed public seams, retrospective regression strengthening
+
+Build: `0.8.0-dev.5`. Offline session: `tdd-standard-dev5`. The user explicitly
+confirmed the real internal MOD chain through external UE/Wwise/UMG output and
+public `adapter.events()` as the two test boundaries. Expected first-only
+behavior comes from the existing user requirement, not the current code; action
+and warning-resource inputs come from independently recorded asset/trace data.
+The dev.5 repair predates this supplement: this is retrospective regression
+strengthening, not a new test-before-implementation claim.
+
+The same public events contract run against unchanged JS extracted from the
+preserved dev.4 installer fails with expected `power-attack-post-pair`, actual
+undefined when `captureDiagnostics=false`; current dev.5 passes with capture on
+and off. It uses the real adapter/recognition/classifier and only external UE
+object/array/tag stand-ins. Raw RED/GREEN output and baseline provenance are
+preserved outside Git under the offline session directory.
+
+The earlier runtime172 regression is partial integration: its harness replaces
+owned presentation, Wwise audio, target-filter and audio-environment modules.
+It does not establish real internal-chain output acceptance. The added
+`output-runtime.test.js` instead loads every relative MOD dependency from the
+selected runtime directory without replacing owned collaborators. Only UE,
+Puerts/cpp, time/timers and file IO are stand-ins. Targeted local reflected
+signatures constrain Wwise component/event and UMG shapes; the test requires no
+SDK files or new dependencies.
+
+Parent inspection and repeat runs confirm that both diagnostic modes first
+accept a nonzero PlayingID and show a mounted black FText danger glyph. The
+same-actor/same-payload continuation and Success observed 513ms before its due
+window traverse real recompilation and output code. Preserved dev.4 fails at the
+second `PostOnComponent` output, count2 vs required1, with two glyph shows; dev.5
+passes with one of each. After that completed chain, an independent ordinary
+black attack produces a second accepted PlayingID and fresh glyph show. This
+positive counterexample prevents an all-silent implementation from passing.
+
+The parent verified all22 extracted baseline JS files byte-for-byte against the
+preserved installer and repeated the identical final test RED then GREEN.
+`output-parent-acceptance.json` and matching raw logs remain outside Git. These
+are offline accepted-output requests and mounted fake-widget state, not native
+playback or screen measurements. External boundary doubles cannot certify native
+ABI, object lifetime, GC/thread safety, actual sound, screen timing, native
+parentage/control intervals or native crash freedom.
+
+The fresh integrated gate passed with Python3.12.16, Node24.22.3, lupa2.8/Lua5.4
+and the pinned checker:31 suites/1082 checks, all exit0 and checks>0, including
+the two new output cases; JavaScript syntax passed. All113 input hashes matched
+at summary inspection. This completed record is reverified before packaging.
+New installer/source output uses a distinct external directory, preserving the
+previously delivered dev.5 archives; archive hashes and content comparisons are
+recorded in its PACKAGE_CHECK.json and the external regression report. No runtime
+or version change, game install/run, commit, push or publication in this pass.
+
+## 2026-11-23: recognition survives compact recompile, offline repair
+
+Build: `0.8.0-dev.5`. Offline session: `dev4-success-recognition-repair`.
+The game evidence remains the failed dev.4 session `mwt92mde-sxoiftux`; no new
+in-game acceptance or native crash repair is claimed.
+
+Both observed chains delivered root preparation and an extra ordinary Hard
+Success black, while their intermediate preparations were discarded. Success
+was observed 513/555ms before extra output, crossing the 200ms recompile boundary.
+A reduced replay of the unchanged delivered JS reproduced count2 rather than
+required1. Ordinary `info.recognition` existed only during diagnostic capture;
+compact recompile dropped it, although both followup policies require its source.
+A one-variable external probe restoring the independently recorded standard
+post-pair recognition removed both extra outputs. Root native activity flips,
+competing records and player reaction primitives were not all recorded; replay
+uses explicit mocks for these gaps and is not a complete native state replay.
+
+The repair retains the already-computed ordinary recognition in every event;
+it adds no native reads, Boss/ability whitelist, cooldown extension or cycle
+refactor. A new runtime regression first failed count2 vs1 after delayed Success
+recompiles, then passed with diagnostics both on and off; runtime172 scenarios
+pass. Adapter97 checks include retention of the standard black source without
+inventory capture. The old adapter assertion requiring missing recognition in
+compact mode was an implementation-derived expectation, not an independent
+contract, and was replaced by the executable source requirement.
+
+The full two-chain replay against repaired workspace sources returns count1 in
+both cases without the diagnostic probe, preserving recorded timeline names,
+activation and sample times. Known root/condition/presence mocks remain explicit.
+The original archive replay remains RED as a preserved baseline, not a new
+failure of repaired code. Exact unpacked Hard assets were rechecked: the filtered
+bullet references PlayExecution/Ged and TrapDebuff-to-owner; the ability waits for
+that tag and starts Success. These establish authored branch connections, not
+an exact runtime target, control interval or universal same-strike identity.
+
+On 2026-11-23 the integrated gate passed with Python3.12.16, Node24.22.3,
+lupa2.8/Lua5.4 and the pinned checker:30 suites/1080 checks, all exit0 and
+checks>0, including adapter97/runtime172. This completed evidence record is
+reverified before separate installer/source packaging; final hashes are in the
+external artifact PACKAGE_CHECK.json. Existing dev.4 installer/source hashes were
+rechecked unchanged. No installation, game run, commit/push or modification of
+dev.4 archives. The
+new22:19 native IsA/auto_construct_object crash remains unattributed and outside
+this metadata repair.
+
+## 2026-11-23: dev.4 generic-mode play, partial benefit and failed first-only acceptance
+
+Build: `0.8.0-dev.4`. Game session: `mwt92mde-sxoiftux`, loader START
+20:36:42.865 local UTC+08:00. Installed non-README entries match the preserved
+candidate installer29/29, including enabled marker; README differs. Initial
+GenericAttack=true. The user reports lightning-caster warnings disappeared when
+disabled and returned when enabled, and YuZan still emitted a second black cue
+while the player was forcibly controlled. First-only is an existing requirement,
+not an unresolved preference; this session fails that acceptance criterion.
+
+The main-session sampler retained41 snapshots20:41:02–21:21:14 before the host
+terminated it for system memory pressure. It was not restarted. Two later process
+checks22:22:37 and22:25:12 found no PBZ process. Delayed same-session recovery
+`snapshot-recovered-end-20261123-222405-979647` preserved eight stable/hash-verified
+inputs outside Git without overwriting earlier snapshots. Later events are
+retrospective retained log evidence, not uninterrupted monitoring or full history.
+
+Recorded cues86: red33/blue32/black21. Every CUE has a nonzero PlayingID and
+matching-count HUD-show observations. Estimated timeline lead median314.568ms,
+min10.835ms, max349.103ms;14 below100ms. Runtime errors0, missed1,
+conditionsNotMet2 (ignore-tags). These do not establish acoustic/screen timing,
+full move coverage or native crash freedom.
+
+Ten cues use the generic preparation route: five standard-resource reds for
+QiShu_Lei (BulletAttack_01_Easy and SplitAttack_Reset), three for QiShu_Huo
+(RoundSkill_FireRing twice and SkillAttack_F_AssaultEnd once), and two YuZan
+execution-capability preparations. Resource entries select the directly referenced
+standard red effect, not a new Boss-name whitelist. Mode save/runtime records
+show false21:38:09.309 and true21:38:47.738; no CUE occurred in that off interval.
+This agrees with the user's toggle feedback but is not a controlled same-node A/B
+test. Authored preparation coordinates remain unconfirmed native effect/impact
+coordinates.
+
+YuZan has two root/Hard/Success chains. Each initial preparation was delivered;
+each Hard Main preparation was suppressed, but Success ordinary post-pair black
+still produced an additional sound/HUD output at22:16:00.599 and22:17:01.536.
+Both were cancelled only about1.5s after delivery. The logged2 discarded nodes
+therefore do not establish the requested first-only behavior. The user's forced
+control observation is recorded as feedback; logs alone do not prove the exact
+control interval or instigator. The later offline dev.5 entry above records the
+reproduced diagnostic-gated recognition defect and repair; dev.4 gameplay evidence
+remains a failed first-only result.
+
+JS observation writes168, peak serialization10ms, write failures0. Final raw Lua
+writers report timeline8 failures/8recoveries and observer11/11, neither currently
+failing; registration/capture failures0. Permission-denied causes remain unknown.
+No final unload tombstone was observed. The analyzer ran once without --save,
+exit0/PASS for its dev.5-specific criteria:100 raw gap records,38 spanning pause,
+18 classified250–2000ms hitches (worst1865ms), six loop-stopped spans (worst15448ms).
+That PASS is not first-only or stability acceptance.
+
+A new dump at22:19:43.6921323 was preserved. Bounded exact-PE comparison confirms
+READ AV at UE4SS `UObjectBase::IsA+0xE` (`+0xB0B98E`), reading0x12, immediately
+called by `LuaType::auto_construct_object+0x49`. This differs from the earlier
+strlen/get_string and November22 signatures. It establishes a new native crash,
+not its originating script, invalid-reference mechanism or MOD attribution. The
+adjacent LoadMap callback-return error does not establish causation. No normal
+exit or historical-crash repair is claimed. This audit changed no runtime/game/
+config/install or archives and performed no commit/push; no code gate rerun was
+needed for evidence-only documentation.
+
+## 2026-11-23: dev.4 interrupted watch and recovered session audit
+
+Build: `0.8.0-dev.4`. Game session: `mwstdyzc-ajxaznj6`. Loader START
+13:17:38.573 local UTC+08:00. Installed non-README entries match the candidate
+installer 29/29, including enabled marker; README differs. No installation or
+configuration changes were made by the watcher/auditor.
+
+Thirty periodic snapshots cover 13:23:25 through 13:52:35 after an initial attach
+query at 13:18:39. An agent API failure interrupted the watch; no continuous
+coverage after 13:52:35 is claimed. Later successful process checks found no PBZ
+process. A delayed eight-file recovery snapshot at 16:49:49 retained this same
+session and verified stable reads/copy hashes without overwriting earlier
+snapshots. Evidence is outside Git under this session's evidence directory,
+including `snapshot-recovered-end-20261123-164949-448254`, `WATCH_NOTES.md` and
+`FINAL_REPORT.md`. Sequential file reads are not an atomic cross-file snapshot.
+
+Recorded ordinary cues: four, red2/blue2/black0, all with accepted nonzero
+PlayingIDs and HUD-show records. Estimated timeline lead median299.304ms,
+min59.563ms, max339.087ms; one below100ms. Runtime errors0, missed0 and
+conditionsNotMet0. These are logged timeline/output observations, not acoustic,
+screen, impact timing or full move coverage.
+
+GenericAttack was false until Menu save/runtime-update at 14:03:14.079 changed
+it to true. All four cues occurred before that change. bulletCues=0 and
+grabFollowupsDiscarded=0; this session does NOT validate generic preparation,
+the two-Boss replacement, or the first-only/triple-black regression.
+
+JS observation writes41, peak serialization6ms, observation write failures0.
+Final raw Lua timeline writer reports2 failures/2recoveries; observation writer
+8 failures/8recoveries, both currentlyFailing=false, registration/capture
+failures0. Permission-denied write causes are unknown. The final producer is
+newer than JS-imported observer health6/6. Final Lua snapshots remain active
+with nonzero heartbeat; an unload tombstone was not observed, so stop/unload
+behavior is not accepted in game by these files.
+
+The required analyzer ran once without --save, exit0/verdictPASS: 90 tick-gap
+records,32 spanning pause;13 classified250-2000ms hitches (worst1642ms), one
+10745ms loop-stopped span. These dev.5-specific heuristics and a raw diagnostic
+max gap21186ms do not measure screen frame time or attribute pauses to this mod.
+The analyzer PASS is not dev.4 generic-mode/native-crash acceptance.
+
+UE4SS ends with Event loop end at14:03:42.6109688; loader contains a shutdown
+process-detach marker, not an OS exit-code assertion. No new session dump was
+found in the inspected UE4SS/local CrashDumps/Saved Crashes locations. The
+earlier10:36 dump remains. This limited shutdown observation does not establish
+that the historical native crash was fixed. Observation eviction and interrupted
+sampling further limit coverage. No runtime source repair, commit or push was
+performed by this audit; existing build archives remain unchanged.
+
+## 2026-11-23: full dev.3 review and TDD repair
+
+Build: `0.8.0-dev.4`. Offline session: `dev3-full-review-20261123`.
+Review covers JS runtime and output lifecycles, Lua native hooks/configuration,
+and Python discovery/build/verify/package tooling. The unchanged dev.3 installer
+and Source ZIP remain the pre-repair baseline. This entry records source/mock
+behavior only; no new game session, installation or native crash reproduction.
+
+Cycle public-interface regressions first failed for cross-task equal node keys,
+indefinitely retained ended witnesses, and arbitrary sibling timeline inheritance.
+The minimal corrections compare full root-record identity plus node key, expire
+ended witnesses after a maximum 1000ms observation bridge, and accept cross-task
+continuation transfer only after positive termination through the same ability's
+owned `.Main` -> `.Success` structure. Other branches keep ordinary black cues.
+The bridge bounds stale state; it is not a cooldown or proof of native parentage.
+These are project policy choices requiring in-game acceptance, not upstream
+engine timing guarantees. Seventeen policy scenarios and 171 actual-runtime
+fixture scenarios pass; Unreal APIs in that fixture are mocked.
+
+JS regressions first observed three reads of an invalid cached action's native
+requirements and two reads of an invalid event payload. The adapter now rejects
+invalid native actions before requirement lookup; its private evaluator retains
+synthetic self-tag checks. Observer callbacks validate payloads before frame-field
+access. A valid generic bullet behind 32 ordinary actions now survives the
+preparation scan budget, which is spent only on supported action classes.
+
+Lua native-interface expectations were checked against installed UE4SS commit
+`1ceefac8`: ForEach converts elements before callback and stops on boolean true,
+and UFunction callbacks execute on their caller thread. The old array mock ignored
+that return and used the wrong index base; its correction exposed a genuine test
+blind spot. Regressions first reproduced 2000 conversions despite a 512-node
+budget, worker-thread parameter access, invalid UObject property reads and a
+final snapshot regressing from captured seq2 to seq0. Runtime corrections bound
+native iteration with one lookahead, check thread status before parameter unwrap,
+reject invalid owners before member lookup and rebuild the primitive-only final
+frame on stop. Lua tests explicitly use `lupa.lua54`: 61 hook, 85 observation,
+30 entry and 157 settings checks. Lupa is not the native UE4SS bridge.
+
+Tools regressions use actual isolated builds and subprocesses. Duplicate suite
+basenames now fail explicitly instead of silently omitting one file. Verifier bank
+config and optional baseline comparisons survive `python -O`; a real Node-loaded
+incorrect config previously produced an optimized successful report and now fails
+without summary. WAV input below the existing 0.01s minimum is rejected (440
+frames fail, 441 pass). Build suite: 20 checks. Standalone optimized bank-test and
+other builder asserts remain outside this repair; the prescribed normal Python
+gate remains required.
+
+On 2026-11-23 integrated verification passed with Python3.12.16, Node24.22.3,
+lupa2.8/Lua5.4 and the pinned checker: 30 suites / 1078 checks, every exit0 and
+checks>0, including adapter96, native observer41, runtime171 and cycle17.
+Final evidence is `verification/summary.json`; packaging follows a fresh verify
+of this completed record. No game or installation was performed.
+
+Test oracles are distinguished from test runners: upstream bridge contracts and
+pre-existing audio/protocol rules supply some expected results; the first-only
+presentation policy comes from the user requirement and preserved dev.2 failure.
+The 1000ms bridge and Main/Success association remain unverified heuristics.
+Epic Automation/Gauntlet do not supply this mod's expected behavior; a compatible
+project/test-enabled target has not been established here. Passing these mocks
+cannot certify native pointer lifetime, GC, callback concurrency or crash freedom.
+
+The 2026-11-23 dump showed null `strlen` reached through UE4SS Lua string
+conversion, but did not recover the active key value or identify the script/mod.
+Reviewed Lua runtime member keys were literals or closed string lists; no matching
+non-string key call site was established. Preventing invalid mock getters and
+bounding traversal cannot establish that historical native crash is fixed.
+
+## 2026-11-23: delivered grab-cycle presentation, offline regression
+
+Build: `0.8.0-dev.3`. Offline session: `delivered-grab-cycle-dev3`.
+Scope: address the dev.2 three-stage presentation failure and remove the three
+individual Boss settings from Menu. GenericAttack remains an opt-in comparison
+mode, default false. Menu now has 20 keys: 14 editable and six reserved. The
+three legacy keys remain internal startup compatibility values only; existing
+JSON/TXT bytes are preserved and Menu refresh cannot change their consumers.
+No legacy module deletion or completed general replacement is claimed.
+
+The preserved dev.2 session `mwsm235y-kcgsnsre` contains three distinct delivered
+black cues around 10:04:49-52: root execution-capability preparation, a different
+ability's matching-payload preparation, then that continuation activation's
+ordinary post-pair black node. All three have accepted nonzero PlayingIDs and
+HUD show records; these are engine output observations, not acoustic/screen
+measurements. This is failure-regression evidence, not dev.3 acceptance. The
+watch runs independently of this source change and compares installed dev.2 to
+its unchanged ZIP. It does not infer current installed version from checkout.
+
+The new bounded presentation policy starts only after a generic grab cue has
+actually been delivered through accepted audio or returned rendered glyph.
+A still-active root can be acknowledged on a later successful HUD tick; a
+failed request alone never authorizes suppression. Positive root termination
+and one uniquely observed same-actor, same-payload continuation bind the later
+activation without Boss, ability-name, nearest-time or global cooldown matching.
+A witnessed continuation termination can cross a discovery gap to its next
+same-activation timeline. Missing unwitnessed records, competing grab sources,
+changed activation, world/pause/error resets and explicit first-cue withdrawal
+invalidate association. The original delivered node is never suppressed by its
+own token. The exact next root activation can warn again.
+
+Both continuation capability cues and ordinary black nodes use the existing
+scheduler's due-window consumption, so discarded nodes cannot backfill after
+release. Red/blue and independent actors retain their routes. This is an
+explicit observed presentation-handoff policy, not established native parent,
+instigator, strike or universal danger identity. Unknown/competing handoffs keep
+the warning; consequently one-first-only behavior is limited to recognized
+unambiguous handoffs and needs new gameplay confirmation.
+
+Runtime regressions reproduce root -> different ability continuation -> ordinary
+black with one delivered cue and two discarded nodes, a fresh independent root,
+no first delivery, delayed HUD success, recovered live tags before recompile,
+and runtime-error suspension. Independent read-only review found delayed output
+acknowledgement loss, cached rather than fresh eligibility, and error-pause
+retention; all three original reproducers were rerun successfully after their
+corrections. Pure policy tests cover positive-ended record retirement, gaps,
+ambiguity, root-key exclusion, invalid identities and bounded token retention.
+On 2026-11-23 the corrected source passed the full gate: Python3.12.16,
+Node24.22.3, lupa2.8 and the pinned checker; 30 suites / 1045 checks, all exit
+zero with positive counts (grab-warning-cycle14, runtime168; 112 hashed inputs).
+The three independent review reproducers were rerun and confirmed corrected.
+Verification is rerun after this record before installer/source packaging;
+verification/summary.json and dist/PACKAGE_CHECK.json hold final input/archive
+hashes, with a separate external copy for this build.
+No dev.3 installation, gameplay fix, acoustic/impact timing, complete coverage,
+or old/new parity is claimed.
+
+## 2026-11-23: generic preparation replacement trial, offline verification
+
+Build: `0.8.0-dev.2`. Offline session: `generic-preparation-dev2`.
+Scope: opt-in `GenericAttack` preparation-risk policy. It is now a live Menu
+switch (default false), with 17 editable controls and six reserved controls.
+When true, it bypasses the legacy QiShu/YuZan recognition and stage suppression
+routes; false restores those routes. Legacy source/settings remain for explicit
+comparison, not a claim of completed boss-rule removal. Neither config is
+rewritten by JS or a Menu refresh.
+
+The new bounded reader uses exact generic action/event implementation classes
+and direct already-readable bullet references. Supported immediate standard
+red/blue resources and CantDeflect grab-capability ancestry yield one physical
+node cue, subject to native source action requirements and existing enemy,
+lock/range/hostility, role-binding, scheduler and cancellation checks. The anchor
+is explicitly `authored-action-preparation-candidate`, with
+`executionVerified=false` and `nativeLaunchCoordinateConfirmed=false`.
+Grab color black is a presentation policy for conditional execution capability;
+filter/target conditions are retained as future risk, not claimed satisfied at
+cue time. Unsupported branches, nonempty random maps, aliases, caps and unknown
+ancestor routes fail closed. Unrelated unsupported siblings do not change a
+supported direct route's local proof. Diagnostics-off does not disable the
+executable reader; diagnostic candidates remain `usedForScheduling=false`.
+
+A unique, currently authorized main-layer enemy ability activation referencing
+the player's exact live executed-grab class can discard an ordinary black cue
+when it reaches the scheduler's existing due window. It consumes that node so
+release cannot backfill it, cancels its sound tail, and leaves later future
+nodes unconsumed. This is a capability/class presentation policy, not established
+native instigator or same-danger identity. Multiple possible sources, missing
+reaction, foreign avatar, changed activation/proof/action tags, and role-layer
+capabilities cannot authorize suppression. No global control-tag or Boss-name
+heuristic is used. Independent review reproduced three authorization defects
+(stale cache restoration, missing live source tags, and role ownership); targeted
+runtime regressions exercise their corrections.
+
+Offline assertions cover renamed actors/abilities, direct standard and grab
+routes, empty/random/unknown selection, native risk condition retention, source
+self-tag rechecks, object proof stability, current player reaction ancestry,
+due-window consumption, no release replay, competing attackers, ordinary cue
+priority, live switch cancellation, and existing physical node tombstones.
+On 2026-11-23 the corrected offline source passed 29 suites / 1025 checks,
+all exit zero and every suite positive: adapter95, bullet-warning18,
+grab-reaction8, core45, runtime162. The gate used Python3.12.16, Node24.22.3,
+lupa2.8 and the pinned development checker; 110 inputs are hashed. The independent
+reviewer reran all three original minimal reproducers and confirmed they now
+preserve the otherwise-eligible black cue. Verification is rerun after this
+record, followed by installer/source packaging; authoritative input and archive
+hashes remain in verification/summary.json and dist/PACKAGE_CHECK.json.
+No dev.2 installation, game run, acoustic/screen measurement, native callability,
+full coverage, old/new parity, or fixed-in-game claim is made.
+
+The prior dev.1 session `mwrwdkro-s4n6jawe` is preserved externally with a stable
+end snapshot, final watch report and scoped audit. It confirmed 26 installed
+runtime files matched dev.1 (README differed), four actual structural candidates
+(two QiShu standard red, YuZan Skill03 and Hard grab capability), and 52 cues
+(red14/black13/blue25) from existing rules. Four fallback and three cast cues,
+with zero followup suppressions, do not validate this new replacement policy.
+The preserved ordinary Hard Success black cue and player-side Ged hook hint
+motivated the new regression; the logs do not prove exact control duration or
+native attacker causality. JS errors were zero; both Lua hook writers separately
+recorded four permission failures and four recoveries. Those prior session
+facts are a log audit, not acoustic/impact or performance acceptance.
+
+## 2026-11-22: generic bullet candidate diagnostics, offline verification
+
+Build: `0.8.0-dev.1`, based on exact `v0.7.0`. Offline session:
+`boss-independent-candidates-dev1`. Status: implementation/inspection record.
+An initial integrated offline gate passed, then the review correction below was
+applied and the full gate was rerun on the corrected source. No in-game
+validation for this build.
+
+Scope: generic standard-warning resources reached through bullet lifecycle data
+and grab/execution-capability candidates are observations only. The adapter and
+`main.js` retain these under `bulletSignalCandidates` in the bounded resource
+catalog, with `usedForScheduling=false`. Lifecycle, conditional route, action
+coordinates, unresolved states and traversal limits are retained; candidates do
+not create scheduler events, glyphs or sounds. No native asset loading or
+bullet/event triggering is invoked. `Diagnostics=0` performs no additional
+candidate scan. Unresolved capture has a bounded per-task retry policy, currently
+at most five attempts spaced at least two seconds apart; final implementation
+and evidence must match the final source hashes. Unknown or capped evidence is
+not promoted to a cue.
+
+This is **not completed boss-rule removal** and **not newly enabled generic
+cues**. Existing `semantic-fallback`, `cast-warning` and `cast-followup` routes
+remain, together with the three scoped settings `SemanticFallback`,
+`YuZanCastWarning` and `YuZanCastLeadMs`; old Menu controls are unchanged.
+The external 2026-11-22 content-research `FINAL_REPORT.md` provides structural
+candidate evidence only. It does not establish runtime lifecycle timing,
+`IsSingleFrame()` behavior, launch/cancellation timing, guaranteed grabs, warning
+color, full coverage, cross-stage danger identity or a lossless replacement for
+the retained rules. Gameplay timing and policy validation remain required before
+promoting candidates or deleting the old rules/settings.
+
+Initial integrated offline gate on 2026-11-22: Python 3.12.16, Node 24.22.3
+and lupa 2.8; all 27 suites exited zero with positive check counts, 966 checks
+total (candidate probe 37, adapter 83, runtime 147). The real-audio bank and
+development installer build succeeded (26 runtime files plus README). These
+are mocked API/build results, not gameplay or native-callability acceptance.
+Verification and packaging were rerun after this entry and the review correction,
+so `verification/summary.json` validatedInputs hashes and `PACKAGE_CHECK.json`
+below describe the corrected source actually built. Historical game evidence
+remains attributed to its own builds.
+
+Independent review reproduced loss of nested capture predicates in persisted
+resource JSON: the existing depth-eight diagnostic cleaner replaced required
+tags with [depth-limit] while the in-memory candidate remained complete. A new
+end-to-end runtime regression failed before the correction. Candidate conditions
+now use bounded flat leaf paths (at most 32 leaves, 128-character paths), without
+raising the global diagnostic depth or retention caps. The original repro and
+probe/adapter/runtime suites pass after the correction; runtime now has 148
+checks. Persisted required tags and query-token values are asserted exactly.
+After that correction the full gate was rerun on the corrected source: Python
+3.12.16, Node 24.22.3 and lupa 2.8; all 27 suites exited zero with positive check
+counts, 969 checks total (candidate probe 39, adapter 83, runtime 148).
+`verification/summary.json` lists 106 validated inputs with no content-hash
+mismatch. `package.py` then built the real-audio bank and both archives: the
+installer has 27 members, the source archive 102, neither contains audio input
+files, key material, crash dumps or research data. The concrete archive hashes
+live in `dist/PACKAGE_CHECK.json`; they are not restated here because a later
+edit to this file changes the packaged source and would invalidate them. No live
+Puerts behavior is established by these mocks.
+
+No installation, game launch, commit, push or release was performed for this
+slice. No acoustic/screen measurement or game-performance acceptance is claimed.
+Personal paths, raw game assets, keys, large research data and game source are
+not distribution inputs.
+
 ## 2026-11-22: 0.7.0 publication scope
 
 Release build `0.7.0` integrates feature commit `b6fd692` from `dev`. The release

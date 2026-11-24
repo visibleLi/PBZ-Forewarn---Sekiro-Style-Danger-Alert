@@ -1,8 +1,25 @@
-PBZForewarn 0.7.0 — Sekiro-Style Danger Alert
+PBZForewarn 0.8.0-dev.5 — Sekiro-Style Danger Alert
 只狼风格“危”预警
 
 English
 =======
+
+CURRENT DEVELOPMENT STATUS — 0.8.0-dev.5
+GenericAttack is now an editable trial switch (default off). Turn it on to test
+generic bullet-warning and grab-risk preparation cues instead of the two
+boss-scoped routes. These cues use LeadMs and authored preparation coordinates,
+not measured impact or original effect time. Grab risk does not guarantee a grab.
+After a delivered grab warning, a uniquely observed same-actor/payload handoff
+can suppress the later preparation and ordinary black cues. Ended-stage evidence
+expires after a 1 s observation gap; a new continuation timeline must follow its
+ability's ended Main stage into Success. Other branches keep their warnings.
+Missing delivery or ambiguous stages keep the fallback. This is a presentation policy, not proven
+native attack identity; the new behavior still needs gameplay validation.
+Turn it off for the prior rules. The Menu no longer offers individual boss controls.
+This build retains ordinary warning recognition across diagnostic-free recompiles;
+that repair has offline regressions but no in-game acceptance. The prior dev.4
+session showed generic lightning/fire cues, but still emitted a second grab-cycle
+black warning. No native-crash repair is claimed.
 
 WHAT'S NEW IN 0.7
 - Optional Mods Menu settings with English, Simplified and Traditional Chinese help.
@@ -34,7 +51,7 @@ Both PBZModLoader and UE4SS are required.
 
 INSTALL
 Mod Manager: close the game, install both requirements, disable older Forewarn,
-import PBZForewarn-0.7.0.zip, and enable all of its parts.
+import PBZForewarn-0.8.0-dev.5.zip, and enable all of its parts.
 
 Manual: with both requirements already installed, merge ProjectPBZ and platform
 into the game root. Keep every file and fully restart.
@@ -42,7 +59,7 @@ into the game root. Keep every file and fully restart.
 Press Alt+F9 to preview the warning sound.
 
 SETTINGS
-0.7.0 includes English, Simplified Chinese and Traditional Chinese labels
+0.8.0-dev.5 includes English, Simplified Chinese and Traditional Chinese labels
 and help for every setting, including read-only rows. Test sessions confirmed
 saved output-switch changes and font-size updates in logs; the user reported normal
 operation. Other settings have offline checks but were not all changed in game.
@@ -52,8 +69,8 @@ platform\steam\ue4ss\Mods\PBZForewarnHooks\PBZForewarnHooks.config.json
 On first launch, existing Saved\PBZForewarn.txt values are imported once. The old
 TXT is left untouched as a backup; once JSON exists, editing TXT has no effect.
 For manual edits, use JSON true/false for switches and numbers for numeric values.
-All 16 editable settings apply after a successful Menu save, normally within
-about 0.5 s (game stalls may delay this). The seven reserved rows remain read only.
+All 14 editable settings apply after a successful Menu save, normally within
+about 0.5 s (game stalls may delay this). The six reserved rows remain read only.
 Timing changes affect pending warnings without replaying consumed cues. Eligibility
 changes can withdraw current warnings. Glyph layout rebuilds only this mod's canvas.
 Disabling Lua hooks pauses capture/publication; inert registrations remain until
@@ -74,15 +91,14 @@ since it lives in the mod folder. To downgrade, fully exit and install the older
 version; it reads the untouched Saved\PBZForewarn.txt, so newer JSON edits must be
 copied back manually. Invalid JSON is preserved and reported; defaults are used
 for that run. Restore a valid JSON while the game is closed.
+The deprecated JSON keys SemanticFallback, YuZanCastWarning and YuZanCastLeadMs
+remain internal compatibility settings for fallback comparison with GenericAttack=false.
+They are ignored in generic mode and are not exposed in the Menu. Updates preserve
+the existing JSON and its legacy values.
 
 Warning timing and targets
 - LeadMs=350 — how early the warning appears before the original warning node.
   Range: 0-1000 ms.
-- YuZanCastWarning=1 — No. 3 Musician Puppet's spinning-cast warning.
-  1 = on, 0 = off.
-- YuZanCastLeadMs=350 — separate lead time for that cast warning.
-  Range: 0-1000 ms.
-- SemanticFallback=1 — Acolyte Yanru's two extra warnings. 1 = on, 0 = off.
 - RangeCm=3500 — maximum distance at which eligible enemies are detected.
   Range: 500-10000 cm.
 - OnlyLockedTarget=0 — 0 = also warn in unlocked play; 1 = only the confirmed
@@ -101,7 +117,8 @@ Diagnostics and observation
 - ObserveAttacks=1 — collect limited read-only attack evidence. Set to 0 to
   disable.
 - Hooks=1 — read the optional Lua observation hooks. Set to 0 to disable.
-- GenericAttack=0 — reserved for generic attack observation. Leave at 0.
+- GenericAttack=0 — experimental generic preparation replacement. 1 = trial on,
+  0 = prior boss-scoped rules.
 - ObservationFlushMs=20000 — minimum interval between observation-log writes.
   Range: 5000-60000 ms. It changes diagnostic file size and write frequency
   only, never warning or sound timing.
@@ -136,6 +153,18 @@ AI assisted research, coding and debugging.
 中文
 ====
 
+当前开发状态 — 0.8.0-dev.5
+GenericAttack 现为可编辑试验开关，默认关闭。开启后用通用弹体告警资源与抓取风险
+准备提示替代两位首领专属路径，统一使用 LeadMs；时间依据是动作准备坐标，
+不是实测命中或原特效时间。抓取能力不保证实际抓取。
+抓取提示实际送达后，唯一观测到的同角色/同载荷交接可收掉后续准备提示及普通黑危；
+结束阶段证据最多保留1秒观测空档；跨时间轴须为所属能力已结束的Main转入Success，
+其他分支保留预警。首次输出失败或阶段有歧义时保留后续提示。这是展示策略，不是已证明的原生攻击身份，
+新行为仍需实机验收。
+关闭可恢复旧规则；菜单不再提供逐个首领的专属设置。本版保留不采集诊断时的普通
+告警识别来源，相关修正仅有离线回归，尚未实机验收。此前dev.4已观察到雷电/火系
+通用提示，但抓取周期仍补第二条黑危，验收失败；本版不宣称修复原生崩溃。
+
 0.7 更新内容
 - 可选 Mods Menu 设置页，包含英文、简中、繁中逐项说明。
 - 设置统一到一个 JSON，首次导入旧 TXT 并保留原件备份。
@@ -165,7 +194,7 @@ PBZModLoader 和 UE4SS 都必须安装。
 
 安装
 管理器：完全退出游戏，装好两个前置，停用旧 Forewarn，导入
-PBZForewarn-0.7.0.zip，并把包内全部部分启用。
+PBZForewarn-0.8.0-dev.5.zip，并把包内全部部分启用。
 
 手动：前置已装好的情况下，把包内 ProjectPBZ 和 platform 合并到游戏根目录。
 保留全部文件并完全重启。
@@ -173,14 +202,14 @@ PBZForewarn-0.7.0.zip，并把包内全部部分启用。
 按 Alt+F9 试听危音效。
 
 设置
-0.7.0 的所有设置（含只读项）均提供英文、简中、繁中名称与说明。
+0.8.0-dev.5 的所有设置（含只读项）均提供英文、简中、繁中名称与说明。
 测试会话日志确认输出开关保存与字号更新，用户反馈运行正常；其他设置虽有离线检查，
 尚未逐项在游戏中切换。这些观察不是声画测量或完整语言、操作方式覆盖。
 配置位置（相对游戏根目录）：
 platform\steam\ue4ss\Mods\PBZForewarnHooks\PBZForewarnHooks.config.json
 首次启动会一次性导入 Saved\PBZForewarn.txt 的旧设置；旧 TXT 原样保留作备份。
 JSON 存在后，不再读取旧 TXT；手改开关使用 JSON 的 true/false，数值使用数字。
-全部16个可编辑设置在菜单保存成功后通常约半秒内应用，游戏停顿可能延迟；7个保留项仍只读。
+全部14个可编辑设置在菜单保存成功后通常约半秒内应用，游戏停顿可能延迟；6个保留项仍只读。
 提前量更新影响待发预警，不补播已消费预警；筛选变更可撤回当前预警。危字布局只重建本MOD显示层。
 关闭Lua钩子会暂停捕获和发布，惰性注册保留到最终卸载；游戏线程调度可能延迟Lua切换。
 关声停止本MOD音效，开声不补播旧预警；开字只显示仍有效的预警窗口。
@@ -195,12 +224,12 @@ JSON 存在后，不再读取旧 TXT；手改开关使用 JSON 的 true/false，
 降级须先退出游戏再安装旧版；旧版仍读保留的 Saved\PBZForewarn.txt，
 新 JSON 中的改动需手动抄回。JSON 损坏时原件保留并记录错误，本次使用默认值；
 请退出游戏后恢复有效 JSON。
+已弃用的 JSON 键 SemanticFallback、YuZanCastWarning、YuZanCastLeadMs
+仅保留作内部兼容，在 GenericAttack=false 时用于旧路径对照；通用模式忽略它们，
+菜单不再提供这些设置。更新会保留现有 JSON 及其中的旧值。
 
 提示时间与目标
 - LeadMs=350 — 相对游戏原预警节点的提前量，范围 0-1000ms。
-- YuZanCastWarning=1 — 三号·乐师偶·玉瓒的转圈施法提示，1 开启，0 关闭。
-- YuZanCastLeadMs=350 — 该施法提示的独立提前量，范围 0-1000ms。
-- SemanticFallback=1 — 灭法之法·炎茹的两条补充危，1 开启，0 关闭。
 - RangeCm=3500 — 可识别敌人的最大距离，范围 500-10000cm。
 - OnlyLockedTarget=0 — 0 为无锁也提示；1 为只提示确认锁定的目标。
 
@@ -216,7 +245,7 @@ JSON 存在后，不再读取旧 TXT；手改开关使用 JSON 的 true/false，
 - Diagnostics=1 — 保存诊断快照；设为 0 可减少磁盘日志。
 - ObserveAttacks=1 — 收集有限的只读攻击证据；设为 0 关闭。
 - Hooks=1 — 读取可选的 Lua 观察 Hooks；设为 0 关闭。
-- GenericAttack=0 — 通用攻击观察预留项，保持 0。
+- GenericAttack=0 — 通用准备阶段替代试验。1=试验开启，0=旧首领专属规则。
 - ObservationFlushMs=20000 — 观察日志的最小写入间隔，范围 5000-60000ms。
   只影响诊断文件的体积和写入频率，不影响危字或音效时机。
 

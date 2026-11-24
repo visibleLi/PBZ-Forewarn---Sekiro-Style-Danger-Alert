@@ -356,4 +356,51 @@ test('verified black events schedule independently and preserve red-blue semanti
     x.scheduler.step(frame(0.2,[],{paused:true})); assert.equal(x.cancels.length,2);
 });
 
+test('suppression consumes only a due event and prevents recovery backfill', () => {
+    const x = fixture();
+    const blocked = event({ suppressed: true, meta: { reason: 'matching-active-executed-grab' } });
+    x.scheduler.step(frame(0, [task(0.4, { events: [blocked] })]));
+    assert.equal(x.diagnostics.length, 0);
+    x.scheduler.step(frame(0.3, [task(0.7, { events: [blocked] })]));
+    assert.equal(x.cues.length, 0);
+    const suppressed = x.diagnostics.filter(d => d.type === 'suppressed');
+    assert.equal(suppressed.length, 1); assert.equal(suppressed[0].data.reason, 'matching-active-executed-grab');
+    assert.equal(suppressed[0].data.eventKey, 'event');
+    x.scheduler.step(frame(0.35, [task(0.75)]));
+    assert.equal(x.cues.length, 0);
+    x.scheduler.step(frame(0.4, [task(0.8, { activation: 2 })]));
+    assert.equal(x.cues.length, 1);
+});
+test('suppression cancels an active glyph once without replaying a fired node', () => {
+    const x = fixture(); x.scheduler.step(frame(0, [task(0.7)]));
+    const blocked = event({ suppressed: true });
+    assert.equal(x.scheduler.step(frame(0.05, [task(0.75, { events: [blocked] })])).active.length, 0);
+    assert.equal(x.cancels.length, 1); assert.equal(x.cancels[0].reason, 'suppressed');
+    x.scheduler.step(frame(0.1, [task(0.8, { events: [blocked] })]));
+    x.scheduler.step(frame(0.15, [task(0.85)]));
+    assert.equal(x.cancels.length, 1); assert.equal(x.cues.length, 1);
+});
+test('suppression uses rate and event lead while future and ineligible nodes remain available', () => {
+    const x = fixture({ leadSeconds: 0.1 });
+    const blocked = event({ suppressed: true, leadSeconds: 0.35 });
+    x.scheduler.step(frame(0, [task(0.2, { rateHint: 2, events: [blocked] })]));
+    assert.equal(x.diagnostics.length, 0);
+    x.scheduler.step(frame(0.05, [task(0.3, { rateHint: 2, events: [blocked] })]));
+    assert.equal(x.diagnostics.filter(d => d.type === 'suppressed').length, 1);
+    const y = fixture();
+    y.scheduler.step(frame(0, [task(0.4, { events: [event({ suppressed: true })] })]));
+    y.scheduler.step(frame(0.3, [task(0.7)])); assert.equal(y.cues.length, 1);
+    const z = fixture();
+    z.scheduler.step(frame(0, [task(0.7, { events: [event({ suppressed: true, eligible: false })] })]));
+    assert.equal(z.diagnostics.length, 0);
+    z.scheduler.step(frame(0.05, [task(0.75)])); assert.equal(z.cues.length, 1);
+});
+test('late and ended suppressed nodes retain the existing missed-window classification', () => {
+    for (const value of [event({ suppressed: true }), event({ suppressed: true, end: 1 })]) {
+        const x = fixture();
+        x.scheduler.step(frame(0, [task(1.1, { events: [value] })]));
+        assert.equal(x.cues.length, 0); assert.equal(x.diagnostics[0].type, 'missed');
+        assert.equal(x.diagnostics.filter(d => d.type === 'suppressed').length, 0);
+    }
+});
 console.log('RESULT ' + passed + ' core scenarios passed. No UE/game access.');

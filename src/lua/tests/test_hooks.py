@@ -1,7 +1,7 @@
 from pathlib import Path
 import json, sys
 sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from lupa import LuaRuntime
+from lupa.lua54 import LuaRuntime
 from settings_fixture import install, DIRECTORY
 
 SOURCE = (Path(__file__).parents[1] / 'timeline-hooks.lua').read_text(encoding='utf8')
@@ -30,6 +30,7 @@ io.open=function(path,mode)
       return true
     end}
 end
+function IsInGameThread()return T.mode=='game'end
 function requireGame() assert(T.mode=='game','UObject API was used outside game thread') end
 function object(full)
   return {IsValid=function()requireGame();return true end,
@@ -249,6 +250,24 @@ check(payload(z)['active'] is True and payload(z)['heartbeat']>0 and payload(z)[
 z.execute('M.stop();ExecuteInGameThread(function()M.applySettings({Hooks=true})end);game()')
 check(mod.status()['stopped'] and not mod.status()['active'] and z.eval('tick()') is True,
       'final timeline stop cannot resume from queued settings')
+
+# Native UFunction callbacks run on their caller's thread, not setup's thread.
+for thread_status in ('false', 'nil', 'error', 'nonboolean'):
+    z,mod=fresh();z.execute('game();T.contextReads=0')
+    z.globals().THREAD_STATUS=thread_status
+    z.execute("""
+    if THREAD_STATUS=='nil' then IsInGameThread=nil
+    else IsInGameThread=function()
+      if THREAD_STATUS=='error' then error('thread unknown') end
+      if THREAD_STATUS=='nonboolean' then return 'game' end
+      return false
+    end end
+    T.mode='worker'
+    T.registered[1].post({get=function()T.contextReads=T.contextReads+1;return ability(true)end})
+    T.mode='test'
+    """)
+    check(z.globals().T.contextReads==0 and mod.status()['hits']==0 and mod.status()['seq']==0,
+          'unverified native callback thread is rejected before parameter access '+thread_status)
 
 result={'checks':len(checks),'passed':checks,'scope':'Lua runtime with UE4SS and file-I/O stubs; no game, hooks, or audio were executed.'}
 (Path(__file__).parent/'results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf8')

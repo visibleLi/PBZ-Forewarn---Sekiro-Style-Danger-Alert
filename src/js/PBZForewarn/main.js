@@ -10,7 +10,9 @@ const { createAudioEnvironmentProbe } = require("./audio-environment");
 const { createTargetFilter } = require("./target-filter");
 const { createDiagnosticStore } = require("./diagnostic-store");
 const { createCastFollowup } = require("./cast-followup");
-const VERSION = "0.7.0";
+const { createGrabReactionReader } = require("./grab-reaction");
+const { createGrabWarningCycle } = require("./grab-warning-cycle");
+const VERSION = "0.8.0-dev.5";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
     Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, SemanticFallback: true, GenericAttack: false,
@@ -88,6 +90,7 @@ function start() {
         actors: [], hintedActors: new Map(), records: new Map(), lastDiscovery: 0, lastScan: 0, lastReport: 0,
         worldKey: "", nextRecord: 0, hooksSession: "", hooksSeq: 0, hooksAlive: false, hookHealth: null, lastHookRead: 0,
         paused: true, stats: { cues: 0, fallbackCues: 0, castCues: 0, followupSuppressed: 0, cancels: 0, duplicateCancelsSuppressed: 0, missed: 0, conditionsNotMet: 0,
+            bulletCues: 0, grabFollowupsDiscarded: 0,
             previewOnlySkipped: 0, recognized: 0, tasks: 0, hooks: 0, errors: 0 },
         lastTickWall: 0, maxTickGap: 0, lastLongTick: 0, gameNow: 0, naturalCompletions: new Set(),
         lastObservationFlush: 0, lastObservationSeq: -1,
@@ -102,8 +105,12 @@ function start() {
             lastChars: 0, maxWriteMs: 0, maxSerializeMs: 0, maxObservationWriteMs: 0, maxObservationSerializeMs: 0 } };
     s.diagnostics = createDiagnosticStore({ now: () => Date.now() });
     s.castFollowup = createCastFollowup();
+    s.grabCycle = createGrabWarningCycle({ now: () => Date.now() });
+    s.pendingGrabDelivery = new Map();
     s.pendingCastDelivery = new Map();
     function acceptCastDelivery(id) {
+        const grab = s.pendingGrabDelivery.get(id);
+        if (grab) { s.grabCycle.recordDelivery(grab, id); s.pendingGrabDelivery.delete(id); }
         const pending = s.pendingCastDelivery.get(id);
         if (!pending) return;
         s.castFollowup.recordCue(pending, id); s.pendingCastDelivery.delete(id);
@@ -127,6 +134,7 @@ function start() {
     }
     function resourceRelevant(item) {
         if (["red", "blue", "black"].includes(item.color) || item.effect || item.effectSource === "soft-unresolved") return true;
+        if (item.bulletSignalCandidates) return true;
         const semantics = item.attackSemantics;
         return !!semantics && (semantics.deflect.candidates.some(x => x.status === "read") ||
             Object.values(semantics.timing).some(x => x.status === "read") ||
@@ -139,7 +147,8 @@ function start() {
             start: item.start, end: item.end, roleName: item.roleName, recognition: item.recognition || null,
             requirements: evidence ? { requireTags: evidence.requireTags, ignoreTags: evidence.ignoreTags, tagQuery: evidence.tagQuery } : null,
             attackSemantics: item.attackSemantics || null, semanticFallback: item.semanticFallback || null,
-            castWarning: item.castWarning || null, reason: item.reason,
+            castWarning: item.castWarning || null, bulletWarning: item.bulletWarning || null,
+            bulletSignalCandidates: item.bulletSignalCandidates || null, reason: item.reason,
             detailLevel: item.requirementsEvidence || item.attackSemantics ? "full" : "compact" };
     }
     function compactEvent(data) {
@@ -158,6 +167,11 @@ function start() {
                 result.source = "semantic-fallback";
                 result.fallbackRule = data.meta.semanticFallback.ruleId;
                 result.timingBasis = data.meta.semanticFallback.timingBasis;
+            }
+            if (data.meta.bulletWarning) {
+                result.source = "bullet-preparation";
+                result.preparationKind = data.meta.bulletWarning.kind;
+                result.timingBasis = data.meta.bulletWarning.timingBasis;
             }
             if (data.meta.castWarning) {
                 result.source = "cast-warning";
@@ -188,6 +202,58 @@ function start() {
     const a = createAdapter(UE, puerts, (k, d) => diagnostic(k, d, k + JSON.stringify(d)),
         { semanticFallback: false, genericAttack: false });
     s.a = a;
+    const readGrabReaction = createGrabReactionReader(a);
+    s.executionCapabilities = new Map();
+    function capabilityKey(r) {
+        if (!r || !/^\d+$/.test(String(r.activation))) return "";
+        return [s.worldKey, s.clockEpoch, a.path(r.actor), a.path(r.ability), r.activation].join("|");
+    }
+    function rememberCapability(r, proof) {
+        const key = capabilityKey(r);
+        const event = r.events.find(event => event.meta.bulletWarning === proof);
+        const context = event && r.contexts && r.contexts.get(event.key);
+        const action = event && r.checks && r.checks.get(event.key);
+        if (!key || !proof || proof.kind !== "execution-capability" || !proof.executedAbilityPath ||
+            context && (context.roleName || context.reason) || a.activation(r.ability) !== String(r.activation) ||
+            !a.requirements(action, r.asc).eligible || !a.bulletWarningEligibility(action, proof, r.asc, proof).eligible) return;
+        let entry = s.executionCapabilities.get(key);
+        if (!entry) {
+            entry = { actor: r.actor, ability: r.ability, activation: String(r.activation), payloads: new Map() };
+            s.executionCapabilities.set(key, entry);
+            if (s.executionCapabilities.size > 128) s.executionCapabilities.delete(s.executionCapabilities.keys().next().value);
+        }
+        entry.payloads.set(proof.executedAbilityPath, { sourceTimeline: r.timelineKey, executedAbilityPath: proof.executedAbilityPath,
+            proof, action, asc: r.asc });
+    }
+    function grabCycleContext(r, live) {
+        const entry = s.executionCapabilities.get(capabilityKey(r));
+        return { ...followupContext(r, live), ended: r.ended || !a.valid(r.task) ||
+                a.safe(() => r.ability.bIsActive, null) === false || a.safe(() => r.ability.bIsAbilityEnding, null) === true,
+            payloads: entry ? [...entry.payloads.keys()] : [] };
+    }
+    function grabFollowupPolicy(r, event, reactions) {
+        if (s.settings.GenericAttack && !event.meta?.roleName &&
+            s.grabCycle.suppression(grabCycleContext(r, true), { eligible: true, color: event.color,
+                key: event.key, roleName: event.meta.roleName || "", kind: event.meta.bulletWarning?.kind,
+                executedAbilityPath: event.meta.bulletWarning?.executedAbilityPath, source: event.meta.recognition?.source }))
+            return { reason: "delivered-grab-preparation-cycle", associationBasis: "unique-observed-capability-handoff-not-engine-parent-id" };
+        if (!s.settings.GenericAttack || !reactions || reactions.status !== "active" ||
+            !event.meta || event.meta.roleName || event.meta.recognition?.source !== "power-attack-post-pair" ||
+            a.activation(r.ability) !== String(r.activation)) return null;
+        const key = capabilityKey(r), entry = s.executionCapabilities.get(key);
+        if (!entry) return null;
+        for (const reaction of reactions.executions) {
+            const payload = entry.payloads.get(reaction.abilityClass);
+            if (!payload) continue;
+            const matches = [...s.executionCapabilities.entries()].filter(([, item]) => item.payloads.has(reaction.abilityClass));
+            if (matches.length !== 1 || matches[0][0] !== key) continue;
+            return { reason: "matching-active-executed-grab", reactionAbility: reaction.ability,
+                reactionActivation: reaction.activation, sourceTimeline: payload.sourceTimeline,
+                executedAbilityPath: payload.executedAbilityPath,
+                associationBasis: "unique-live-capability-and-player-reaction-class-policy-not-proven-instigator" };
+        }
+        return null;
+    }
     function readText(file, required = false) {
         const out = puerts.$ref(""); const result = UE.EasyCsv.LoadStringFromLocalFile(file, out);
         if (required && result === false) throw Error("LoadStringFromLocalFile returned false");
@@ -213,13 +279,14 @@ function start() {
         s.settings = UE.BlueprintPathsLibrary.FileExists(configPath) ? parseJsonSettings(readText(configPath, true)) :
             parseSettings(readText(saved + "PBZForewarn.txt"));
     } catch (error) { configError = String(error); }
-    a.configureSemanticFallback(s.settings.SemanticFallback === true);
+    a.configureSemanticFallback(!s.settings.GenericAttack && s.settings.SemanticFallback === true);
     a.configureGenericAttack(s.settings.GenericAttack === true);
-    a.configureCastWarning(s.settings.YuZanCastWarning === true, s.settings.YuZanCastLeadMs / 1000);
+    a.configureCastWarning(!s.settings.GenericAttack && s.settings.YuZanCastWarning === true, s.settings.YuZanCastLeadMs / 1000);
     s.diagnostics = createDiagnosticStore({ enabled: s.settings.Diagnostics, now: () => Date.now() });
     if (configError) diagnostic("config-read-error", { path: configPath, error: configError, usingDefaults: true });
-    const reservedKeys = ["GenericAttack", "TickMs", "DiscoverMs", "ScanMs", "LateGraceMs", "MaxGlyphMs", "FontPath"];
-    const liveKeys = Object.keys(DEFAULTS).filter(key => !reservedKeys.includes(key));
+    const reservedKeys = ["TickMs", "DiscoverMs", "ScanMs", "LateGraceMs", "MaxGlyphMs", "FontPath"];
+    const legacyKeys = ["SemanticFallback", "YuZanCastWarning", "YuZanCastLeadMs"];
+    const liveKeys = Object.keys(DEFAULTS).filter(key => !reservedKeys.includes(key) && !legacyKeys.includes(key));
     const menuEventsPath = configPath.replace(/PBZForewarnHooks\/PBZForewarnHooks\.config\.json$/, "PBZModsMenuBridge/events-PBZForewarnHooks.txt");
     let lastSettingsCheck = -Infinity, lastSettingsChange = 0;
     s.menuSettings = { change: 0, restartRequired: [], outputs: {} };
@@ -386,8 +453,13 @@ function start() {
     configureObservation();
     function applyLiveSettings(changed) {
         s.scheduler.options.leadSeconds = s.settings.LeadMs / 1000;
-        a.configureSemanticFallback(s.settings.SemanticFallback === true);
-        a.configureCastWarning(s.settings.YuZanCastWarning === true, s.settings.YuZanCastLeadMs / 1000);
+        a.configureGenericAttack(s.settings.GenericAttack === true);
+        if (changed.includes("GenericAttack")) {
+            s.executionCapabilities.clear(); s.castFollowup.clear(); s.pendingCastDelivery.clear();
+            s.grabCycle.clear(); s.pendingGrabDelivery.clear();
+        }
+        a.configureSemanticFallback(!s.settings.GenericAttack && s.settings.SemanticFallback === true);
+        a.configureCastWarning(!s.settings.GenericAttack && s.settings.YuZanCastWarning === true, s.settings.YuZanCastLeadMs / 1000);
         s.diagnostics.setEnabled(s.settings.Diagnostics);
         configureObservation();
         // Recompile with stable event keys; the scheduler retains fired/past tombstones.
@@ -397,7 +469,8 @@ function start() {
                 const event = r.events.find(e => e.key === key);
                 if (event && (!s.settings.BlackOn && event.color === "black" ||
                     !s.settings.SemanticFallback && event.meta.semanticFallback ||
-                    !s.settings.YuZanCastWarning && event.meta.castWarning))
+                    !s.settings.YuZanCastWarning && event.meta.castWarning ||
+                    changed.includes("GenericAttack") && (event.meta.bulletWarning || event.meta.castWarning || event.meta.semanticFallback)))
                     emit("cancel", { id, taskKey: r.key, eventKey: key, reason: "settings-disabled" });
             }
         }
@@ -416,9 +489,11 @@ function start() {
     function inputKey(name) { return a.safe(() => { const key = new UE.Key(); key.KeyName = name; return key; }, null); }
     const previewKey = inputKey("F9"), previewAltKeys = [inputKey("LeftAlt"), inputKey("RightAlt")];
     function emit(kind, event) {
-        if (kind === "reset") { s.castFollowup.clear(); s.pendingCastDelivery.clear(); }
+        if (kind === "reset") { s.castFollowup.clear(); s.pendingCastDelivery.clear(); s.executionCapabilities.clear();
+            s.grabCycle.clear(); s.pendingGrabDelivery.clear(); }
         if (kind === "cancel" && event && event.id) {
             s.castFollowup.withdrawCue(event.id); s.pendingCastDelivery.delete(event.id);
+            s.grabCycle.withdrawCue(event.id); s.pendingGrabDelivery.delete(event.id);
         }
         if (kind === "cancel" && event && event.id) {
             if (s.cancelledIds.has(event.id)) { s.stats.duplicateCancelsSuppressed++; return; }
@@ -437,6 +512,7 @@ function start() {
             const role = event.meta && event.meta.roleName;
             const semanticFallback = event.meta && event.meta.semanticFallback;
             const castWarning = event.meta && event.meta.castWarning;
+            const bulletWarning = event.meta && event.meta.bulletWarning;
             observe("warning-cue", { ...taskObservationContext(s.records.get(event.taskKey)), id: event.id, actor: role ? null : event.meta && event.meta.actor,
                 ability: role ? null : event.meta && event.meta.ability, activation: role ? null : event.activation,
                 ownerActorCandidate: event.meta && event.meta.actor, roleActorCandidate: event.meta && event.meta.roleActor,
@@ -444,10 +520,10 @@ function start() {
                 action: event.meta && event.meta.action, eventKey: event.eventKey,
                 color: event.color, plannedStart: event.start, observedTimelineTime: event.observedTime,
                 observedRate: event.observedRate, estimatedLeadGameSeconds: event.actualLeadGameSeconds,
-                soundSubmitted: false, source: castWarning ? "cast-warning" : semanticFallback ? "semantic-fallback" : "existing-0.5-scheduler",
+                soundSubmitted: false, source: bulletWarning ? "bullet-preparation" : castWarning ? "cast-warning" : semanticFallback ? "semantic-fallback" : "existing-0.5-scheduler",
                 castRule: castWarning ? castWarning.ruleId : null, spellPhase: castWarning ? "cast" : null,
                 fallbackRule: semanticFallback ? semanticFallback.ruleId : null,
-                timingBasis: castWarning ? castWarning.timingBasis :
+                timingBasis: bulletWarning ? bulletWarning.timingBasis : castWarning ? castWarning.timingBasis :
                     semanticFallback ? semanticFallback.timingBasis : "original-warning-node",
                 executionVerified: false, usedForScheduling: true });
             if (s.settings.Diagnostics && event.meta) {
@@ -457,6 +533,10 @@ function start() {
             }
             const r = s.records.get(event.taskKey);
             if (r) {
+                if (s.settings.GenericAttack && bulletWarning?.kind === "execution-capability" && !role &&
+                    (s.settings.GlyphOn || s.settings.SoundOn))
+                    s.pendingGrabDelivery.set(event.id, { ...grabCycleContext(r, true), eventKey: event.eventKey,
+                        payloads: [bulletWarning.executedAbilityPath] });
                 if (castWarning && s.settings.YuZanCastWarning && (s.settings.GlyphOn || s.settings.SoundOn))
                     s.pendingCastDelivery.set(event.id, followupContext(r, true));
                 r.audioIds.add(event.id); if (event.eventKey) r.audioByEvent.set(event.eventKey, event.id);
@@ -465,6 +545,7 @@ function start() {
             s.stats.cues++; diagnostic("CUE", { seq: entry.seq, ...compactEvent(event) });
             if (event.meta && event.meta.semanticFallback) s.stats.fallbackCues++;
             if (castWarning) s.stats.castCues++;
+            if (bulletWarning) s.stats.bulletCues++;
         }
         if (kind === "cancel") {
             observe("warning-withdrawal", { ...taskObservationContext(s.records.get(event.taskKey)), id: event.id, reason: event.reason,
@@ -485,6 +566,15 @@ function start() {
             emit("cancel", e);
         },
         onDiagnostic: (kind, data) => {
+            if (kind === "suppressed") {
+                s.stats.grabFollowupsDiscarded++;
+                const info = { ...taskObservationContext(s.records.get(data.taskKey)),
+                    eventKey: data.eventKey, color: data.meta && data.meta.color,
+                    reason: data.meta && data.meta.grabSuppression && data.meta.grabSuppression.reason,
+                    policy: data.meta && data.meta.grabSuppression, source: "grab-reaction-policy",
+                    usedForScheduling: false };
+                diagnostic("followup-discarded", info); observe("warning-suppressed", info);
+            }
             if (kind === "missed") {
                 const missed = {
                     ...taskObservationContext(s.records.get(data.taskKey)), eventKey: data.eventKey,
@@ -598,6 +688,7 @@ function start() {
         record.naturalAudioIds.clear();
     }
     function clearRecords(reason = "context-reset") {
+        s.grabCycle.clear(); s.pendingGrabDelivery.clear();
         s.castFollowup.clear();
         s.pendingCastDelivery.clear();
         for (const r of s.records.values()) { observeTask(r, "observation-boundary", { reason, dangerEndedVerified: false }); detach(r); }
@@ -748,6 +839,9 @@ function start() {
         s.castFollowup.update([...s.records.values()].map(r => followupContext(r,
             r.present && !r.ended && a.valid(r.task) && a.valid(r.ability) &&
             a.safe(() => r.ability.bIsActive, false) && !a.safe(() => r.ability.bIsAbilityEnding, true))));
+        if (s.settings.GenericAttack) s.grabCycle.update([...s.records.values()].map(r => grabCycleContext(r,
+            r.present && !r.ended && a.valid(r.task) && a.valid(r.ability) &&
+            a.safe(() => r.ability.bIsActive, false) === true && !a.safe(() => r.ability.bIsAbilityEnding, true))));
         for (const [key, r] of s.records) {
             if (!r.present && r.witnessed) diagnostic("native-task-stalled", { task: a.path(r.task) }, "stalled:" + r.key);
             // A temporarily unreadable/out-of-range live task keeps its history.
@@ -763,16 +857,22 @@ function start() {
     }
     function compile(r, now) {
         const context = { actor: a.path(r.actor), ability: a.path(r.ability), task: a.path(r.task), timeline: r.timelineKey, activation: r.activation };
-        const template = templateKey(r), capture = s.settings.Diagnostics && !s.catalogedTemplates.has(template);
+        const template = templateKey(r), retryReady = !r.bulletCandidateRetryAt || now >= r.bulletCandidateRetryAt;
+        const capture = s.settings.Diagnostics && !s.catalogedTemplates.has(template) && retryReady && (r.bulletCandidateRetries || 0) < 5;
         const result = a.events(r.timeline, classifyEffect, r.asc, context, r.task, { captureDiagnostics: capture });
         if (capture) {
-            if (!result.inventory.some(item => item.effectSource === "soft-unresolved")) s.catalogedTemplates.add(template);
+            if (result.candidateScanUnresolved) {
+                // Diagnostics are bounded per task; never turn missing evidence into a cue or a complete template.
+                r.bulletCandidateRetries = (r.bulletCandidateRetries || 0) + 1;
+                r.bulletCandidateRetryAt = now + 2000;
+            } else if (!result.inventory.some(item => item.effectSource === "soft-unresolved")) s.catalogedTemplates.add(template);
             if (s.catalogedTemplates.size > 512) s.catalogedTemplates.delete(s.catalogedTemplates.values().next().value);
         }
         r.events = result.events.filter(e => s.settings.BlackOn || e.color !== "black");
         r.checks = result.checks; r.contexts = result.contexts; r.lastCompile = now;
         for (const event of r.events) {
             event.meta.resourceId = resourceId(event.meta);
+            if (s.settings.GenericAttack) rememberCapability(r, event.meta.bulletWarning);
             if (s.settings.Diagnostics && !s.diagnostics.hasCatalog(event.meta.resourceId))
                 s.diagnostics.catalog(resourceDetail(event.meta), event.meta.resourceId, 1);
             event.meta.previewOnly = a.safe(() => {
@@ -989,7 +1089,7 @@ function start() {
             }
             if (paused !== s.paused) diagnostic("state", { paused });
             s.paused = paused;
-            if (paused) s.castFollowup.clear();
+            if (paused) { s.castFollowup.clear(); s.executionCapabilities.clear(); s.grabCycle.clear(); s.pendingGrabDelivery.clear(); }
             const targetStatus = s.targetFilter.read(player, s.settings.OnlyLockedTarget);
             if (s.settings.OnlyLockedTarget && s.targetStatus && targetStatus.key !== s.targetStatus.key) emit("reset", { reason: "lock-target-change" });
             s.targetStatus = targetStatus;
@@ -998,7 +1098,7 @@ function start() {
             s.gameNow = gameNow;
             const rewind = s.observedGameTime !== null && gameNow < s.observedGameTime - 0.001;
             if (!s.observationContext || s.observationContext.worldKey !== wk || rewind) {
-                s.castFollowup.clear();
+                s.castFollowup.clear(); s.executionCapabilities.clear(); s.grabCycle.clear(); s.pendingGrabDelivery.clear();
                 s.clockEpoch++;
                 for (const record of s.records.values()) record.observedPlans = null;
                 observe("observer-reset", { previousWorldKey: s.observationContext && s.observationContext.worldKey,
@@ -1020,6 +1120,32 @@ function start() {
             if (!paused) {
                 hookHints(wall, player);
                 if (wall - s.lastDiscovery >= s.settings.DiscoverMs) discover(world, player, wall);
+                for (const [key, item] of s.executionCapabilities) {
+                    if (!s.settings.GenericAttack || !a.valid(item.actor) || !a.valid(item.ability) ||
+                        a.safe(() => item.ability.bIsActive, false) !== true ||
+                        a.safe(() => item.ability.bIsAbilityEnding, true) !== false || a.activation(item.ability) !== item.activation)
+                        s.executionCapabilities.delete(key);
+                    else {
+                        for (const [path, payload] of item.payloads) {
+                            if (!a.requirements(payload.action, payload.asc).eligible ||
+                                !a.bulletWarningEligibility(payload.action, payload.proof, payload.asc, payload.proof).eligible)
+                                item.payloads.delete(path);
+                        }
+                        if (!item.payloads.size) s.executionCapabilities.delete(key);
+                    }
+                }
+                const reactions = s.settings.GenericAttack ? readGrabReaction.read(player, playerASC) : null;
+                // Populate capabilities before comparing attackers, independent of record iteration order.
+                if (s.settings.GenericAttack) for (const r of s.records.values()) {
+                    if (!r.ended && r.present && a.valid(r.ability) && a.safe(() => r.ability.bIsActive, false) === true &&
+                        !a.safe(() => r.ability.bIsAbilityEnding, true) && eligibleActor(r.actor, player)) {
+                        if (wall - r.lastCompile >= 200) compile(r, wall);
+                        for (const event of r.events) rememberCapability(r, event.meta && event.meta.bulletWarning);
+                    }
+                }
+                if (s.settings.GenericAttack) s.grabCycle.update([...s.records.values()].map(r => grabCycleContext(r,
+                    r.present && !r.ended && a.valid(r.task) && a.valid(r.ability) &&
+                    a.safe(() => r.ability.bIsActive, false) === true && !a.safe(() => r.ability.bIsAbilityEnding, true))));
                 for (const r of s.records.values()) {
                     try {
                         if (r.ended || !a.valid(r.task) || !a.valid(r.ability) ||
@@ -1053,6 +1179,8 @@ function start() {
                             const castCheck = event.meta && event.meta.castWarning ? a.castWarningEligibility(r.checks.get(event.key), {
                                 actor: a.path(executionActor), ability: a.path(r.ability),
                                 timeline: a.path(a.safe(() => r.task.Timeline, null)) }) : null;
+                            const bulletCheck = event.meta && event.meta.bulletWarning ? a.bulletWarningEligibility(
+                                r.checks.get(event.key), event.meta, context ? context.asc : r.asc, event.meta.bulletWarning) : null;
                             const check = context && context.reason ? { eligible: false, reason: context.reason } :
                                 !targetAllowed ? { eligible: false, reason: "not-locked-target" } :
                                 !blackAllowed ? { eligible: false, reason: "black-not-confirmed-hostile" } :
@@ -1060,8 +1188,12 @@ function start() {
                                 { eligible: false, reason: "role-not-eligible" } :
                                 semanticType && !semanticType.eligible ? semanticType :
                                 castCheck && !castCheck.eligible ? castCheck :
+                                bulletCheck && !bulletCheck.eligible ? bulletCheck :
                                 a.requirements(r.checks.get(event.key), context ? context.asc : r.asc);
                             const audioId = r.audioByEvent.get(event.key);
+                            const grabSuppression = check.eligible ? grabFollowupPolicy(r, event, reactions) : null;
+                            if (grabSuppression && audioId) emit("cancel", { id: audioId, taskKey: r.key,
+                                eventKey: event.key, reason: grabSuppression.reason });
                             if (audioId && check.eligible && current >= event.end) r.naturalAudioIds.add(audioId);
                             if (!check.eligible) {
                                 if (audioId && (current < event.end || (event.start === event.end && current <= event.start)))
@@ -1080,9 +1212,10 @@ function start() {
                                     "eligibility:" + r.serial + ":" + event.key + ":" + check.reason);
                                 }
                             }
-                            return { ...event, eligible: check.eligible };
+                            return { ...event, eligible: check.eligible, suppressed: !!grabSuppression,
+                                ...(grabSuppression ? { meta: { ...event.meta, grabSuppression } } : {}) };
                         }).filter(event => {
-                            const suppression = s.settings.YuZanCastWarning &&
+                            const suppression = !s.settings.GenericAttack && s.settings.YuZanCastWarning &&
                                 s.castFollowup.suppression({ ...followupContext(r, true),
                                     timeline: a.path(a.safe(() => r.task.Timeline, null)) }, event);
                             if (!suppression) return true;
@@ -1139,6 +1272,8 @@ function start() {
             // A failed tick must not leave an old request waiting to be credited
             // by an unrelated later output. Audio acknowledgements are synchronous.
             s.pendingCastDelivery.clear();
+            const activeOutputIds = new Set(result.active.map(event => event.id));
+            for (const id of s.pendingGrabDelivery.keys()) if (!activeOutputIds.has(id)) s.pendingGrabDelivery.delete(id);
             if (!paused) {
                 try { profileObservation("timeline-sample", () => sampleTimelineObservations(wall)); }
                 catch (error) { observe("timeline-observer-status", { status: "sampling-failed", error: String(error) }); }
@@ -1146,6 +1281,7 @@ function start() {
             flush(false);
         } catch (e) {
             s.stats.errors++; s.paused = true;
+            s.grabCycle.clear(); s.pendingGrabDelivery.clear(); s.executionCapabilities.clear();
             diagnostic("runtime-error", { error: String(e) }, "runtime-error");
             s.scheduler.step({ now: s.gameNow, wall, paused: true, worldKey: s.worldKey, tasks: [] });
             s.audioEvents.length = 0;

@@ -116,6 +116,8 @@ function fixture(config, startup = {}) {
         './presentation': presentation, './wwise-audio': nativeAudio, './wwise-bank-config': require('../PBZForewarn/wwise-bank-config'), './target-filter': targetFilter,
         './diagnostic-store': require('../PBZForewarn/diagnostic-store'),
         './cast-followup': require('../PBZForewarn/cast-followup'),
+        './grab-reaction': require('../PBZForewarn/grab-reaction'),
+        './grab-warning-cycle': require('../PBZForewarn/grab-warning-cycle'),
         './observation-store': startup.badStore ? {createObservationStore(){throw Error('optional store failed');}} : require('../PBZForewarn/observation-store'),
         './native-attack-observer': require('../PBZForewarn/native-attack-observer'),
         './timeline-observation': require('../PBZForewarn/timeline-observation'),
@@ -282,9 +284,12 @@ test('Menu save updates editable controls without restarting the runtime or rese
     e.tick(0.2);
     assert.strictEqual(e.settings, settings); assert.equal(settings.SoundOn, false); assert.equal(settings.SoundVolume, 0.25);
     assert.equal(settings.GlyphOn, false); assert.equal(settings.LeadMs, 900); assert.equal(settings.Hooks, false);
-    assert.equal(settings.SemanticFallback, false); assert.deepEqual([...e.timers.keys()], timers);
+    assert.equal(settings.SemanticFallback, true); assert.deepEqual([...e.timers.keys()], timers);
     assert.equal(e.cues().length, 1); e.tick(0.81); assert.equal(e.cues().length, 1);
-    assert(e.logs.some(x => x.includes('config-saved') && x.includes('LeadMs') && x.includes('SemanticFallback')));
+    const savedEntry=e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] config-saved '));
+    const savedConfig=JSON.parse(savedEntry.slice(savedEntry.indexOf('{')));
+    assert.equal(savedConfig.saved.LeadMs,900);assert(!savedConfig.changed.includes('SemanticFallback'));
+    assert(!Object.hasOwn(savedConfig.saved,'SemanticFallback'));
     assert(e.logs.some(x => x.includes('config-output-update') && x.includes('outputVerified')));
     assert.deepEqual(e.configReads, [e.configPath,e.configPath]); e.mod.stop(); assert.deepEqual(e.configWrites, []);
 });
@@ -292,7 +297,7 @@ test('reserved controls remain startup values even when a Menu notice contains m
     const e=fixture(undefined,{json:'{}'}); e.menuSave({TickMs:100,DiscoverMs:250,ScanMs:1000,LateGraceMs:250,
         MaxGlyphMs:3000,GenericAttack:true,FontPath:'/Other',LeadMs:150}); e.tick(0.2);
     assert.equal(e.settings.TickMs,16); assert.equal(e.settings.DiscoverMs,50); assert.equal(e.settings.ScanMs,250);
-    assert.equal(e.settings.LateGraceMs,80); assert.equal(e.settings.MaxGlyphMs,1200); assert.equal(e.settings.GenericAttack,false);
+    assert.equal(e.settings.LateGraceMs,80); assert.equal(e.settings.MaxGlyphMs,1200); assert.equal(e.settings.GenericAttack,true);
     assert.equal(e.settings.LeadMs,150); e.mod.stop();
 });
 test('live lead changes preserve fired identities while moving only pending cue times', () => {
@@ -356,18 +361,18 @@ test('live observation flush interval changes the next due write without resetti
     const after=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
     assert.equal(after.flush.observationWrites,3); e.mod.stop();
 });
-test('live semantic rule disable cancels its cue while reenable preserves its consumed identity', () => {
-    const e=qishuRuntime(); e.tick(0.7); assert.equal(e.cues().length,1);
-    e.menuSave({SemanticFallback:false}); e.tick(0.8,500);
-    assert(e.cancels().some(x=>x.reason==='settings-disabled'));
-    e.menuSave({SemanticFallback:true},2); e.tick(0.9,500); assert.equal(e.cues().length,1); e.mod.stop();
+test('removed boss Menu keys keep their startup compatibility values without config rewriting', () => {
+    const e=qishuRuntime();e.tick(0.7);assert.equal(e.cues().length,1);
+    e.menuSave({SemanticFallback:false});const json=e.files.get(e.configPath);e.tick(0.8,500);
+    assert.equal(e.settings.SemanticFallback,true);assert(!e.cancels().some(x=>x.reason==='settings-disabled'));
+    assert.equal(e.files.get(e.configPath),json);e.mod.stop();
 });
-test('live cast lead and rule controls recompile pending casts and retain their cue history', () => {
-    const e=yuzanCastRuntime('YuZanCastLeadMs=0'); e.tick(0); assert.equal(e.cues().length,0);
-    e.menuSave({YuZanCastLeadMs:500}); e.tick(0.5,500); assert.equal(e.cues().length,1);
-    e.menuSave({YuZanCastWarning:false},2); e.tick(0.6,500);
-    assert(e.cancels().some(x=>x.reason==='settings-disabled'));
-    e.menuSave({YuZanCastWarning:true},3); e.tick(0.65,500); assert.equal(e.cues().length,1); e.mod.stop();
+test('removed cast Menu keys cannot change the startup compatibility lead or rule', () => {
+    const e=yuzanCastRuntime('YuZanCastLeadMs=0');e.tick(0);
+    e.menuSave({YuZanCastLeadMs:500,YuZanCastWarning:false});e.tick(0.5,500);
+    assert.equal(e.cues().length,0);assert.equal(e.settings.YuZanCastLeadMs,0);
+    assert.equal(e.settings.YuZanCastWarning,true);e.tick(0.7387645244598389,16);
+    assert.equal(e.cues().length,1);e.mod.stop();
 });
 test('Menu notice checks are bounded and unchanged notices never reread JSON', () => {
     const e = fixture(undefined, { json:'{}' }); e.menuSave({SoundOn:false}, 5); e.tick(0.1);
@@ -1361,5 +1366,294 @@ test('cast cue limits suppress only the current chain',()=>{
         const stages=followupStages(e);stages.mainNow();stages.successNow();e.mod.stop();
         assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.followupSuppressed,0);
     }
+});
+function diagnosticBullet(e, directWarning = false) {
+    const effectClass = {_path:'/SGameCombatSystem/Bullet/Event/BP_BulletEvent_Effect.BP_BulletEvent_Effect_C'};
+    const effect = {_path:'/PBZVFXPack/VFX/BattleFX/Common/NS_AttackAlert_Red_001.NS_AttackAlert_Red_001'};
+    const event = {_path:'/Candidate/Bullet.Event',GetClass:()=>effectClass,Niagara:effect};
+    const bullet = {_path:'/Candidate/Bullet',InitializeEvents:{Events:array([])},
+        StartEvents:{Events:array([event])},PreAttackEvents:{Events:array([])}};
+    if (!directWarning) e.first.action.NiagaraEffect = null;
+    e.first.action['Bullet Data'] = bullet;
+    return {bullet,event};
+}
+function candidateCatalog(e) {
+    const body=e.files.get(e.saved+'pbzforewarn_resources.json');
+    return body ? JSON.parse(body).entries.map(x=>x.data).filter(x=>x.bulletSignalCandidates) : [];
+}
+test('nested standard bullet warning is recorded as a candidate without cue or glyph promotion',()=>{
+    const e=fixture();diagnosticBullet(e);e.tick(0.7);e.tick(1.05,350);e.mod.stop();
+    const entries=candidateCatalog(e);assert.equal(entries.length,1);
+    const probe=entries[0].bulletSignalCandidates;
+    assert.equal(probe.usedForScheduling,false);assert.equal(probe.candidates.length,1);
+    assert.equal(probe.candidates[0].kind,'standard-warning-resource');
+    assert.equal(probe.candidates[0].color,'red');assert.equal(probe.candidates[0].timing.coordinateConfirmed,false);
+    assert.equal(e.cues().length,0);assert(e.hud.every(x=>x.active.length===0));
+});
+test('candidate diagnostics never add a second ordinary cue and preserve cancellation',()=>{
+    const e=fixture();diagnosticBullet(e,true);e.tick(0.7);assert.equal(e.cues().length,1);
+    e.first.task.OnCancelled.Fire();e.tick(0.72);e.mod.stop();
+    assert.equal(e.cues().length,1);assert.equal(e.cancels().length,1);
+    assert.equal(candidateCatalog(e)[0].bulletSignalCandidates.usedForScheduling,false);
+});
+test('Diagnostics disabled never reads candidate bullet fields',()=>{
+    const e=fixture('Diagnostics=0\nSemanticFallback=0');let reads=0;
+    Object.defineProperty(e.first.action,'BulletData',{get(){reads++;throw Error('must not inspect');}});
+    Object.defineProperty(e.first.action,'Bullet Data',{get(){reads++;throw Error('must not inspect');}});
+    e.tick(0.7);e.tick(0.72,250);e.mod.stop();assert.equal(reads,0);assert.equal(e.cues().length,1);
+    assert(!e.files.has(e.saved+'pbzforewarn_resources.json'));
+});
+test('transient unresolved bullet evidence retries without freezing the resource template',()=>{
+    const e=fixture();const {bullet}=diagnosticBullet(e);
+    e.first.action['Bullet Data']={softPath:'/Candidate/NotLoaded'};
+    e.tick(0.7);e.first.action['Bullet Data']=bullet;e.tick(0.72,2100);e.mod.stop();
+    const entries=candidateCatalog(e);assert.equal(entries.length,1);
+    assert.equal(entries[0].bulletSignalCandidates.unresolved,false);
+    assert.equal(entries[0].bulletSignalCandidates.candidates[0].kind,'standard-warning-resource');
+    assert.equal(e.cues().length,0);
+});
+test('unresolved candidate scans are spaced and capped without disabling ordinary cues',()=>{
+    const e=fixture();let reads=0;
+    Object.defineProperty(e.first.action,'BulletData',{get(){reads++;return {softPath:'/Candidate/Unresolved'};}});
+    e.tick(0.7);const first=reads;assert(first>0);
+    for(let i=0;i<6;i++)e.tick(0.71,250);assert.equal(reads,first);
+    for(let i=0;i<8;i++)e.tick(0.72,2100);const capped=reads;
+    e.tick(0.73,2100);assert.equal(reads,capped);assert.equal(reads,first*5);
+    e.mod.stop();assert.equal(e.cues().length,1);
+    assert.equal(candidateCatalog(e)[0].bulletSignalCandidates.unresolved,true);
+});
+
+test('capture predicate survives bounded resource catalog serialization without hidden truncation',()=>{
+    const e=fixture();e.first.action.NiagaraEffect=null;
+    const grab={_path:'/SGameExecution/GA/GA_ExecutedAbilityBase_Grab.GA_ExecutedAbilityBase_Grab_C'};
+    const reaction={_path:'/Generic/Reaction.Reaction_C',GetSuperClass:()=>grab};
+    const capture={_path:'/Generic/Bullet.Capture',GetClass:()=>({_path:'/SGameExecution/Bullet/Events/BP_BulletEvent_PlayExecution.BP_BulletEvent_PlayExecution_C'}),
+        'Executed Ability':reaction};
+    const filter={_path:'/Generic/Bullet.Filter',GetClass:()=>({_path:'/Script/SGameCombatSystem.BulletEvent_FilterEventActor'}),
+        TagRequirement:{RequireTags:array([{TagName:'State.Required.ForCapture'}]),
+            TagQuery:{QueryTokenStream:array([0,1,2])}},SubEvents:array([capture])};
+    e.first.action.BulletData={_path:'/Generic/Bullet',InitializeEvents:{Events:array([])},
+        StartEvents:{Events:array([])},PreAttackEvents:{Events:array([filter])}};
+    e.tick(0.7);e.mod.stop();const entries=candidateCatalog(e);assert.equal(entries.length,1);
+    const evidence=entries[0].bulletSignalCandidates;
+    assert.equal(evidence.unresolved,false);assert.equal(evidence.candidates[0].kind,'execution-capability');
+    const predicate=JSON.stringify(evidence.candidates[0].route[0].conditions);
+    assert(predicate.includes('State.Required.ForCapture'),'persisted required capture tag');
+    assert(predicate.includes('QueryTokenStream'),'persisted query token coordinates');
+    const persisted=evidence.candidates[0].route[0].conditions.TagRequirement;
+    assert.equal(persisted['/RequireTags/0/TagName'],'State.Required.ForCapture');
+    assert.equal(persisted['/TagQuery/QueryTokenStream/0'],0);
+    assert.equal(persisted['/TagQuery/QueryTokenStream/2'],2);
+    assert(!predicate.includes('[depth-limit]'),'candidate predicate must not silently exceed catalog depth');
+    assert.equal(e.cues().length,0);
+});
+
+function preparationRuntime(kind='standard') {
+    const e=fixture('GenericAttack=1\nHooks=0\nObserveAttacks=0');
+    if(kind==='standard') {
+        diagnosticBullet(e);
+        e.first.action.GetClass=()=>({_path:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
+    } else {
+        const grab={_path:'/SGameExecution/GA/GA_ExecutedAbilityBase_Grab.GA_ExecutedAbilityBase_Grab_C'};
+        const reactionClass={_path:'/Renamed/Reaction.Reaction_C',GetSuperClass:()=>grab};
+        const execution={_path:'/Renamed/Execution',GetClass:()=>({_path:'/SGameExecution/Bullet/Events/BP_BulletEvent_PlayExecution.BP_BulletEvent_PlayExecution_C'}),
+            'Executed Ability':reactionClass};
+        e.first.action.NiagaraEffect=null;
+        e.first.action.GetClass=()=>({_path:'/Script/PBZCombatAsset.LGAAction_DurationBulletWithDeflect'});
+        e.first.action.DeflectBulletType=0;
+        e.first.action.BulletData={_path:'/Renamed/Bullet',PreAttackEvents:{Events:array([execution])}};
+        e.reactionClass=reactionClass;
+        e.setReaction=active=>{
+            const reaction={_path:'/Player/RenamedReaction',bIsActive:active,bIsAbilityEnding:false,
+                GetAvatarActorFromActorInfo:()=>e.player,GetClass:()=>reactionClass,GetActivationCount:()=>1};
+            e.player.AbilitySystemComponent.ActivatableAbilities.Items=array(active?
+                [{ActiveCount:1,NonReplicatedInstances:array([reaction]),ReplicatedInstances:array([])}]:[]);
+        };
+    }
+    return e;
+}
+function ordinaryFollowup(e, owner=e.owner, label='RenamedFollowup') {
+    const {BLACK_ACTION_CLASS}=require('../PBZForewarn/attack-recognition');
+    const t=e.addTask(owner,label,{start:1.55,duration:0.3,actionClass:BLACK_ACTION_CLASS,effectName:'NS_AttackAlert_Post_001'});
+    owner.ability.tasks=[t.task];owner.ability.ActiveTasks=array(owner.ability.tasks);
+    t.task.CurrentTime=1.3;return t;
+}
+test('generic preparation standard resource cues and cancels through the existing pipeline',()=>{
+    const e=preparationRuntime();e.tick(0.7);assert.equal(e.cues().length,1);
+    assert.equal(e.cues()[0].color,'red');assert(e.logs.some(x=>x.includes('bullet-preparation')));
+    e.first.task.OnCancelled.Fire();e.tick(0.72);assert.equal(e.cancels().length,1);e.mod.stop();
+});
+test('generic grab preparation is black and independent of enemy and ability names',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);assert.equal(e.cues().length,1);
+    assert.equal(e.cues()[0].color,'black');e.mod.stop();
+});
+test('generic reaction matching consumes a later ordinary black cue without release backfill',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);e.first.task.OnCompleted.Fire();
+    const t=ordinaryFollowup(e);e.setReaction(true);e.tick(undefined,250);
+    assert.equal(e.cues().length,1);e.setReaction(false);t.task.CurrentTime=1.35;e.tick(undefined,32);
+    assert.equal(e.cues().length,1);e.mod.stop();
+    const d=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
+    assert.equal(d.stats.grabFollowupsDiscarded,1);
+});
+test('a different enemy without matching capability keeps its independent black warning',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);e.setReaction(true);
+    ordinaryFollowup(e,e.addEnemy('Independent'),'independent');e.tick(undefined,250);
+    assert.equal(e.cues().length,2);e.mod.stop();
+});
+test('missing current player reaction preserves ordinary followup fallback',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);e.first.task.OnCompleted.Fire();
+    ordinaryFollowup(e);e.tick(undefined,250);assert.equal(e.cues().length,2);e.mod.stop();
+});
+test('generic preparation runs with diagnostics and hooks disabled',()=>{
+    const e=preparationRuntime();e.menuSave({GenericAttack:true,Diagnostics:false,Hooks:false,ObserveAttacks:false});
+    e.tick(0.7,600);assert.equal(e.cues().length,1);e.mod.stop();
+});
+test('replacement trial can be enabled live and disabling cancels without replay',()=>{
+    const e=fixture();diagnosticBullet(e);
+    e.first.action.GetClass=()=>({_path:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
+    e.tick(0.1);assert.equal(e.cues().length,0);e.menuSave({GenericAttack:true},1);e.tick(0.7,600);
+    assert.equal(e.cues().length,1);const id=e.cues()[0].id;
+    e.menuSave({GenericAttack:false},2);e.tick(0.72,600);assert(e.cancels().some(x=>x.id===id));
+    e.menuSave({GenericAttack:true},3);e.tick(0.73,600);assert.equal(e.cues().length,1);e.mod.stop();
+});
+test('generic source tag loss or selected bullet change prevents cue execution',()=>{
+    for(const mutate of [e=>e.first.action.ActivationRequirements.RequireTags=['Absent'],e=>e.first.action['Bullet Data']={_path:'/Other/Bullet'}]){
+        const e=preparationRuntime();e.tick(0.1);mutate(e);e.tick(0.7,16);
+        assert.equal(e.cues().length,0);e.mod.stop();
+    }
+});
+test('cached grab capability never reads requirements from an invalidated source action',()=>{
+    const e=preparationRuntime('grab');e.tick(0.1);let reads=0;
+    e.first.action.bValid=false;
+    Object.defineProperty(e.first.action,'ActivationRequirements',{get(){reads++;throw Error('invalid native action');}});
+    e.tick(0.2,16);assert.equal(reads,0);assert.equal(e.cues().length,0);e.mod.stop();
+});
+test('two possible source abilities with the same reaction class preserve both black warnings',()=>{
+    const e=preparationRuntime('grab');const other=e.addEnemy('Ambiguous');
+    const extra=e.addTask(other,'capability');extra.action.NiagaraEffect=null;
+    extra.action.GetClass=e.first.action.GetClass;extra.action.DeflectBulletType=0;extra.action.BulletData=e.first.action.BulletData;
+    extra.task.CurrentTime=0.7;e.tick(0.7);assert.equal(e.cues().length,2);
+    e.first.task.OnCompleted.Fire();extra.task.OnCompleted.Fire();e.setReaction(true);
+    ordinaryFollowup(e);ordinaryFollowup(e,other,'ambiguousfollow');e.tick(undefined,250);
+    assert.equal(e.cues().length,4);e.mod.stop();
+});
+test('a new source activation cannot inherit the previous grab capability',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);e.first.task.OnCompleted.Fire();
+    e.owner.ability.activation++;e.setReaction(true);ordinaryFollowup(e);e.tick(undefined,250);
+    assert.equal(e.cues().length,2);e.mod.stop();
+});
+test('reaction match cancels an already fired ordinary black tail exactly once',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);e.first.task.OnCompleted.Fire();
+    const t=ordinaryFollowup(e);e.tick(undefined,250);const id=e.cues()[1].id;
+    e.setReaction(true);t.task.CurrentTime=1.9;e.tick(undefined,32);e.tick(undefined,32);
+    assert.equal(e.cancels().filter(x=>x.id===id).length,1);e.mod.stop();
+});
+test('failed live source requirements cannot be restored from cached capability events',()=>{
+    for(const delta of [16,250]){
+        const e=preparationRuntime('grab');e.tick(0.1);
+        e.first.action.ActivationRequirements.RequireTags=['Missing.Source.Tag'];
+        e.setReaction(true);ordinaryFollowup(e);e.tick(undefined,delta);e.tick(undefined,250);
+        assert.equal(e.cues().length,1);e.mod.stop();
+    }
+});
+test('a stale record activation cannot authorize black suppression before rediscovery',()=>{
+    const e=preparationRuntime('grab');e.tick(0.1);e.owner.ability.activation++;
+    e.setReaction(true);ordinaryFollowup(e);e.tick(undefined,16);e.tick(undefined,250);
+    assert.equal(e.cues().length,1);e.mod.stop();
+});
+test('role-layer grab capability cannot suppress a timeline owner black warning',()=>{
+    const e=preparationRuntime('grab'), original=e.first.event;
+    const role=e.addEnemy('RoleActor');e.first.timeline.Actions=array([]);
+    e.first.timeline.RoleLayers=array([{RoleName:'OtherActor',Actions:array([original])}]);
+    e.first.task.GetRoleActor=()=>role.enemy;e.tick(0.1);e.first.task.OnCompleted.Fire();
+    ordinaryFollowup(e);e.setReaction(true);e.tick(undefined,250);
+    assert.equal(e.cues().length,1);e.mod.stop();
+});
+function continuationGrab(e) {
+    const ability={...e.owner.ability,_path:e.owner.enemy._path+'.RenamedContinuation_C_2',activation:2,bIsActive:true,bIsAbilityEnding:false,tasks:[]};
+    const owner={...e.owner,ability};const t=e.addTask(owner,'continuationgrab');
+    t.timeline._path=ability._path+'.Main';
+    t.action.NiagaraEffect=null;t.action.GetClass=e.first.action.GetClass;
+    t.action.DeflectBulletType=0;t.action.BulletData=e.first.action.BulletData;
+    ability.tasks=[t.task];ability.ActiveTasks=array(ability.tasks);
+    return {owner,t,activate(){e.owner.asc.ActivatableAbilities.Items=array([
+        {ActiveCount:1,NonReplicatedInstances:array([ability]),ReplicatedInstances:array([])}]);
+        t.task.CurrentTime=0.7;e.tick(undefined,250);}};
+}
+test('one delivered preparation consumes both generic continuation and ordinary Success without needing player grab state',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);assert.equal(e.cues().length,1);
+    e.first.task.CurrentTime=1.41;e.tick(undefined,32);e.first.task.OnCompleted.Fire();
+    e.owner.ability.bIsActive=false;
+    const next=continuationGrab(e);next.activate();assert.equal(e.cues().length,1);
+    next.t.task.OnCancelled.Fire();
+    const success=ordinaryFollowup(e,next.owner,'continuationsuccess');success.timeline._path=next.owner.ability._path+'.Success';e.tick(undefined,250);
+    assert.equal(e.cues().length,1);e.tick(undefined,250);assert.equal(e.cues().length,1);e.mod.stop();
+    const d=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
+    assert.equal(d.stats.grabFollowupsDiscarded,2);
+});
+test('a delivered grab cycle keeps Success silent after compact recompiles with diagnostics on or off',()=>{
+    // Real dev.4 Success was observed 513/555 ms before its extra cue, crossing
+    // the 200 ms compile boundary; the earlier test first saw it already due.
+    for(const diagnostics of [true,false]) {
+        const e=preparationRuntime('grab');
+        if(!diagnostics) { e.menuSave({GenericAttack:true,Diagnostics:false});e.tick(0,501); }
+        e.tick(0.7);assert.equal(e.cues().length,1);
+        e.first.task.CurrentTime=1.41;e.tick(undefined,32);e.first.task.OnCompleted.Fire();e.owner.ability.bIsActive=false;
+        const next=continuationGrab(e);next.activate();assert.equal(e.cues().length,1);
+        next.t.task.OnCancelled.Fire();
+        const success=ordinaryFollowup(e,next.owner,'delayed-success');success.timeline._path=next.owner.ability._path+'.Success';
+        success.task.CurrentTime=0.09;e.tick(undefined,250);
+        success.task.CurrentTime=0.4;e.tick(undefined,250);
+        success.task.CurrentTime=1.3;e.tick(undefined,263);
+        assert.equal(e.cues().length,1,'no delivered Success after recompile; Diagnostics='+diagnostics);
+        success.task.CurrentTime=1.4;e.tick(undefined,250);
+        assert.equal(e.cues().length,1,'suppressed Success cannot backfill');e.mod.stop();
+    }
+});
+test('a different continuation branch keeps its independent ordinary black cue',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);
+    e.first.task.CurrentTime=1.41;e.tick(undefined,32);e.first.task.OnCompleted.Fire();e.owner.ability.bIsActive=false;
+    const next=continuationGrab(e);next.activate();assert.equal(e.cues().length,1);
+    next.t.task.OnCancelled.Fire();ordinaryFollowup(e,next.owner,'independentbranch');e.tick(undefined,250);
+    assert.equal(e.cues().length,2);e.mod.stop();
+});
+test('an expired ended root cannot swallow a later matching-payload ability',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);
+    e.first.task.CurrentTime=1.41;e.tick(undefined,32);e.first.task.OnCompleted.Fire();e.owner.ability.bIsActive=false;
+    e.tick(undefined,250);e.tick(undefined,1200);
+    const next=continuationGrab(e);next.activate();assert.equal(e.cues().length,2);e.mod.stop();
+});
+test('a new root activation can warn after the previous grab chain',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);e.first.task.CurrentTime=1.41;e.tick(undefined,32);
+    e.first.task.OnCompleted.Fire();e.owner.ability.bIsActive=false;
+    const next=continuationGrab(e);next.activate();next.owner.ability.bIsActive=false;
+    e.owner.ability.bIsActive=true;e.owner.ability.activation++;
+    e.owner.ability.tasks=[e.first.task];e.owner.ability.ActiveTasks=array([e.first.task]);
+    e.owner.asc.ActivatableAbilities.Items=array([{ActiveCount:1,NonReplicatedInstances:array([e.owner.ability]),ReplicatedInstances:array([])}]);
+    e.tick(0,250);e.tick(0.7,250);assert.equal(e.cues().length,2);e.mod.stop();
+});
+test('a failed first delivery cannot swallow the continuation fallback',()=>{
+    const e=preparationRuntime('grab');e.failUI=true;e.tick(0.7);assert.equal(e.cues().length,1);
+    e.first.task.CurrentTime=1.41;e.tick(undefined,32);e.first.task.OnCompleted.Fire();e.owner.ability.bIsActive=false;
+    e.failUI=false;const next=continuationGrab(e);next.activate();assert.equal(e.cues().length,2);e.mod.stop();
+});
+test('a root glyph delivered on a later active tick still authorizes its followup cycle',()=>{
+    const e=preparationRuntime('grab');e.failUI=true;e.tick(0.7);e.failUI=false;e.tick(0.72,16);
+    assert(e.hud.at(-1).active.some(x=>x.id===e.cues()[0].id));
+    e.first.task.CurrentTime=1.41;e.tick(undefined,32);e.first.task.OnCompleted.Fire();e.owner.ability.bIsActive=false;
+    const next=continuationGrab(e);next.activate();assert.equal(e.cues().length,1);e.mod.stop();
+});
+test('fresh recovered source tags suppress the continuation without waiting for recompile',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);e.first.task.CurrentTime=1.41;e.tick(undefined,32);
+    e.first.task.OnCompleted.Fire();e.owner.ability.bIsActive=false;const next=continuationGrab(e);
+    next.t.action.ActivationRequirements.RequireTags=['Recovered.Tag'];next.activate();
+    e.owner.asc.tags.add('Recovered.Tag');next.t.task.CurrentTime=0.8;e.tick(undefined,32);
+    assert.equal(e.cues().length,1);e.mod.stop();
+});
+test('runtime-error suspension clears delivered-cycle authorization',()=>{
+    const e=preparationRuntime('grab');e.tick(0.7);e.first.task.CurrentTime=1.41;e.tick(undefined,32);
+    e.failClock=true;e.tick(undefined,16);e.failClock=false;
+    e.first.task.OnCompleted.Fire();e.owner.ability.bIsActive=false;const next=continuationGrab(e);
+    next.activate();assert.equal(e.cues().length,2);e.mod.stop();
 });
 console.log('Runtime integration: ' + passed + ' tests passed. Unreal APIs are mocked; no in-game claim.');

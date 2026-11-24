@@ -52,7 +52,7 @@ function fixture(options = {}) {
     };
     env.seen = () => env.events.filter(e => e.kind === "native-frame");
     env.ended = () => env.events.filter(e => e.kind === "native-frame-ended");
-    env.fire = (frame, handle = 1, index = 0) => env.created[index].callbacks[0]({ OptionalObject: { Handle: handle, ReceiveFrame: frame } });
+    env.fire = (frame, handle = 1, index = 0) => env.created[index].callbacks[0]({ OptionalObject: object("/EventPayload", { Handle: handle, ReceiveFrame: frame }) });
     return env;
 }
 
@@ -207,6 +207,14 @@ test("an event from a player invalidated between updates never reads its engine 
     const e = fixture(); e.update(); e.player.valid = false;
     e.UE.KismetSystemLibrary.GetGameTimeInSeconds = () => { throw Error("invalid native player clock call"); };
     e.fire(e.frame()); assert.equal(e.seen().length, 0); assert.equal(e.observer.status().errors, 0); e.observer.dispose();
+});
+test("an invalid event payload is rejected before reading native frame properties", () => {
+    const e = fixture(); e.update(); let reads = 0;
+    const payload = object("/ExpiredPayload", { valid: false });
+    for (const key of ["Handle", "ReceiveFrame"])
+        Object.defineProperty(payload, key, { get() { reads++; throw Error("invalid native payload"); } });
+    e.created[0].callbacks[0]({ OptionalObject: payload });
+    assert.equal(reads, 0); assert.equal(e.seen().length, 0); e.observer.dispose();
 });
 test("a world change before update cannot label an old listener event with the old epoch", () => {
     const e = fixture(); e.map = mapOf([[1, e.frame()]]); e.update(); const original = e.seen()[0].id;

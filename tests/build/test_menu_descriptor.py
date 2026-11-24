@@ -17,8 +17,13 @@ class DescriptorTests(unittest.TestCase):
         source = (ROOT / 'src/js/PBZForewarn/main.js').read_text(encoding='utf8')
         default_block = re.search(r'const DEFAULTS = \{(.*?)\};', source, re.S).group(1)
         names = set(re.findall(r'\b(\w+):', default_block))
-        self.assertEqual(set(keyed), names)
-        for name in ('GenericAttack', 'TickMs', 'DiscoverMs', 'ScanMs', 'LateGraceMs', 'MaxGlyphMs', 'FontPath'):
+        legacy_keys = {'SemanticFallback', 'YuZanCastWarning', 'YuZanCastLeadMs'}
+        self.assertEqual(names - set(keyed), legacy_keys)
+        self.assertEqual(set(keyed) - names, set())
+        self.assertEqual(len(keyed), 20)
+        self.assertEqual(keyed['GenericAttack']['type'], 'toggle')
+        self.assertIs(keyed['GenericAttack']['default'], False)
+        for name in ('TickMs', 'DiscoverMs', 'ScanMs', 'LateGraceMs', 'MaxGlyphMs', 'FontPath'):
             self.assertEqual(keyed[name]['type'], 'readonly')
         for row in rows:
             self.assertTrue({'en', 'zh-Hans', 'zh-Hant'} <= row['label'].keys())
@@ -53,7 +58,10 @@ class DescriptorTests(unittest.TestCase):
         reserved = set(re.findall(r'"(\w+)"', block))
         rows = [row for row in descriptor['settings'] if 'key' in row]
         self.assertEqual(reserved, {row['key'] for row in rows if row['type'] == 'readonly'})
-        self.assertEqual(sum(row['type'] != 'readonly' for row in rows), 16)
+        legacy_block = re.search(r'const legacyKeys = \[(.*?)\];', source, re.S).group(1)
+        legacy = set(re.findall(r'"(\w+)"', legacy_block))
+        self.assertEqual(legacy, {'SemanticFallback', 'YuZanCastWarning', 'YuZanCastLeadMs'})
+        self.assertEqual(sum(row['type'] != 'readonly' for row in rows), 14)
         for row in rows:
             if row['type'] == 'readonly':
                 self.assertNotEqual(row['label']['zh-Hans'], row['key'])

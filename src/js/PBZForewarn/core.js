@@ -234,7 +234,8 @@ class Scheduler {
             const instant = event.end === event.start;
             const ended = instant ? input.time > event.end + TIME_EPSILON : input.time >= event.end - TIME_EPSILON;
             if (state.active) {
-                if (event.eligible !== true) this.cancelEvent(state, 'ineligible');
+                if (event.suppressed === true) this.cancelEvent(state, 'suppressed');
+                else if (event.eligible !== true) this.cancelEvent(state, 'ineligible');
                 else if (input.time >= event.end - TIME_EPSILON) this.cancelEvent(state, 'event-ended');
                 else if (frame.now + TIME_EPSILON >= state.output.firedGameTime + this.options.maxGlyphSeconds) this.cancelEvent(state, 'display-expired');
             }
@@ -259,6 +260,13 @@ class Scheduler {
             const cueAt = Math.max(0, event.start - lead * task.rate);
             if (event.eligible !== true || input.time + TIME_EPSILON < cueAt) continue;
 
+            if (event.suppressed === true) {
+                state.past = true;
+                this.diagnostic('suppressed', { taskKey: task.key, eventKey: key, generation: task.generation,
+                    time: input.time, start: event.start, end: event.end,
+                    reason: event.meta && event.meta.reason || 'suppressed', meta: event.meta || {} });
+                continue;
+            }
             state.fired = true;
             state.active = true;
             state.output = {

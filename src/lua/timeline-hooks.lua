@@ -123,6 +123,9 @@ local function rebuildSnapshot()
 end
 local function capture(context, hookPath)
     if not S.active or S.stopped then return end
+    if type(IsInGameThread) ~= "function" then return end
+    local threadOK, onGameThread = pcall(IsInGameThread)
+    if not threadOK or onGameThread ~= true then return end
     -- RemoteUnrealParam is consumed synchronously. No wrapper/UObject is retained.
     local ability = context:get()
     local abilityPath = objectPath(ability)

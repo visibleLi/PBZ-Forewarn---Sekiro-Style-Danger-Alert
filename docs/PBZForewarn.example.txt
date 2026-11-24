@@ -1,13 +1,18 @@
-# PBZForewarn 0.7.0; legacy migration example only, not automatically installed.
+# PBZForewarn 0.8.0-dev.5; legacy migration example only, not automatically installed.
 # New builds import this format once, then read PBZForewarnHooks.config.json.
 # Editing this TXT after JSON creation has no effect; all settings require restart.
 LeadMs=350
 ObservationFlushMs=20000
-YuZanCastWarning=1
-YuZanCastLeadMs=350
 RangeCm=3500
 BlackOn=1
-SemanticFallback=1
+# Generic replacement trial: 1 bypasses the legacy boss-scoped paths, using LeadMs.
+# 通用替代试验：1 使用 LeadMs 并绕过旧首领专属路径。
+# Deprecated JSON keys SemanticFallback, YuZanCastWarning and YuZanCastLeadMs stay
+# internal compatibility values for GenericAttack=false comparison; generic mode ignores them.
+# Updates preserve existing JSON and legacy values; the Menu has no individual boss controls.
+# 旧 JSON 键 SemanticFallback、YuZanCastWarning、YuZanCastLeadMs 仅保留作内部兼容，
+# 在 GenericAttack=false 时用于旧路径对照；通用模式忽略它们。更新保留现有 JSON 和旧值，菜单无逐个首领设置。
+GenericAttack=0
 OnlyLockedTarget=0
 SoundOn=1
 SoundVolume=0.8

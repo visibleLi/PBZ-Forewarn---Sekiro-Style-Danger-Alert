@@ -4,7 +4,7 @@ import json
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from lupa import LuaRuntime
+from lupa.lua54 import LuaRuntime
 from settings_fixture import install, DIRECTORY
 
 ROOT = Path(__file__).parents[1]
@@ -29,7 +29,13 @@ function obj(full,more)
   return o
 end
 function arr(values)return {Num=function()requireGame();T.arrayEnumerations=(T.arrayEnumerations or 0)+1;return #values end,Get=function(self,i)requireGame();T.arrayElements=(T.arrayElements or 0)+1;return values[i+1]end}end
-function ueArray(values)return {ForEach=function(self,fn)requireGame();for i,v in ipairs(values)do fn(i-1,param(v))end end}end
+function ueArray(values)return {ForEach=function(self,fn)
+  requireGame()
+  for i,v in ipairs(values)do
+    T.nativeConversions=(T.nativeConversions or 0)+1
+    if fn(i,param(v))==true then break end
+  end
+end}end
 function param(v)return {get=function()requireGame();return v end,set=function()error('parameter write prohibited')end}end
 function ability(name)
   local timeline=obj('LGATimeline /Game/Test.Timeline', {Actions=arr({}),RoleLayers=arr({})})
@@ -278,6 +284,81 @@ check(m.status()['health']['unmatchedPosts']==1, 'resume cannot pair a post with
 z.execute('M.stop();ExecuteInGameThread(function()M.applySettings({Hooks=true,Diagnostics=true,ObserveAttacks=true})end);game()')
 check(m.status()['stopped'] and not m.status()['active'] and z.eval('publish()') is True,
       'final observer unload remains terminal after a queued resume')
+
+# Native ForEach converts before callback and stops only on boolean true.
+z,m=fresh();z.execute("""
+game();a,task,actor,tl=ability();w=warning(a,task,actor)
+local items={};for i=1,2000 do items[i]={Action=w,StartTime=0.7,Duration=0.4} end
+local layers={};for i=1,100 do layers[i]={Actions=ueArray({})} end
+tl.Actions=ueArray(items);tl.RoleLayers=ueArray(layers);T.nativeConversions=0
+invoke(PLAY,'post',a,param(tl),param(1),param(0),param(0),param(''))
+""")
+check(z.globals().T.nativeConversions<=546,
+      'native conversion budget includes at most 513 action and 33 layer lookahead elements')
+z.execute("""
+T.allLoaded=true;for i=1,12 do T.now=T.now+1;maintenance()end
+invoke(BLUE..':Spawn Particles','pre',w,param(actor));maintenance();publish()
+""")
+snapshot=data(z)['events'][-1]['context']['sourceContextSnapshot']
+check(snapshot['scanTruncated'] and snapshot['candidates']['1']['index']==0,
+      'bounded native iteration reports truncation and normalizes one-based native indices')
+
+class InvalidUObject:
+    """Lupa exposes Python __getitem__ objects as native-like Lua userdata."""
+    def __init__(self):
+        self.reads = []
+
+    def __getitem__(self, key):
+        if key == 'IsValid':
+            return lambda *_: False
+        self.reads.append(key)
+        raise RuntimeError('invalid native UObject member access: '+str(key))
+
+
+for invalid_owner in ('task', 'ability', 'timeline', 'context'):
+    z,m=fresh();z.execute('game();a,task,actor,tl=ability();w=warning(a,task,actor)')
+    dead=InvalidUObject();z.globals().DEAD=dead
+    check(z.eval('type(DEAD)')=='userdata', 'invalid object regression uses userdata '+invalid_owner)
+    if invalid_owner=='task':
+        z.execute('a.GetPlayTimelineTask=function()return DEAD end')
+    elif invalid_owner=='ability':
+        z.execute('w.GetAbility=function()return DEAD end')
+    elif invalid_owner=='timeline':
+        z.execute('w.GetTimeline=function()return DEAD end')
+    if invalid_owner in ('ability','timeline'):
+        z.execute("""
+        tl.Actions=ueArray({{Action=w}})
+        invoke(PLAY,'post',a,param(tl),param(1),param(0),param(0),param(''))
+        T.allLoaded=true;for i=1,12 do T.now=T.now+1;maintenance()end
+        invoke(BLUE..':Spawn Particles','pre',w,param(actor))
+        """)
+    else:
+        z.execute("invoke(PLAY,'pre',DEAD,param(tl),param(1),param(0),param(0),param(''))" if invalid_owner=='context' else
+                  "invoke(PLAY,'pre',a,param(tl),param(1),param(0),param(0),param(''));invoke(PLAY,'post',a,param(tl),param(1),param(0),param(0),param(''))")
+    z.execute('maintenance();publish()')
+    check(not dead.reads, 'invalid UObject is never indexed beyond validity '+invalid_owner)
+    if invalid_owner=='context':
+        check(m.status()['seq']==0, 'invalid hook context produces no fabricated capture')
+    else:
+        check(m.status()['seq']>0 and m.status()['health']['captureFailures']==0,
+              'unavailable invalid child retains valid parent evidence '+invalid_owner)
+
+z,m=fresh();z.execute("""
+game();a,task,actor,tl=ability()
+invoke(BYNAME,'pre',a,param('Main'),param(1),param(0),param(0))
+invoke(BYNAME,'post',a,param('Main'),param(1),param(0),param(0))
+T.readsBeforeStop=T.gameReads
+T.mode='unload';M.stop();T.mode='test'
+""")
+final=data(z)
+check(final['seq']==2 and [e['seq'] for e in final['events']]==[1,2]
+      and final['heartbeat']==0 and not final['active'],
+      'stop before maintenance preserves latest captured events and sequence in tombstone')
+check(z.globals().T.gameReads==z.globals().T.readsBeforeStop,
+      'final frame rebuild uses captured primitives without UE access on unload thread')
+z.execute("invoke(BYNAME,'pre',a,param('Late'),param(1),param(0),param(0));maintenance()")
+check(m.status()['seq']==2 and z.eval('publish()') is True,
+      'late capture and maintenance cannot modify the final stopped frame')
 
 out={'checks':len(passed),'passed':passed,'scope':'Lua runtime, thread-checking UE4SS and file stubs; no PBZ execution or runtime ABI certification.'}
 (Path(__file__).parent/'observer-results.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')

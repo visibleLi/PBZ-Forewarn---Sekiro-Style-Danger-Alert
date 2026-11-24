@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 import sys
 sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from lupa import LuaRuntime
+from lupa.lua54 import LuaRuntime
 from settings_fixture import install, HELPER, DIRECTORY, CANONICAL
 
 checks = []
@@ -133,7 +133,7 @@ t=l.globals().T
 t.json='{"Hooks":true,"LeadMs":800,"ObservationFlushMs":1,"TickMs":99,"GenericAttack":false,"Extra":8}'
 s=m.refresh()
 check(s.Hooks is True and s.LeadMs==800 and s.ObservationFlushMs==5000, 'refresh applies editable flags and clamped numbers')
-check(s.TickMs==32 and s.GenericAttack is True and s.Extra==7, 'refresh preserves reserved and unknown startup controls')
+check(s.TickMs==32 and s.GenericAttack is False and s.Extra==7, 'refresh preserves reserved controls and applies the generic replacement trial')
 check(t.settingsWrites==0 and t.legacyReads==0, 'refresh never rewrites canonical JSON or reads legacy TXT')
 for body in (None, '', '{"Hooks":false,}', '{"Hooks":false,"Nested":{}}'):
     t.json=body

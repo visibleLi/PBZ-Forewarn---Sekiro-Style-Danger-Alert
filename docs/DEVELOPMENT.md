@@ -8,7 +8,7 @@ release or evidence rules.
 
 - Python 3.12
 - Node.js 24
-- `lupa==2.8` for the Lua mock tests
+- `lupa==2.8`, using its explicit `lupa.lua54` runtime to match UE4SS Lua 5.4
 - the project-pinned TypeScript 5.9.3 development-only interface checker
 
 Audio you have the right to use goes at `src/js/PBZForewarn/cue.wav`.
@@ -52,8 +52,13 @@ ships `Scripts/settings-config.lua`, but deliberately never ships a live
 `PBZForewarnHooks.config.json`. Lua creates that JSON beside `Scripts/` on
 first startup, importing the legacy Saved TXT once and verifying the write.
 Existing JSON bytes are never rewritten during startup. JS and Lua use the JSON
-on subsequent starts. All 16 editable settings also update after a complete Menu
-save notice. Seven reserved controls remain startup-only. Lua startup can
+on subsequent starts. All 14 editable settings also update after a complete Menu
+save notice. Six reserved controls remain startup-only. The three old boss keys
+are internal startup compatibility values and have no Menu rows or live refresh. `GenericAttack` is now an
+editable replacement-trial toggle (default false); true bypasses the scoped
+fallback/cast/followup routes and uses global LeadMs for authored preparation
+cues. It is not a confirmed native launch or impact-time policy. Compare both
+modes in a fresh gameplay session before retiring the legacy settings. Lua startup can
 precede or follow JS: on first migration JS can still read the same legacy
 values, and the next full restart uses JSON throughout. Menu and Bridge are
 optional third-party downloads, not archive contents.
@@ -136,10 +141,27 @@ and authoritative evidence rules; it does not install a global skill or replace
 ## What the scripts own
 
 `tools/build_state.py` owns the source inventory, version and required test
-suites. `tools/verify.py` hashes inputs before and after checks; failure removes
+suites; duplicate suite names fail discovery explicitly. `tools/verify.py` hashes inputs before and after checks; failure removes
 the old summary. `tools/package.py` requires the complete suite list, passed
 syntax and matching input hashes. Tests cover rejection of partial/failed
-reports and edits after validation.
+reports, edits after validation, duplicate suite names and incorrect generated
+bank configuration even when the parent verifier is run with `-O`. Run the full
+gate normally; optimized Python is not a supported general build/test mode.
+
+Run `node src/js/tests/output-runtime.test.js` for the real internal MOD chain
+through external UE/Wwise/UMG stand-ins. It checks first-only grab continuation
+output across recompiles with diagnostics on/off and preserves a later independent
+ordinary warning. Optional `PBZ_TEST_RUNTIME_DIR` selects an unchanged, trusted
+installer's JS directory for the same-test historical comparison; it is test-only,
+not a runtime setting. `runtime.test.js` remains partial integration because it
+replaces owned output/filter modules. Neither suite proves native ABI, object
+lifetime, rendered pixels, acoustic output or crash freedom.
+
+Lua boundary regressions use the explicit Lua 5.4 runtime and model the matched
+UE4SS ForEach early-exit/index contract and game-thread restrictions. These mocks
+check attempted access and protocol behavior; they do not certify UE4SS native
+pointer safety, GC, concurrency or crash freedom. Project-selected warning timing
+and stage-association policies additionally require gameplay acceptance.
 
 ZIP time, permissions and platform metadata are fixed; text line endings are
 normalized. Byte reproducibility is checked under the same Python/zlib

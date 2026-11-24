@@ -2,7 +2,7 @@
 from pathlib import Path
 import sys, json
 sys.path.insert(0, str(Path(__file__).parent / 'lib'))
-from lupa import LuaRuntime
+from lupa.lua54 import LuaRuntime
 
 SOURCE = (Path(__file__).parents[1] / 'main.lua').read_text(encoding='utf8')
 BASE = r'''

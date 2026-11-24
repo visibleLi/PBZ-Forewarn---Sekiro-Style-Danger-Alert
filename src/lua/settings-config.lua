@@ -267,8 +267,8 @@ function M.load(directory)
 end
 -- Only editable controls refresh; reserved/unknown fields retain their startup values.
 local editable = {LeadMs=true, RangeCm=true, GlyphOn=true, GlyphFontSize=true, GlyphY=true,
-    Diagnostics=true, ObserveAttacks=true, Hooks=true, BlackOn=true, SemanticFallback=true,
-    ObservationFlushMs=true, YuZanCastWarning=true, YuZanCastLeadMs=true,
+    Diagnostics=true, ObserveAttacks=true, Hooks=true, BlackOn=true,
+    ObservationFlushMs=true, GenericAttack=true,
     OnlyLockedTarget=true, SoundOn=true, SoundVolume=true}
 function M.refresh()
     if not M.path or not M.settings then return nil, 'settings not initialized' end

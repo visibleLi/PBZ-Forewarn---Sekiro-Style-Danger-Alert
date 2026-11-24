@@ -6,7 +6,7 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / 'lib'))
-from lupa import LuaRuntime
+from lupa.lua54 import LuaRuntime
 
 # Reuse the thread-checking engine facade without executing its test suite.
 tree = ast.parse((HERE / 'test_observation.py').read_text(encoding='utf-8'))

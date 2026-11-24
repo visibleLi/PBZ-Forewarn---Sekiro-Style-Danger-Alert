@@ -611,4 +611,369 @@ test("captured QiShu plans retain observed type and authored timing and disappea
         assert.equal(disabled.events.length, 0);
     }
 });
+// Generic paths and fields from the 2026-11-22 static export research.
+// These mocks do not establish native execution or runtime timing.
+const BULLET_ACTION_CLASS = "/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C";
+const BULLET_EFFECT_CLASS = "/SGameCombatSystem/Bullet/Event/BP_BulletEvent_Effect.BP_BulletEvent_Effect_C";
+const EXECUTION_EVENT_CLASS = "/SGameExecution/Bullet/Events/BP_BulletEvent_PlayExecution.BP_BulletEvent_PlayExecution_C";
+const GRAB_CLASS = "/SGameExecution/GA/GA_ExecutedAbilityBase_Grab.GA_ExecutedAbilityBase_Grab_C";
+const nestedRedPath = "/PBZVFXPack/VFX/BattleFX/Common/NS_AttackAlert_Red_001.NS_AttackAlert_Red_001";
+function typedObject(name, classPath, props = {}) {
+    return object(name, { GetClass: () => object(classPath), ...props });
+}
+function redBullet(name = "/Arbitrary/Bullet") {
+    const effect = typedObject(name + "/Effect", BULLET_EFFECT_CLASS, { Niagara: object(nestedRedPath) });
+    return object(name, { StartEvents: { Events: array(effect) } });
+}
+function bulletAction(bullet = redBullet(), name = "/Arbitrary/Action") {
+    return typedObject(name, BULLET_ACTION_CLASS, { NiagaraEffect: null, BulletData: bullet,
+        ActivationRequirements: emptyRequirements() });
+}
+function scheduling(result) {
+    return result.events.map(({ key, color, start, end, eligible, leadSeconds }) => ({ key, color, start, end, eligible, leadSeconds }));
+}
+test("nested standard red bullet resource is inventory only and JSON serializable", () => {
+    const r = collect(timeline([event({ Action: bulletAction() })]));
+    const evidence = r.inventory[0].bulletSignalCandidates;
+    assert.equal(evidence.status, "read"); assert.equal(evidence.usedForScheduling, false);
+    assert.equal(evidence.unresolved, false); assert.equal(r.candidateScanUnresolved, false);
+    assert.equal(evidence.candidates.length, 1);
+    assert.equal(evidence.candidates[0].kind, "standard-warning-resource");
+    assert.equal(evidence.candidates[0].color, "red");
+    assert.equal(r.events.length, 0); assert.equal(r.checks.size, 0); assert.equal(r.contexts.size, 0);
+    assert.deepEqual(JSON.parse(JSON.stringify(evidence)), evidence);
+});
+test("bullet candidates survive renamed enemy ability and non-generic object paths", () => {
+    const outcomes = ["QiShu", "RenamedEnemy"].map(name => {
+        const a = bulletAction(redBullet("/Changed/" + name + "/Data"), "/Changed/" + name + "/Action");
+        const r = adapter.events(timeline([event({ Action: a })]), classifyEffect, asc,
+            { actor: "/World/" + name, ability: "/Changed/" + name + "/Ability" });
+        assert.equal(r.events.length, 0);
+        return r.inventory[0].bulletSignalCandidates.candidates.map(c => ({ kind: c.kind, color: c.color }));
+    });
+    assert.deepEqual(outcomes[0], outcomes[1]);
+    assert.deepEqual(outcomes[0], [{ kind: "standard-warning-resource", color: "red" }]);
+});
+test("unloaded soft bullet data requests retry and later resolution is observed", () => {
+    let referenceCalls = 0;
+    const soft = { Get() { referenceCalls++; throw Error("unknown soft API"); },
+        LoadSynchronous() { loads++; throw Error("forbidden"); } };
+    const a = bulletAction(soft), tl = timeline([event({ Action: a })]);
+    const pending = collect(tl);
+    assert.equal(pending.events.length, 0); assert.equal(pending.candidateScanUnresolved, true);
+    assert.equal(pending.inventory[0].bulletSignalCandidates.unresolved, true);
+    a.BulletData = redBullet(); // native reference becomes readable on a later compile
+    const resolved = collect(tl);
+    assert.equal(resolved.candidateScanUnresolved, false);
+    assert.equal(resolved.inventory[0].bulletSignalCandidates.candidates.length, 1);
+    assert.equal(resolved.events.length, 0); assert.equal(loads, 0); assert.equal(referenceCalls, 0);
+});
+test("ordinary actions omit absent bullet metadata without retry", () => {
+    const r = collect(timeline([event()]));
+    assert.equal(r.inventory[0].bulletSignalCandidates, undefined);
+    assert.equal(r.candidateScanUnresolved, false); assert.equal(r.events.length, 1);
+});
+test("diagnostics off performs zero additional bullet reads or candidate scheduling", () => {
+    let bulletReads = 0, graphReads = 0;
+    const bullet = redBullet(), a = bulletAction(bullet);
+    Object.defineProperty(a, "BulletData", { get() { bulletReads++; return bullet; } });
+    Object.defineProperty(bullet, "PreAttackEvents", { get() { graphReads++; throw Error("observation only"); } });
+    const tl = timeline([event({ Action: a }), event()]);
+    const compact = adapter.events(tl, classifyEffect, asc, {}, null, { captureDiagnostics: false });
+    assert.equal(bulletReads, 0); assert.equal(graphReads, 0);
+    assert.equal(compact.events.length, 1); assert.deepEqual(compact.inventory, []);
+    assert.equal(compact.candidateScanUnresolved, false);
+    assert.equal(compact.events[0].meta.bulletSignalCandidates, undefined);
+    const full = collect(tl);
+    assert(bulletReads > 0); assert(graphReads > 0);
+    assert.deepEqual(scheduling(full), scheduling(compact));
+});
+test("conditional capture capability keeps conditions without executing or mutating native objects", () => {
+    let nativeCalls = 0;
+    const forbidden = () => { nativeCalls++; throw Error("native execution forbidden"); };
+    const grab = object(GRAB_CLASS);
+    const payload = object("/Renamed/Reaction.Reaction_C", { GetSuperClass: () => grab });
+    const execution = typedObject("/Renamed/Execution", EXECUTION_EVENT_CLASS,
+        { "Executed Ability": payload, Trigger: forbidden, Execute: forbidden });
+    const filter = typedObject("/Renamed/Filter", "/Script/SGameCombatSystem.BulletEvent_FilterEventActor", {
+        SubEvents: array(execution), TagRequirement: { RequireTags: array("Combat.ArbitraryCondition") },
+        Trigger: forbidden, Evaluate: forbidden
+    });
+    const bullet = object("/Renamed/Overlap", { PreAttackEvents: { Events: array(filter) } });
+    const a = bulletAction(bullet);
+    a.K2_CanActivateAction = forbidden; a.Received_ActionBegin = forbidden; a.IsSingleFrame = forbidden;
+    const r = collect(readOnly(timeline([event({ Action: a })])));
+    const evidence = r.inventory[0].bulletSignalCandidates, candidate = evidence.candidates[0];
+    assert.equal(evidence.candidates.length, 1); assert.equal(evidence.usedForScheduling, false);
+    assert.equal(candidate.kind, "execution-capability"); assert.equal(candidate.color, null);
+    assert.equal(candidate.conditional, true); assert.equal(candidate.usedForScheduling, false);
+    assert.equal(candidate.lifecycle, "PreAttackEvents");
+    assert.equal(candidate.timing.coordinateConfirmed, false);
+    assert.equal(candidate.route[0].conditions.TagRequirement["/RequireTags/0"],
+        "Combat.ArbitraryCondition");
+    assert.deepEqual(Object.keys(candidate.route[0].conditions.TagRequirement), ["/RequireTags/0"]);
+    assert.equal(r.events.length, 0); assert.equal(r.checks.size, 0); assert.equal(r.contexts.size, 0);
+    assert.equal(nativeCalls, 0); assert.equal(writes, 0); assert.equal(loads, 0);
+    assert.doesNotThrow(() => JSON.stringify(evidence));
+});
+test("bullet observation cannot change legacy or standard cue keys timing colors tags or binding", () => {
+    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
+    const legacy = semanticAction(ability, 3); legacy["Bullet Data"] = redBullet();
+    const standard = action("Standard"); standard.BulletData = redBullet();
+    standard.ActivationRequirements.RequireTags = ["Combat.Missing"];
+    const black = action("Black", object(BLACK_EFFECT_OBJECT)); black.GetClass = () => object(BLACK_ACTION_CLASS);
+    black.BulletData = redBullet();
+    const extra = bulletAction();
+    const tl = timeline([event({ Action: standard, Guid: { A: 1, B: 2, C: 3, D: 4 } }),
+        event({ Action: legacy, StartTime: 0.8, duration: 0.5 }), event({ Action: black }), event({ Action: extra })]);
+    const context = qishuContext(ability);
+    const full = fallbackAdapter.events(tl, classifyEffect, asc, context);
+    const compact = fallbackAdapter.events(tl, classifyEffect, asc, context, null, { captureDiagnostics: false });
+    assert.equal(full.events.length, 3); assert.deepEqual(scheduling(full), scheduling(compact));
+    assert.equal(full.events[0].eligible, false); assert.equal(full.events[1].meta.semanticFallback.status, "scheduled");
+    assert.deepEqual(full.events.map(e => e.color), ["red", "red", "black"]);
+    assert.deepEqual([...full.checks.keys()], [...compact.checks.keys()]);
+    assert.deepEqual([...full.contexts.entries()], [...compact.contexts.entries()]);
+    for (const e of full.events) {
+        assert.equal(full.checks.get(e.key), compact.checks.get(e.key));
+        assert.equal(e.meta.bulletSignalCandidates.usedForScheduling, false);
+    }
+    assert.equal(full.inventory[3].bulletSignalCandidates.candidates.length, 1);
+    assert(!full.events.some(e => e.key === "main/3"));
+});
+test("probe factory is created once and probe faults cannot swallow standard cue compilation", () => {
+    const probeId = require.resolve("../PBZForewarn/bullet-signal-candidates");
+    const adapterId = require.resolve("../PBZForewarn/adapter");
+    const probeExports = require.cache[probeId].exports, adapterModule = require.cache[adapterId];
+    let factories = 0, probes = 0, local;
+    try {
+        require.cache[probeId].exports = { createBulletSignalProbe() {
+            factories++; return { probe() { probes++; throw Error("diagnostic failure"); } };
+        } };
+        delete require.cache[adapterId];
+        local = require(adapterId).createAdapter(UE, {});
+    } finally {
+        require.cache[probeId].exports = probeExports; require.cache[adapterId] = adapterModule;
+    }
+    const tl = timeline([event(), event({ StartTime: 2 })]);
+    const compact = local.events(tl, classifyEffect, asc, {}, null, { captureDiagnostics: false });
+    assert.equal(factories, 1); assert.equal(probes, 0);
+    const full = local.events(tl, classifyEffect, asc, {});
+    assert.equal(factories, 1); assert.equal(probes, 2);
+    assert.deepEqual(scheduling(full), scheduling(compact)); assert.equal(full.events.length, 2);
+    assert.equal(full.checks.size, 2); assert.equal(full.contexts.size, 2);
+    assert.equal(full.candidateScanUnresolved, true);
+    for (const info of full.inventory) {
+        assert.equal(info.reason, "eligible");
+        assert.deepEqual(info.bulletSignalCandidates, { status: "unresolved", usedForScheduling: false,
+            candidates: [], unresolved: true, limits: {}, issues: ["probe-error"] });
+    }
+});
+test("compile-wide bullet probe budget caps graph reads without dropping main or role cues", () => {
+    let bulletReads = 0, graphReads = 0;
+    const nodes = Array.from({ length: 40 }, (_, i) => {
+        const a = action("Budget" + i), bullet = redBullet("/Budget/" + i);
+        const root = bullet.StartEvents;
+        Object.defineProperty(a, "BulletData", { get() { bulletReads++; return bullet; } });
+        Object.defineProperty(bullet, "StartEvents", { get() { graphReads++; return root; } });
+        return event({ Action: a, StartTime: i });
+    });
+    const role = object("/Budget/Role", { AbilitySystemComponent: asc });
+    const tl = timeline(nodes.slice(0, 20), [nodes.slice(20)]), task = { GetRoleActor: () => role };
+    const full = adapter.events(tl, classifyEffect, asc, {}, task);
+    const compact = adapter.events(tl, classifyEffect, asc, {}, task, { captureDiagnostics: false });
+    assert.equal(bulletReads, 32); assert.equal(graphReads, 32);
+    assert.equal(full.events.length, 40); assert.deepEqual(scheduling(full), scheduling(compact));
+    assert.deepEqual([...full.checks.entries()], [...compact.checks.entries()]);
+    assert.deepEqual([...full.contexts.keys()], [...compact.contexts.keys()]);
+    for (const [key, context] of full.contexts) {
+        for (const field of ["asc", "actor", "roleName", "source", "reason"])
+            assert.equal(context[field], compact.contexts.get(key)[field]);
+    }
+    assert.equal(full.candidateScanUnresolved, true); assert.equal(compact.candidateScanUnresolved, false);
+    for (const info of full.inventory.slice(0, 32)) {
+        assert.equal(info.bulletSignalCandidates.candidates.length, 1);
+        assert.equal(info.bulletSignalCandidates.unresolved, false);
+    }
+    for (const info of full.inventory.slice(32)) assert.deepEqual(info.bulletSignalCandidates, {
+        status: "unresolved", usedForScheduling: false, candidates: [], unresolved: true,
+        limits: { maxActions: 32 }, issues: ["timeline-probe-cap"]
+    });
+});
+const DURATION_BULLET_CLASS = "/Script/PBZCombatAsset.LGAAction_DurationBulletWithDeflect";
+function genericAdapter() {
+    const local = createAdapter(UE, {});
+    local.configureGenericAttack(true);
+    return local;
+}
+function genericCollect(local, a, options = { captureDiagnostics: false }, context = {}) {
+    return local.events(timeline([event({ Action: a })]), classifyEffect, asc, context, null, options);
+}
+function grabBulletAction() {
+    const payload = object("/Renamed/GrabReaction_C", { GetSuperClass: () => object(GRAB_CLASS) });
+    const execution = typedObject("/Renamed/Execution", EXECUTION_EVENT_CLASS, { "Executed Ability": payload });
+    return typedObject("/Renamed/GrabAction", DURATION_BULLET_CLASS, { DeflectBulletType: 0,
+        BulletData: object("/Renamed/GrabBullet", { PreAttackEvents: { Events: array(execution) } }),
+        ActivationRequirements: emptyRequirements() });
+}
+test("generic preparation produces renamed nested standard cues independently of diagnostics", () => {
+    const local = genericAdapter(), a = bulletAction(redBullet("/Renamed/NoBoss/Data"), "/Renamed/NoBoss/Action");
+    const tl = timeline([event({ Action: a, StartTime: 2, duration: 0.5, TriggerTimeOffset: -0.1, EndTriggerTimeOffset: 0.03 })]);
+    const context = { actor: "/World/Unrelated", ability: "/Renamed/NoBoss/Ability" };
+    const compact = local.events(tl, classifyEffect, asc, context, null, { captureDiagnostics: false });
+    const full = local.events(tl, classifyEffect, asc, context);
+    assert.equal(compact.events.length, 1); assert.deepEqual(scheduling(compact), scheduling(full));
+    const e = compact.events[0], proof = e.meta.bulletWarning;
+    assert.equal(e.color, "red"); assert.equal(e.start, 1.9); assert.equal(e.end, 2.53);
+    assert.equal(e.meta.recognition.source, "bullet-preparation");
+    assert.equal(proof.kind, "standard-warning-resource");
+    assert.equal(proof.timingBasis, "authored-action-preparation-candidate");
+    assert.equal(proof.executionVerified, false); assert.equal(proof.nativeLaunchCoordinateConfirmed, false);
+    assert.deepEqual(compact.inventory, []);
+    for (const field of ["attackSemantics", "requirementsEvidence", "roleContext", "bulletSignalCandidates"])
+        assert.equal(e.meta[field], undefined);
+    assert.equal(full.inventory[0].bulletSignalCandidates.usedForScheduling, false);
+    assert(full.inventory[0].bulletSignalCandidates.candidates.every(c => c.usedForScheduling === false));
+    assert.deepEqual(JSON.parse(JSON.stringify(proof)), proof);
+    assert.equal(compact.checks.get(e.key), a); assert.equal(compact.contexts.get(e.key).asc, asc);
+});
+test("generic CantDeflect grab capability maps to black authored preparation", () => {
+    const local = genericAdapter(), a = grabBulletAction(), r = genericCollect(local, a);
+    assert.equal(r.events.length, 1); assert.equal(r.events[0].color, "black");
+    assert.equal(r.events[0].meta.bulletWarning.kind, "execution-capability");
+    assert.equal(r.events[0].meta.bulletWarning.executedAbilityPath, "/Renamed/GrabReaction_C");
+    assert.equal(r.events[0].meta.bulletWarning.interpretation, "conditional-grab-capability-risk");
+    assert.equal(local.bulletWarningEligibility(a, r.events[0].meta, asc, r.events[0].meta.bulletWarning).eligible, true);
+});
+test("generic preparation preserves source require ignore and query rejection", () => {
+    for (const [field, value, reason] of [["RequireTags", ["Combat.Missing"], "require-tags"],
+        ["IgnoreTags", ["Combat.Ready"], "ignore-tags"], ["TagQuery", { required: "Combat.Missing" }, "tag-query"]]) {
+        const local = genericAdapter(), a = bulletAction(); a.ActivationRequirements[field] = value;
+        const r = genericCollect(local, a);
+        assert.equal(r.events.length, 1); assert.equal(r.events[0].eligible, false);
+        assert.equal(r.events[0].meta.reason, reason);
+    }
+});
+test("generic preparation never bypasses missing role bindings or role source tags", () => {
+    const local = genericAdapter(), a = bulletAction(); a.ActivationRequirements.RequireTags = ["Role.Only"];
+    const tl = timeline([], [[event({ Action: a })]]);
+    const unbound = local.events(tl, classifyEffect, asc, {}, { GetRoleActor: () => null }, { captureDiagnostics: false });
+    assert.equal(unbound.events.length, 0);
+    const roleASC = object("/Role/Generic.ASC", { tags: ["Role.Only"] });
+    const role = object("/Role/Generic", { AbilitySystemComponent: roleASC });
+    const bound = local.events(tl, classifyEffect, asc, {}, { GetRoleActor: () => role }, { captureDiagnostics: false });
+    assert.equal(bound.events.length, 1); assert.equal(bound.events[0].eligible, true);
+    assert.equal(bound.contexts.get(bound.events[0].key).asc, roleASC);
+    assert.equal(bound.events[0].meta.eligibilitySource, "role-binding-asc-assumption");
+});
+test("generic mode bypasses legacy semantic scopes and disabling it restores them", () => {
+    const local = createAdapter(UE, {}, null, { semanticFallback: true });
+    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C", a = semanticAction(ability, 3);
+    const get = () => local.events(semanticTimeline(a), classifyEffect, asc, qishuContext(ability), null, { captureDiagnostics: false });
+    assert.equal(get().events[0].meta.recognition.source, "semantic-fallback");
+    local.configureGenericAttack(true); assert.equal(get().events.length, 0);
+    local.configureGenericAttack(false); assert.equal(get().events[0].meta.recognition.source, "semantic-fallback");
+});
+test("generic mode bypasses legacy cast scopes and disabling it restores them", () => {
+    const { RULE } = require("../PBZForewarn/cast-warning");
+    const local = createAdapter(UE, {}, null, { castWarning: true });
+    const a = typedObject("/CastAction", RULE.actionClass, { NiagaraEffect: object(RULE.effectPath), ActivationRequirements: emptyRequirements() });
+    const context = { actor: "/World/BP_Monster_FemaleVessel_YuZan_C_1", ability: "/Abilities/GA_YuZan_Skill_03_C_1" };
+    const tl = timeline([event({ Action: a })]); tl.path = context.ability + ".Main";
+    const get = () => local.events(tl, classifyEffect, asc, context, null, { captureDiagnostics: false });
+    assert.equal(get().events[0].meta.recognition.source, "cast-warning");
+    local.configureGenericAttack(true); assert.equal(get().events.length, 0);
+    local.configureGenericAttack(false); assert.equal(get().events[0].meta.recognition.source, "cast-warning");
+});
+test("generic preparation shares physical node keys dedupe and ordinary priority", () => {
+    const local = genericAdapter(), a = bulletAction();
+    const e = event({ Action: a, Guid: { A: 7, B: 1, C: 2, D: 3 } }), tl = timeline([e, e]);
+    const first = local.events(tl, classifyEffect, asc, {}, null, { captureDiagnostics: false });
+    assert.equal(first.events.length, 1); assert.equal(first.checks.size, 1); assert.equal(first.contexts.size, 1);
+    a.NiagaraEffect = object(bluePath);
+    const ordinary = local.events(tl, classifyEffect, asc, {}, null, { captureDiagnostics: false });
+    assert.equal(ordinary.events.length, 1); assert.equal(ordinary.events[0].color, "blue");
+    assert.equal(ordinary.events[0].key, first.events[0].key); assert.equal(ordinary.events[0].meta.bulletWarning, undefined);
+    assert.equal(ordinary.events[0].meta.recognition.source, "niagara-warning-resource");
+});
+test("ordinary black recognition remains executable metadata without diagnostic capture", () => {
+    const local = genericAdapter(), a = object("/OrdinaryBlack", {
+        NiagaraEffect: object(BLACK_EFFECT_OBJECT), ActivationRequirements: emptyRequirements(),
+        GetClass: () => object(BLACK_ACTION_CLASS)
+    }), tl = timeline([event({ Action: a })]);
+    for (const captureDiagnostics of [true, false]) {
+        const result = local.events(tl, classifyEffect, asc, {}, null, { captureDiagnostics });
+        assert.equal(result.events.length, 1);
+        assert.equal(result.events[0].color, "black");
+        assert.equal(result.events[0].meta.recognition.source, "power-attack-post-pair");
+        assert.equal(result.events[0].meta.recognition.supported, true);
+        assert.equal(result.inventory.length, captureDiagnostics ? 1 : 0);
+    }
+});
+test("generic diagnostics off skips unrelated semantic and bullet graph reads", () => {
+    const local = genericAdapter(), a = action("NotBullet", null); let reads = 0;
+    for (const field of ["DeflectBulletType", "BulletData", "SendFrameTimes", "PreHitPointDuration"])
+        Object.defineProperty(a, field, { get() { reads++; throw Error("heavy unrelated read"); } });
+    assert.equal(genericCollect(local, a).events.length, 0); assert.equal(reads, 0);
+});
+test("generic malformed unknown ambiguous and capped graphs fail closed", () => {
+    const local = genericAdapter(), malformed = bulletAction(), unknown = bulletAction(), capped = bulletAction(), ambiguous = bulletAction();
+    Object.defineProperty(malformed, "BulletData", { get() { throw Error("bridge failed"); } });
+    unknown.GetClass = () => object("/Other/GAA_DelayDeflectProjectileBullet_C");
+    const effect = redBullet().StartEvents.Events.Get(0);
+    capped.BulletData.StartEvents.Events = array(...Array(33).fill(effect));
+    ambiguous.BulletData.StartEvents.Events = array(effect, effect);
+    for (const a of [malformed, unknown, capped, ambiguous]) assert.equal(genericCollect(local, a).events.length, 0);
+});
+test("generic selected signal recheck rejects bullet color and runtime mode changes", () => {
+    const local = genericAdapter(), a = bulletAction(), r = genericCollect(local, a), e = r.events[0];
+    const check = () => local.bulletWarningEligibility(a, e.meta, asc, e.meta.bulletWarning);
+    assert.equal(check().eligible, true);
+    const original = a.BulletData; a.BulletData = redBullet("/Replacement/Bullet");
+    assert.equal(check().eligible, false); a.BulletData = original;
+    const signal = original.StartEvents.Events.Get(0), resource = signal.Niagara;
+    signal.Niagara = object(bluePath); assert.equal(check().eligible, false); signal.Niagara = resource;
+    assert.equal(check().eligible, true); local.configureGenericAttack(false); assert.equal(check().eligible, false);
+    assert.equal(loads, 0); assert.equal(writes, 0);
+});
+test("ordinary actions cannot exhaust the supported preparation candidate budget", () => {
+    const local = genericAdapter(), supported = bulletAction();
+    const nodes = Array.from({ length: 32 }, (_, i) => event({ Action: action("Ordinary" + i, null) }));
+    nodes.push(event({ Action: supported }));
+    for (const captureDiagnostics of [false, true]) {
+        const r = local.events(timeline(nodes), classifyEffect, asc, {}, null, { captureDiagnostics });
+        assert.equal(r.events.length, 1); assert.equal(r.events[0].color, "red");
+        assert.equal(r.checks.get(r.events[0].key), supported);
+        assert.equal(r.events[0].meta.recognition.source, "bullet-preparation");
+    }
+});
+test("generic compile bounds preparation graph reads and never drops ordinary nodes", () => {
+    let reads = 0;
+    const nodes = Array.from({ length: 40 }, (_, i) => {
+        const a = bulletAction(redBullet("/Budget/Preparation" + i), "/Budget/Action" + i), bullet = a.BulletData;
+        Object.defineProperty(a, "BulletData", { get() { reads++; return bullet; } });
+        return event({ Action: a });
+    });
+    nodes.push(event());
+    const r = genericAdapter().events(timeline(nodes), classifyEffect, asc, {}, null, { captureDiagnostics: false });
+    assert.equal(reads, 32); assert.equal(r.events.length, 33);
+    assert.equal(r.events.at(-1).meta.bulletWarning, undefined); assert.equal(r.events.at(-1).color, "red");
+});
+test("generic factory faults fail closed without swallowing an ordinary warning", () => {
+    const warningId = require.resolve("../PBZForewarn/bullet-warning"), adapterId = require.resolve("../PBZForewarn/adapter");
+    const warningExports = require.cache[warningId].exports, adapterModule = require.cache[adapterId];
+    let factories = 0, calls = 0, local;
+    try {
+        require.cache[warningId].exports = { ...warningExports, createBulletWarning() {
+            factories++; return { plan() { calls++; throw Error("plan bridge failed"); }, eligibility() { throw Error("recheck bridge failed"); } };
+        } };
+        delete require.cache[adapterId]; local = require(adapterId).createAdapter(UE, {}, null, { genericAttack: true });
+    } finally {
+        require.cache[warningId].exports = warningExports; require.cache[adapterId] = adapterModule;
+    }
+    const r = local.events(timeline([event({ Action: bulletAction() }), event()]), classifyEffect, asc, {}, null, { captureDiagnostics: false });
+    assert.equal(factories, 1); assert.equal(calls, 1); assert.equal(r.events.length, 1);
+    assert.equal(r.events[0].color, "red");
+    assert.equal(local.bulletWarningEligibility(bulletAction(), { start: 1, end: 1.2 }, asc, {}).eligible, false);
+});
 console.log("Adapter mock tests: " + passed + " passed. No game launched; no gameplay writes; no synchronous loads.");

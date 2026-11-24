@@ -5,7 +5,7 @@ local KEY = "__PBZForewarnObservationHooks_v1"
 local prior = rawget(_G, KEY)
 if type(prior) == "table" then return prior end
 local M = {}; rawset(_G, KEY, M)
-local VERSION = "0.7.0"
+local VERSION = "0.8.0-dev.5"
 local PREFIX = "[PBZForewarnObserver] "
 local MAX_EVENTS, MAX_BYTES, MAX_DYNAMIC = 512, 393216, 32
 local MAX_PATHS, MAX_PATH_BYTES, MAX_FOCUS = 2048, 131072, 64
@@ -221,7 +221,9 @@ local function eachArray(array,fn,limit)
         local seen=0
         iterator(array,function(index,element)
             seen=seen+1
-            if seen<=limit then fn(unwrap(element),finite(index) and index or seen-1) end
+            -- One lookahead detects truncation without converting the whole array.
+            if seen>limit then return true end
+            fn(unwrap(element),finite(index) and index-1 or seen-1)
         end)
         return seen>limit
     end
@@ -274,9 +276,13 @@ local function clock(context)
 end
 local function contextOf(o,kind,warning)
     local ability=kind=="timeline-call" and o or call(o,"GetAbility")
-    local task=valid(ability) and call(ability,"GetPlayTimelineTask") or nil
+    if not valid(ability) then ability=nil end
+    local task=ability and call(ability,"GetPlayTimelineTask") or nil
+    if not valid(task) then task=nil end
     local timeline=kind=="warning-call" and call(o,"GetTimeline") or field(task,"Timeline")
-    local actor=valid(ability) and call(ability,"GetAvatarActorFromActorInfo") or call(o,"GetAvatarActor")
+    if not valid(timeline) then timeline=nil end
+    local actor=ability and call(ability,"GetAvatarActorFromActorInfo") or call(o,"GetAvatarActor")
+    if not valid(actor) then actor=nil end
     local c={object=path(o),ability=path(ability),task=path(task),actor=path(actor),timeline=path(timeline),
         activation=number(valid(ability) and call(ability,"GetActivationCount") or nil),
         taskTime=number(field(task,"CurrentTime")),taskCorrelation="current-task-candidate",
@@ -361,6 +367,7 @@ local function candidate(classPath,action)
     end
 end
 local function inspectActions(task)
+    if not valid(task) then return end
     local timeline=field(task,"Timeline"); if not valid(timeline) then return end
     local budget=512 -- total nodes across main + all role layers, not 512 per layer
     local function events(array)
@@ -383,6 +390,7 @@ end
 local function capture(hook,kind,phase,ctx,args)
     if not S.active or S.stopped or not gameThread() then return end
     local o=unwrap(ctx); local warning
+    if not valid(o) then error("context unavailable") end
     if kind=="warning-call" then
         -- Parent particle functions service ordinary VFX too: reject those
         -- after only class/effect reads, before ability/task/timeline traversal.
@@ -548,6 +556,7 @@ end
 function M.stop()
     if S.stopped then return end
     S.active=false; S.stopped=true
+    rebuild() -- Only encoded rows and primitive metadata; no UObject access.
     pcall(publish,true)
     if type(ExecuteInGameThread)=="function" then pcall(ExecuteInGameThread,uninstall) end
 end

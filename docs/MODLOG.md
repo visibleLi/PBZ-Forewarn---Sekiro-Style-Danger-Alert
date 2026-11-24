@@ -1,5 +1,49 @@
 # Development journal
 
+## 2026-11-23: confirmed output seam, retrospective regression supplement
+
+- User confirmed real internal-chain output and public adapter events as test boundaries before new tests. The dev.5 repair already existed; this supplement is not represented as a new test-before-fix sequence.
+- Added `output-runtime.test.js` with real MOD modules and only external UE/Puerts/Wwise/UMG, clock/timer and file stand-ins. Parent repeated the same test against unchanged dev.4 JS: both diagnostic modes deliver an unwanted second native-boundary output/glyph; dev.5 delivers one, then still delivers a subsequent independent ordinary warning. Public events contract likewise remains RED dev.4/GREEN dev.5.
+- Earlier runtime172 coverage is explicitly partial integration, not full output-chain evidence. Fresh gate:31 suites/1082 checks, all positive/exit0, including the two output cases. No production or version change; native ABI, sound/screen, GC/thread safety and the new crash remain unverified. VALIDATION records scope and the completed record is reverified before separate packaging.
+
+## 2026-11-23: ordinary recognition contract survives compact recompile
+
+- Session `mwt92mde-sxoiftux` proves two YuZan chains each delivered the initial preparation and an unwanted ordinary Success black; intermediate Hard Main preparations were discarded. Extra outputs were cancelled only about1.5s afterward. The user reports the player was already forcibly controlled; no new preference decision is needed.
+- Returned to original unpacked Hard assets: the grab-filter branch references PlayExecution plus owner TrapDebuff; the ability waits for that tag and starts Success. This authored connection is distinct from measured target/control identity. Lightning's five generic reds and fire's three show the asset-derived portable route has actual benefit.
+- Actual trace count assertion and delivered-source runtime replay were RED. Compact compilations dropped ordinary recognition.source because it was assigned only during diagnostic capture, while both generic followup policies consumed it. Minimal repair moves recognition into always-retained event metadata; no name whitelist, cooldown extension or cycle refactor.
+- Added delayed-Success regression across multiple recompiles with diagnostics on/off; original count2 vs expected1 now passes, and both actual-chain workspace replays return one output. Version `0.8.0-dev.5` preserves dev.4 archives; full gate30 suites/1080 checks and limits are recorded in VALIDATION. No game install, commit or push.
+- A new22:19 native crash signature was separately preserved/triaged (`IsA` via Lua object construction, READ0x12), with no script/MOD attribution or native fix claim.
+
+## 2026-11-23: complete dev.3 review with test-first repairs
+
+- Completed review of all JS runtime/output modules, Lua native hooks/settings, and Python build/verify/package tooling. Thirteen accepted defect groups received regressions before minimal repairs: three cycle identity/retention/branch issues, three JS native-read/scan-budget issues, four Lua traversal/thread/lifetime/final-frame issues, and three tooling discovery/optimization/audio-bound issues. Integrated gate: 30 suites / 1078 checks; precise evidence and limits are recorded in VALIDATION.
+- Cycle policy now limits ended-witness retention to a 1000ms observation bridge, requires positive owned Main→Success handoff for a new continuation timeline, and distinguishes root records as well as event keys. Unknown branches keep ordinary warnings; the association is still not native causality.
+- Repair build is `0.8.0-dev.4`; dev.3 archives are retained unchanged for comparison. No game install, native crash fix claim, commit, push or release.
+
+## 2026-11-23: delivered grab-cycle regression and retired Menu keys
+
+- Build `0.8.0-dev.3` addresses dev.2 session `mwsm235y-kcgsnsre` three distinct output requests on root preparation, continuation preparation and continuation ordinary black. PlayingID/HUD records confirm accepted output, not acoustic timing. Runtime installed in the ongoing watch remains dev.2; no in-game file/config edits.
+- New `grab-warning-cycle` is an observed unique handoff presentation policy, independent of Boss/ability names, clock proximity and global cooldown. Actual initial delivery plus positive ended witnesses can link same-actor/same-payload continuation across separate tasks; later generic and ordinary black nodes are consumed at their due windows. A fresh root activation can warn; missing delivery or ambiguous handoff retains fallback.
+- Removed the three scoped Menu rows and live refresh while retaining startup parser compatibility and unchanged user configuration. Twenty Menu keys remain, fourteen editable. GenericAttack default stays false for comparison.
+- Independent review reproduced delayed delivery credit loss, cached eligibility and runtime-error stale token retention. Corrections have focused runtime regressions and independent reruns; full gate metrics are in VALIDATION. No dev.3 install, game test, feature commit/push or release.
+
+## 2026-11-23: generic preparation replacement trial
+
+- Build `0.8.0-dev.2` uses the dev.1 structural read evidence from session `mwrwdkro-s4n6jawe`; that session does not validate the new cue policy. `GenericAttack` is now a live Menu toggle, default false. True bypasses both legacy scoped recognition routes and legacy stage suppression, scheduling supported direct bullet warning resources or CantDeflect grab capability as authored preparation-risk cues with global LeadMs.
+- Standard node identities, source requirements, hostility/target/range checks, task generations and cancellation remain in the existing pipeline. Candidate diagnostics remain observations; separate compact executable proofs are rechecked against live selected references. No native load/trigger or Boss/ability-name decisions are introduced in the replacement modules.
+- A unique still-authorized main-layer source ability activation can match the current player's exact active executed-grab class and discard due ordinary black followups. This is a capability/class presentation policy, not proven instigator identity; competing capabilities and role-layer ownership remain unsuppressed. Consumed nodes cannot backfill after release, while future nodes outside the due window remain available. Active sound tails use existing cancellation.
+- Independent review found and reproduced stale proof/activation restoration, missing source action tag authorization, and incorrect role ownership. Those paths now require live activation, action requirements and proof recheck; role capabilities cannot authorize suppression. Runtime regressions cover these boundaries. Full gate results and limits are recorded in VALIDATION.
+- No game installation, runtime test, feature commit/push or release for dev.2. Existing user configuration is never rewritten. Old rules and settings remain for comparison until actual replacement behavior is validated.
+
+## 2026-11-22: generic bullet candidates, diagnostics only
+
+- Build `0.8.0-dev.1`, offline session `boss-independent-candidates-dev1`, based on the exact `v0.7.0` baseline. This slice adds generic bullet-lifecycle warning-resource and grab/execution-capability observations only. It does not enable new generic cues or complete boss-rule removal.
+- The external 2026-11-22 content-research `FINAL_REPORT.md` identifies structural candidates, not validated runtime timing. The runtime reads action-referenced, already accessible bullet lifecycle data and retains conditions, action coordinates, unresolved status and explicit limits in the bounded resource catalog's `bulletSignalCandidates`; `usedForScheduling=false`. No native asset load or bullet/event trigger is invoked.
+- `Diagnostics=0` skips the additional candidate scan. Unresolved capture remains bounded per task; the current retry policy allows at most five attempts spaced at least two seconds apart. Missing evidence, capped traversal and unknown timing never create a cue. Final retry implementation is subject to the final source/gate record, not a new warning contract.
+- Existing `semantic-fallback`, `cast-warning` and `cast-followup` behavior remains, as do `SemanticFallback`, `YuZanCastWarning` and `YuZanCastLeadMs`. Menu controls are unchanged. Gameplay timing/cancellation, grab eligibility and color policy must be established before scheduling candidates or retiring the old scoped rules.
+- No installation, game run, commit, push or release was performed for this slice. No personal paths, raw game assets, keys, large research corpus or game source are added to distribution inputs. Existing session counts and historical claims remain unchanged.
+- Final offline gate is pending. The parent will append exact suite/check counts and final source hashes from the matching `verification/summary.json` after the gate; no previous build's count is reused. See the matching pending entry in `VALIDATION.md`.
+
 ## 2026-11-22: test.3 smoke acceptance and release preparation
 
 - User authorizes conditional push/tag v0.7.0 and subsequent scoped-warning review. Session `mwrhcgk8-wkabhr6e` matches delivered runtime25/25; 17 save/runtime/output triples include15 font-size changes, four cues, zero runtime errors. Other15 editable controls were not changed in this session. Full evidence/limits are in VALIDATION.md.
