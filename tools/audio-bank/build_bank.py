@@ -56,8 +56,8 @@ with wave.open(str(SOURCE), 'rb') as f:
     if channels != 2 or sample_width != 2 or sample_rate != 44100 or codec != 'NONE':
         raise SystemExit('cue.wav must be uncompressed 44100 Hz stereo 16-bit PCM WAV.')
     source_pcm = f.readframes(source_frame_count)
-if not 0 < source_frame_count <= sample_rate * 30:
-    raise SystemExit('cue.wav must contain more than zero and at most 30 seconds of audio.')
+if not sample_rate // 100 <= source_frame_count <= sample_rate * 30:
+    raise SystemExit('cue.wav must contain 0.01 to 30 seconds of audio.')
 assert len(source_pcm) == source_frame_count * channels * sample_width
 # Remove the confirmed near-silent prefix only. The WAV is retained untouched;
 # every playable sample is the exact original suffix, with no resampling,

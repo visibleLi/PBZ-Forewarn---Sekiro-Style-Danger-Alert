@@ -33,9 +33,9 @@ class BuildTests(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
-    def write_audio(self, rate=44100, channels=2, amplitude=256):
+    def write_audio(self, rate=44100, channels=2, amplitude=256, frames=None):
         samples = array.array('h')
-        for frame in range(rate // 4):
+        for frame in range(rate // 4 if frames is None else frames):
             samples.extend([round(amplitude * math.sin(2 * math.pi * 440 * frame / rate))] * channels)
         with wave.open(str(self.root / 'src/js/PBZForewarn/cue.wav'), 'wb') as audio:
             audio.setparams((channels, 2, rate, 0, 'NONE', 'not compressed'))
@@ -59,6 +59,15 @@ class BuildTests(unittest.TestCase):
         report['checks'] = len(report['suites'])
         (folder / 'summary.json').write_text(json.dumps(report), encoding='utf8')
 
+    def test_duplicate_suite_names_fail_instead_of_silently_skipping_checks(self):
+        duplicate = self.root / 'tests/regression/test_build.py'
+        duplicate.parent.mkdir()
+        duplicate.write_text('raise RuntimeError("must not be skipped")\n', encoding='utf8')
+        with self.assertRaisesRegex(ValueError, 'Duplicate suite name.*test_build') as error:
+            test_cases(self.root)
+        self.assertIn('tests/build/test_build.py', str(error.exception))
+        self.assertIn('tests/regression/test_build.py', str(error.exception))
+
     def test_custom_audio_generates_matching_duration_without_sha_lock(self):
         self.build()
         generated = self.root / 'tools/audio-bank/generated'
@@ -72,6 +81,55 @@ class BuildTests(unittest.TestCase):
         self.build()
         result = self.run_script('tools/audio-bank/test_bank.py')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_verification_rejects_wrong_generated_config_even_with_optimization(self):
+        self.build()
+        for _, relative in test_cases(self.root):
+            if relative != 'tools/audio-bank/test_bank.py':
+                suite = self.root / relative
+                suite.rename(suite.with_suffix(suite.suffix + '.disabled'))
+        config = self.root / 'tools/audio-bank/generated/wwise-bank-config.js'
+        text = config.read_text(encoding='utf8')
+        self.assertIn('durationSeconds: 0.25', text)
+        config.write_text(text.replace('durationSeconds: 0.25', 'durationSeconds: 0.5'), encoding='utf8')
+        node = os.environ.get('PBZ_NODE') or shutil.which('node')
+        self.assertIsNotNone(node, 'Node.js is required for real config validation')
+        for optimized in (False, True):
+            with self.subTest(optimized=optimized):
+                result = subprocess.run([sys.executable, *(['-O'] if optimized else []),
+                    str(self.root / 'tools/verify.py'), '--node', node], cwd=self.root,
+                    capture_output=True, text=True, encoding='utf8', errors='replace')
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn('Bank configuration disagrees with the generated manifest', result.stderr)
+                self.assertFalse((self.root / 'verification/summary.json').exists())
+                bank_checks = (self.root / 'verification/test_bank.txt').read_text(encoding='utf8')
+                self.assertIn('RESULT 21 offline bank checks passed', bank_checks)
+
+    def test_verification_baseline_rejects_custom_audio_even_with_optimization(self):
+        self.build()
+        for _, relative in test_cases(self.root):
+            if relative != 'tools/audio-bank/test_bank.py':
+                suite = self.root / relative
+                suite.rename(suite.with_suffix(suite.suffix + '.disabled'))
+        node = os.environ.get('PBZ_NODE') or shutil.which('node')
+        self.assertIsNotNone(node, 'Node.js is required for real baseline validation')
+        result = subprocess.run([sys.executable, '-O', str(self.root / 'tools/verify.py'),
+            '--node', node, '--check-baseline'], cwd=self.root,
+            capture_output=True, text=True, encoding='utf8', errors='replace')
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('Audio differs from the original 0.5 baseline', result.stderr)
+        self.assertFalse((self.root / 'verification/summary.json').exists())
+
+    def test_audio_shorter_than_ten_milliseconds_is_rejected(self):
+        self.write_audio(frames=440)
+        result = self.run_script('tools/audio-bank/build_bank.py')
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('0.01', result.stderr)
+        self.assertFalse((self.root / 'tools/audio-bank/generated/PBZForewarn.bnk').exists())
+        self.write_audio(frames=441)
+        self.build()
+        manifest = json.loads((self.root / 'tools/audio-bank/generated/manifest.json').read_text(encoding='utf8'))
+        self.assertEqual(manifest['pcm']['durationSeconds'], 0.01)
 
     def test_wrong_sample_rate_fails_with_format_message(self):
         self.write_audio(rate=48000)

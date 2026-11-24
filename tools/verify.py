@@ -73,14 +73,15 @@ if version_check.returncode:
     raise RuntimeError('Version carriers disagree:\n' + version_check.stdout + version_check.stderr)
 
 wav_hash = hashlib.sha256((ROOT / 'src/js/PBZForewarn/cue.wav').read_bytes()).hexdigest()
-if args.check_baseline:
-    assert wav_hash == '5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8', 'Audio differs from the original 0.5 baseline'
+if args.check_baseline and wav_hash != '5ad6af4e012662d527e93c3044651c278536bac5498853eead4513f77928b7e8':
+    raise RuntimeError('Audio differs from the original 0.5 baseline')
 bank_manifest = json.loads((ROOT / 'tools/audio-bank/generated/manifest.json').read_text(encoding='utf8'))
 bank_config = subprocess.run([args.node, '-e', 'process.stdout.write(JSON.stringify(require("./tools/audio-bank/generated/wwise-bank-config")))'],
                              cwd=ROOT, check=True, capture_output=True, text=True)
-assert json.loads(bank_config.stdout) == {'eventId': bank_manifest['ids']['event'], 'bankId': bank_manifest['ids']['bank'],
-                                         'durationSeconds': bank_manifest['pcm']['durationSeconds'],
-                                         'authoredGainDb': bank_manifest['authoredGainDb'], 'voicePriority': bank_manifest['voicePriority']}
+if json.loads(bank_config.stdout) != {'eventId': bank_manifest['ids']['event'], 'bankId': bank_manifest['ids']['bank'],
+                                     'durationSeconds': bank_manifest['pcm']['durationSeconds'],
+                                     'authoredGainDb': bank_manifest['authoredGainDb'], 'voicePriority': bank_manifest['voicePriority']}:
+    raise RuntimeError('Bank configuration disagrees with the generated manifest.')
 inputs_after = validated_inputs(ROOT)
 if inputs_before != inputs_after:
     raise RuntimeError('Build inputs changed during validation; run verify.py again.')
