@@ -43,25 +43,48 @@ reaches a player.
 ## Optional Mods Menu test build
 
 `src/lua/PBZForewarnHooks.modsmenu.json` defines the optional UE4SS menu rows.
-Every keyed row, including reserved read-only settings, has English, Simplified
-Chinese and Traditional Chinese labels/help explaining effect and application
-mode. Descriptor tests enforce complete coverage and Menu's 80/400 UTF-16-unit
-label/help limits; no translated setting keys or values are introduced.
+The eight public rows have English, Simplified Chinese and Traditional Chinese
+labels/help explaining effect and application mode. Descriptor tests enforce the
+explicit public key set and Menu's 80/400 UTF-16-unit label/help limits; no
+translated setting keys or values are introduced.
 The installer places it in `platform/steam/ue4ss/Mods/PBZForewarnHooks/` and
 ships `Scripts/settings-config.lua`, but deliberately never ships a live
 `PBZForewarnHooks.config.json`. Lua creates that JSON beside `Scripts/` on
 first startup, importing the legacy Saved TXT once and verifying the write.
-Existing JSON bytes are never rewritten during startup. JS and Lua use the JSON
-on subsequent starts. All 14 editable settings also update after a complete Menu
-save notice. Six reserved controls remain startup-only. The three old boss keys
-are internal startup compatibility values and have no Menu rows or live refresh. `GenericAttack` is now an
-editable replacement-trial toggle (default false); true bypasses the scoped
-fallback/cast/followup routes and uses global LeadMs for authored preparation
-cues. It is not a confirmed native launch or impact-time policy. Compare both
-modes in a fresh gameplay session before retiring the legacy settings. Lua startup can
-precede or follow JS: on first migration JS can still read the same legacy
-values, and the next full restart uses JSON throughout. Menu and Bridge are
-optional third-party downloads, not archive contents.
+Startup applies the generic-default epoch upgrade to pre-marker flat or structured
+JSON after preserving original bytes in `.pre-generic-default.bak`. Eight public
+keys remain top-level, twelve hidden values use `_internal`, and unknown metadata
+is retained in `_extra`. The old three boss keys are not executed. Once the numeric
+`_extra.PBZForewarnGenericAttackEpoch=1` marker is published, structured JSON is
+read-only at startup. Original `.pre-menu-cleanup` recovery files remain distinct;
+the new upgrade does not overwrite or reuse their backups.
+Migration stages and verifies a candidate, holds the original in `.pending`, then
+publishes with a non-replacing rename; failures attempt rollback and retain backup
+material. This is recoverable, not atomic against hard process termination or
+concurrent writers. A missing canonical file with a pending original is recovered
+before fresh creation; recovery failures are reported rather than treated as a
+clean install. No third-party Menu/provider change is needed.
+
+JS and Lua accept both old flat input and the structured layout (64 KiB, container
+depth 8). `_extra` is inert metadata except for the reserved numeric migration
+marker above. Both readers normalize pre-marker GenericAttack to true, even if JS
+starts before Lua publication; Lua writes the marker only through successful
+creation/migration. Legacy TXT has no epoch and is import-only, so old0 is upgraded.
+A failed publication is reported and retried next startup, not marked complete.
+After epoch1, explicit false remains false. Eight Menu rows patch existing JSON,
+preserving hidden objects and the marker. Fourteen values still refresh after a
+complete Menu save notice; six reserved internal values are startup-only.
+The scoped fallback/cast/followup
+modules have been removed; no switch restores them. Generic cues use global
+LeadMs and authored preparation coordinates, not confirmed native launch/impact
+measurements. During Lua's hold/recovery window, JS reads only a matching
+pending-original/backup pair only while canonical JSON is absent, with one
+canonical retry if publication races the read. A still-present unreadable file
+is reported, never replaced by a stale recovery snapshot or TXT. The normal
+hold/recovery handoff preserves flat values without requiring a Menu notice;
+exhausted read races retain the existing reported-defaults failure policy, not an
+arbitrary concurrent-interleaving guarantee. Menu and Bridge remain optional third-party
+downloads, not archive contents.
 
 Run `node src/js/tests/runtime.test.js` and
 `python src/lua/tests/test_settings.py` for authority/migration regressions,
@@ -127,16 +150,16 @@ unannotated helpers are not strict/whole-project coverage. This does not prove
 game-build compatibility, runtime member availability or audible output; existing
 capability checks and evidence requirements still apply. Compiler packages live
 only in ignored `tools/dev-types/node_modules/`; Source ZIPs carry reproducibility
-inputs and the project skill, while player archives carry neither.
+inputs but exclude local `.claude` skills and settings. Player archives carry
+neither development dependencies nor agent guidance.
 
 ## Project development skill
 
-`.claude/skills/pbzforewarn-dev/SKILL.md` is the project-owned `pbzforewarn-dev`
-skill. In a project-aware Claude Code session, invoke `/pbzforewarn-dev` or let
-its warning-rule/settings/audio description select it. Other agents can read the
-file directly. It routes each task to actual modules, existing regression tests
-and authoritative evidence rules; it does not install a global skill or replace
-`AGENTS.md`.
+When present locally, `.claude/skills/pbzforewarn-dev/SKILL.md` routes the
+`pbzforewarn-dev` skill to actual modules, regression tests and authoritative
+evidence rules. It is optional local agent guidance, excluded from release
+Source ZIPs and not required to build. Fresh source users start from `AGENTS.md`,
+`.agent/rules/` and this workflow instead.
 
 ## What the scripts own
 
@@ -175,8 +198,8 @@ CHANGELOG and validation/release notes separately.
 
 ## Provenance
 
-The two QiShu_Huo rules come from captured actor/ability/action/type facts in
-build 26367565. The sanitized
+The retired QiShu_Huo rules came from captured actor/ability/action/type facts in
+build 26367565. Their historical sanitized
 `src/js/tests/fixtures/qishu-captured-plans.json` stores their plan times and
 types. It contains no full session or personal log. The plan start is not an
 impact or original-flash measurement. Runtime still uses the current live task
@@ -207,7 +230,8 @@ and its conditions, never a fixed schedule of future enemy choices.
    Keep separate capture times distinct so a later snapshot cannot replace the
    evidence behind an earlier report.
 
-`SemanticFallback=0` disables the new rules; this is the bounded observation
-version's standard path, not a byte-identical 0.5 rollback. Reinstall the 0.5
-archive for that. Editable Lua switches update after a successful Menu save in
-test.3; manual JSON edits without a complete Menu notice still require restart.
+The old `SemanticFallback` switch and named rules are retired. After the epoch1
+upgrade marker is present, explicit `_internal.GenericAttack=false` disables
+generic preparation without restoring those rules; ordinary resource warnings remain. Reinstall an older archive for
+its historical behavior, restoring its flat-JSON backup as needed. Manual JSON
+edits without a complete Menu notice still require a full restart.

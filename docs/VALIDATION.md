@@ -1,5 +1,371 @@
 # Validation / 自检边界
 
+## 2026-11-25: 0.9.0 dev checkpoint promotion and final local distribution
+
+Build: `0.9.0`; offline promotion session `release-v09-20261125`. Runtime behavior
+is carried from test.2; no new runtime warning policy, audio change or game
+installation is introduced by promotion. Gameplay support is the bounded test.2
+session below, not a new run of the final archive. Six observed Start-resource
+preparation cues and192 accepted audio posts do not establish all-move, acoustic,
+screen, native-safety or crash-freedom acceptance. The absent durable raw snapshot,
+black-warning timing, late-observation skip, file-bridge permission failures and
+unexercised migration/grab branches remain explicit limitations.
+
+The user explicitly requests selective source commits, pushing dev and an
+annotated v0.9.0 tag while main remains independent and unchanged. This is a
+one-time user-directed dev checkpoint/distribution exception to the ordinary
+main release flow, not a claim that that flow completed. The user manages Nexus
+upload; no GitHub CLI, GitHub Release management, Nexus upload or installation
+of a downloaded Release asset is performed by this task. Only sanitized summaries
+are committed; raw logs, game assets, personal paths and keys remain excluded.
+
+Source distribution previously included a modified local Claude skill despite
+its exclusion from the intended commit. An existing archive regression first
+failed when requiring all .claude entries absent, then all20 build checks passed
+after removing that one local entry from the source inventory. Local files remain
+intact and unstaged; AGENTS.md and .agent/rules remain in Source ZIPs. Final source
+must be reconstructible from committed inputs, not uncommitted local skill bytes.
+Independent release Standards and Spec reviews found0 actionable defects. Spec
+checks passed adapter96/runtime166/internal-output6/Lua settings307 (575 total),
+plus bounded public-adapter probes for exact overlap class, numeric Start, singleton
+selection, source tags, changed-resource proof, no asset loading and timing. The
+reserved _internal/_extra object-only format boundary is documented; older custom
+scalar collisions are rejected, not silently converted.
+
+Final versioned verification passed28 suites /1,197 checks, every exit0 and checks>0,
+106 validated inputs and JavaScript syntax passed. The decrease from107 inputs is
+only exclusion of the local Claude skill. This final evidence record is included
+in a fresh verification and final package; archive/source commit correspondence
+and exact hashes are recorded outside the archives. No final-archive gameplay,
+GitHub workflow result or Nexus upload is claimed by this record.
+
+## 2026-11-25: test.2 enabled session and six Start-resource preparation outputs
+
+Build: `0.9.0-test.2`; game session `mwvhvv58-tpiokbdv`, loader START
+10:18:56.511 local UTC+08:00. GenericAttack=true at START, retained configuration
+records (changed=[]), and final diagnostics. Parent verified all26 non-README
+installer entries byte-match the delivered candidate and the retired modules are
+absent. Canonical JSON contains numeric epoch1 and GenericAttack=true. Lua reports
+CONFIG_CREATED, not CONFIG_MIGRATED, and no backup/pending/replaced artifacts were
+present. This supports enabled operation and marked configuration creation, not
+a demonstrated in-place old-JSON backup/migration or later manual-false restart.
+Two successful process queries12:31:48.165 and12:34:38.396 found no PBZ process;
+these establish absence at the queries, not the cause of exit.
+
+Retained session totals192 CUEs: red83/blue34/black75; all192 distinct IDs join
+same-ID sound-play with nonzero PlayingIDs. Audio played192/dropped0/errors0,
+stopped69/superseded54: interface acceptance is not acoustic verification or proof
+that every sound played to its natural end. Estimated timeline lead median319.141ms,
+min-46.229/max349.903;13 below100ms, all in ordinary PowerAttackParticle black
+warnings, including one negative estimate. The75 black cues have median301.498ms;
+this different encounter sample does not prove the earlier short-black limitation
+fixed. BlueRedEye74 and ordinary WeaponParticle37 cues have minima138.531 and
+122.438ms respectively. These are authored/game-time estimates, not measured
+screen, native launch or impact lead.
+
+Six distinct red cues use GAA_DelayDeflectProjectileBullet_C, source
+bullet-preparation, standard-warning-resource and authored-action-preparation-
+candidate timing. Four reference resource-28 and two resource-38; both retained
+catalog records identify exact overlap bullet data and EffectData.Start. All6
+join nonzero PlayingIDs; lead median333.561/min312.771/max349.668ms. This is the
+first recorded gameplay output evidence for this candidate route, not an
+execution-capability event or native coordinate proof: catalog executionVerified
+and nativeLaunchCoordinateConfirmed remain false. Cancellation/audio-stop evidence
+is retained separately;6 accepts do not establish full timing/cancellation coverage.
+
+Missed1 is an original blue BlueRedEye main node/resource-404: past-window,
+endedBeforeObservation=true, lateBy1.002500s versus lateGrace0.08s. It remained
+recognized as an eligible blue resource with empty requirements; this is late
+observation, not proof of missing recognition or a new bullet-route failure.
+Cancellations14 comprise task-no-longer-active12/task-cancelled1/paused1;
+conditionsNotMet0 and runtime errors0. No positive first-only grab discard exists
+(grabFollowupsDiscarded0);75 black cues do not establish grab-cycle coverage.
+
+Primary Lua hook open failures12/recoveries11, observer-hook write failures19/
+recoveries19; both currentlyFailing=false at final read. These counters differ
+from the11 time-filtered permission-denied text lines and are not silently
+collapsed. Nine other loader/mod error-pattern lines are signals, not nine proven
+Forewarn faults. Native observer errors/listener/output failures0. Observation
+writes218, write failures0, peak serialize6ms/write4ms. Raw tick gaps83,40 at least
+250ms,worst13180ms; long-gap prior-state context is paused31/unpaused8/unknown1,
+not a causal hitch or loading measurement.
+
+No live sampler was requested/started for this round. The prior raw-copy refusal
+was respected: only in-place stable reads and sanitized derived metrics/hashes were
+saved. Parent independently rechecked five input hashes,192 cue/audio joins and
+the6 distinct bullet IDs against retained catalog projections. No six-file raw
+snapshot was preserved and no analyzer ran. The observation event buffer accepted
+23227/evicted23112/retained115; priority evidence accepted5787/evicted5696/
+rejected17440/retained91; these separate stores have incomplete history. Original
+files remain overwriteable. One session supports the six observed software
+outputs, not all-move coverage, actual Menu interaction, acoustic/screen results,
+native safety, crash freedom or durable release acceptance.
+
+## 2026-11-25: test.2 one-time adoption of generic preparation
+
+Build: `0.9.0-test.2`; offline session `generic-default-upgrade-test2-20261125`.
+No game installation, user configuration write or gameplay of this candidate was
+performed by this task. This addresses the preceding test.1 session, where old
+TXT GenericAttack=0 was imported and the code's true default never took effect.
+
+The user approved one-time enabling on upgrade, not reinterpreting0 as true:
+unmarked legacy TXT, flat JSON and structured test.1 JSON yield GenericAttack=true.
+The numeric marker `_extra.PBZForewarnGenericAttackEpoch=1` records adoption in
+the published JSON. Other public/internal settings and unknown metadata remain
+preserved. Once marked, a later explicit false remains false across restart and
+Menu notices. JS applies the same reader policy before Lua startup/publication;
+it remains read-only. Other `_extra` fields remain inert. Malformed/unreadable
+configuration still follows the documented error/default policy.
+
+Lua owns publishing and byte-backup through separate `.pre-generic-default`
+backup/holding/recovery files; old `.pre-menu-cleanup` materials are not reused or
+overwritten. The marker is not persisted as complete before publication succeeds.
+Failed writes report failure and retain recovery materials; pre-marker readers
+still enable generic in memory and retry persistence on later startup. No arbitrary
+concurrent-writer serializability or hard-kill atomicity is promised.
+
+The existing Lua configuration seam first failed on unmarked structured false;
+the original JS reader separately failed on the same literal upgrade requirement.
+A new-namespace handoff regression also failed before the fallback change. Final
+targeted checks pass307 Lua settings checks (70 added), plus entry30/hooks61/
+observation85; JS runtime166 and real internal output6 pass with the documented
+external services replaced. A separate recovery-publication race went RED/GREEN.
+Marked false/restart, fresh/TXT/flat/structured upgrade, non-target value/precision
+preservation, independent backup namespaces, write failure/rollback/recovery and
+ambiguous pending cases are covered. No arbitrary interleaving guarantee follows.
+Ordered preparation/build/full verify passed28 suites /1,197 checks, all exit0
+and checks>0,107 validated inputs and JavaScript syntax passed. A source+installer
+preflight package succeeded against those verified bytes. Focused independent
+review found no actionable scoped standards/spec/correctness defect and independently
+reran307 Lua settings checks under Python3.12. Ordinary warning modules and the
+8-key descriptor remain unchanged from test.1. This final record is included in
+fresh re-verification and delivery packaging; exact ZIP hashes are reported
+outside the archives. No in-game upgrade, acoustic/screen, all-move or
+native-safety result is claimed.
+
+## 2026-11-25: test.1 retained postgame audit, generic mode remained disabled
+
+Build: `0.9.0-test.1`; game session `mwuuhg52-l6f2oi42`, loader START
+2026-11-24 23:23:52.747 local UTC+08:00. Two successful process queries on
+2026-11-25 at00:11:26.774 and00:13:37.562 found no PBZ process; this does not
+establish the cause of exit. All26 non-README installer files byte-match the
+preserved test.1 candidate, with stable reads; the three retired modules are
+absent from the installation. The parent independently rechecked five input
+hashes and the23 cue-ID/nonzero-PlayingID joins.
+
+No periodic sampler ever started: permission to copy raw game logs/configuration
+was refused. That refusal was not retried or bypassed. This entry is a one-time
+in-place audit of retained data, not continuous observation or a preserved
+six-file snapshot. Each read was stable by size/mtime/SHA-256; the originals
+remain overwriteable. Only sanitized derived counts and hashes were saved outside
+the repository. Because raw evidence could not be preserved, this is a bounded
+observation record, not durable release acceptance. No analyzer was run.
+
+Canonical JSON has exactly eight public and twelve internal settings, no retired
+keys and no unknown values requiring `_extra`. Its installed descriptor has the
+eight requested setting keys. Lua reported CONFIG_CREATED, not CONFIG_MIGRATED;
+no flat-JSON backup/pending/replaced artifacts exist. The unchanged legacy TXT
+contains an explicit GenericAttack=0, which was imported into the new structured
+JSON. GenericAttack is false at START, the only config records (changed=[]), and
+the final diagnostics. Whether that old0 was a deliberate choice or an earlier
+default is not established. Thus the new true code default did not enable this
+upgraded session. Hiding the Menu switch does not change that retained value;
+this is an upgrade/default-adoption limitation, not a generic-path pass.
+
+Retained totals23 CUEs, red22/blue1/black0, all from the existing
+GAAction_WeaponParticle_BlueRedEye original-resource route. All23 join same-ID
+sound-play records with nonzero PlayingIDs; audio played23/dropped0/errors0.
+There are23 colour-only hud-show records, not per-cue screen evidence. Estimated
+timeline lead median329.049ms, min25.585/max348.682ms, one below100ms. Cancellation1
+is task-no-longer-active; duplicate-cancel suppression1, missed0 and
+conditionsNotMet0. These are software counters, not full attack coverage or
+acoustic/impact/screen measurements.
+
+Runtime errors0 coexists with primary Lua hook open/write failures2/recoveries2
+and observer-hook write failures5/recoveries5; neither was currently failing at
+final read. UE4SS contains two matching permission-denied signal lines. Native
+observer errors/listener failures/output failures are0. Raw tick gaps23,11 at
+least250ms,worst14594ms; prior retained-state context was paused8/unpaused12/
+unknown-before-first-state3, not a confirmed hitch or causal classification.
+
+The observation buffer accepted8704, evicted8603 and retained101; separate
+priority evidence accepted2531,evicted2405,rejected6173,retained126. These are
+different bounded stores, not counts to combine. History is incomplete. Three
+passive bullet timing plans had readable authored times but were unscheduled,
+cue-disabled and execution-unconfirmed. No direct EffectData.Start CUE, bullet
+preparation CUE or first-only grab discard was observed. Generic preparation and
+grab-cycle behavior were not exercised; no pass/fail verdict is inferred for
+those features. Actual Menu interaction, flat-JSON migration/recovery, full move
+coverage, native safety and crash freedom remain unverified by this audit.
+
+## 2026-11-24: 0.9.0-test.1 retirement and compact Menu candidate
+
+Build: `0.9.0-test.1`; offline session `menu-simplification-20261124`.
+This is a distinct local candidate, not an overwrite of the delivered preview.
+At offline delivery, no installation or gameplay session of this build had occurred;
+subsequent in-place postgame evidence is recorded separately by session.
+
+The named semantic-fallback, cast-warning and cast-followup modules, their runtime
+call paths and SemanticFallback/YuZanCastWarning/YuZanCastLeadMs settings are
+retired. GenericAttack defaults true; an explicit existing false remains false
+and disables generic preparation without restoring those old rules. Ordinary
+resource warnings and the generic first-only grab-cycle policy remain separate.
+
+The descriptor exposes only LeadMs, RangeCm, OnlyLockedTarget, SoundOn,
+SoundVolume, GlyphOn, GlyphFontSize and GlyphY. BlackOn, GenericAttack, diagnostic
+controls and reserved internal settings retain their behavior but have no Menu
+rows. Read-only inspection of the installed provider established that it appends
+unknown primitive top-level values, while object containers are not appended and
+its save operation patches the existing object. The MOD therefore owns a single
+JSON layout: eight public keys at root, twelve internal keys in `_internal`, and
+unknown metadata in `_extra`. No third-party provider or Menu patch is required
+or made; actual Menu interaction with this candidate remains unverified.
+
+Lua migrates old flat JSON only after preserving its exact original bytes, stages
+and validates the candidate, holds the original before non-replacing publication,
+and attempts rollback on failure. Backup and holding material are retained for
+recovery. This is recoverable, not crash-atomic or serializable against concurrent
+writers. Both readers enforce the shared 64 KiB/depth-8/container/typed-value
+contract, including invalid literals overwritten by duplicate members; `_extra`
+never supplies runtime settings. Structured JSON is not rewritten at startup.
+
+The public adapter regression first failed when generic=false could still invoke
+old boss rules, then passed after retirement; a separate default-on regression
+also went RED before the adapter default changed. Existing settings regressions
+were extended for structured placement, hidden-value preservation, migration and
+failure recovery. A raw duplicate-type regression first reproduced JS accepting
+an overwritten LeadMs object; the fix validates source members before duplicate
+collapse. The real internal MOD/output suite omits an explicit GenericAttack=true
+and checks the new default through external UE/Wwise/UMG stand-ins. Settings and
+runtime mocks are offline regressions, not actual Menu/native safety evidence.
+
+Independent Standards review found no confirmed documented-standard violation;
+Spec review reproduced a startup authority race while Lua holds/recovers the
+canonical JSON. The existing runtime seam went RED with saved GenericAttack=false,
+SoundOn=false and LeadMs175 versus stale TXT true/true/900. JS now reads a matching
+pending-original/backup pair only while canonical is absent and retries canonical
+publication once. A separate RED showed a still-present unreadable current file
+could otherwise select a stale pending pair; the missing-canonical guard prevents
+that fallback. Unreadable/mismatched or exhausted racing reads retain the existing
+reported-defaults failure policy, not a serializability guarantee. Both review
+axes accepted the corrected handoff; no confirmed actionable finding remains
+within the reviewed change. The final runtime regression passes158 named tests,
+including missing canonical, stat/read move, mismatched/unreadable recovery pairs
+and present-but-unreadable canonical with a stale pending pair. The reviewer
+independently reran237 Lua settings checks; the four Lua suites total413 checks.
+
+Ordered preparation/build/verify passed28 suites /1,117 checks, each exit0 and
+checks>0,107 validated inputs and JavaScript syntax passed. A source+installer
+preflight package succeeded on those same validated bytes. The three obsolete
+legacy-rule suites were retired with their modules; replacement structured
+settings, migration and default/retirement regressions are included rather than
+presenting suite count as coverage. This record is included in final re-verification
+and packaging; exact delivered archive hashes are reported outside the archive.
+No acoustic/screen timing, all-move equivalence, native crash repair or in-game
+migration result is claimed.
+
+## 2026-11-24: 0.9.0-preview play session, interrupted watch and final audit
+
+Build: `0.9.0-preview`; game session `mwunheps-02ql70qw`, runtime START
+20:07:53.573 local UTC+08:00. GenericAttack was false at START and true in the
+attached/final runtime settings. All29 non-README installer files matched the
+preserved preview candidate at attachment and final audit; README differed.
+
+The watch completed26 rounds20:11:24.716–20:36:24.038 with maximum interval
+60.170s, then host memory protection terminated the sampler. Interruption was
+detected20:37:21; the sampler was not restarted. The final independent six-file
+snapshot is `snapshot-20261124-215429-980078-recovered-final` in the external
+session store; the parent rechecked all six hashes. Successful process queries
+21:54:29.980 and21:55:30.219 found no PBZ process. These checks establish absence,
+not an OS exit cause. Data after20:36:24 are retained-data recovery, not continuous
+watch coverage; earlier20:36/20:41 captures remain separate and are not summed.
+
+Final retained loader totals93 CUEs: red34/blue52/black7. Same-id joins give92
+nonzero Wwise PlayingIDs; red cue t326e22 was dropped by simultaneous-lower-priority
+arbitration. There are92 colour-only hud-show records without cue IDs, not verified
+per-cue display or a screen measurement. Estimated timeline lead median324.552ms,
+min15.685/max349.983,7 below100ms. The58 generic WeaponParticle cues all join
+accepted audio, median332.244/min203.195ms; the28 BlueRedEye cues have median
+313.090ms and2 below100ms. The7 ordinary black PowerAttackParticle cues have
+median22.440/min15.685ms and5 below100ms: a retained timing limitation, not fixed
+by the Menu/retirement candidate.
+
+No EffectData.Start/bullet-preparation CUE or first-only grab discard was observed.
+Those routes were not exercised by this evidence and do not receive a pass or a
+failure verdict. Queued-cue missed0/runtime errors0 are not full coverage or
+crash-freedom results. There were25 cancellations,25 duplicate-cancel suppressions
+and11 require-tags conditions-not-met. Observation writes153, write failures0,
+peak serialization8ms/write5ms;128 resource entries. The observation ring accepted
+11,065 events, evicted10,959 and retained106 at the final capture, so lost history
+cannot be recovered across the watch gap.
+
+Primary Lua hook file-open permission failures9 recovered9; the separate observer
+hook health recorded25 write failures/recoveries, neither currently failing in the
+final snapshots. UE4SS startup logs contain5 detour failures and1 property warning.
+Other UI stacks show2 InteractionUI timer exceptions and204 WeaponUI callbacks;
+those stacks are not Forewarn stacks and no causal conclusion is established.
+Of49 retained tick gaps,16 overlap recorded pauses,19 are under250ms,12 non-pause
+250–1999ms gaps peak1224ms, and2 stopped-loop gaps peak16726ms. These are not
+measured hitches or evidence that this MOD caused them. The analyzer ran once
+without --save, exit0 for its dev.5-specific criteria, not a0.9 acceptance gate.
+One session and software logs do not prove audible/screen lead, all-move coverage,
+native lifetime safety or crash freedom. Raw evidence remains outside Git.
+
+## 2026-11-24: 0.9.0-preview structure matrix and lifecycle candidate
+
+Build: `0.9.0-preview`; offline session `attack-signal-matrix-20261124`.
+No gameplay session for this new route. Baseline is v0.8.0 / 4e72f2d;
+main, the game installation and user configuration remain unchanged.
+
+The bounded static census contains 9,955 physical seed events / 3,471 packages,
+plus 527 separately discovered inherited warning-class events. Parent acceptance
+independently checked 13,607 original JSON hashes, 10,880 affiliation reference
+pointers, 1,320 classification pointers, 9,955 physical action pointers, 44,024
+node property checks and 57,616 graph edge pointers with zero mismatches.
+Configured reference paths cover 4,927 seed events; 5,028 remain unattributed.
+These are package-level potential sources, not runtime invocation or coverage.
+All seven enemy difficulty tiers are represented; tiers and faction overlap.
+
+A separate real adapter replay of 814 materialized identities on the baseline
+returned 180 Post-pair, 555 direct resource and 12 bullet-preparation events;
+67 returned none. Diagnostics projections agree. All are ineligible because
+live source tags/native omitted requirements were deliberately not invented.
+The 527 additions yield 488 resource recognitions and 39 explicit nonwarning or
+empty overrides: an index blind spot, not 488 newly implemented warnings.
+
+Independent source/SDK evidence identifies two DELAY actions selecting exact
+BP_PBZ_OverlapBulletData, whose EffectData.ParticleData contains one standard
+Common Red warning explicitly activated at Start (enum1). This is distinct from
+the Initialize charging particle. The new policy admits only explicit Start on
+that exact selected data class and a unique standard red/blue signal across
+existing and new routes. It retains authored action coordinates and existing
+source/target/phase/cancel/no-backfill guards; StartDelay is not added to time.
+Unknown/Initialize moments, unsupported classes and multiple signals fail closed.
+No Boss/ability-name rule or enum-only warning was added. Hun and white effects,
+delayed execution ancestry and unproved timing routes remain unresolved.
+
+Public adapter regression first failed on v0.8.0 (actual0, expected1), then passed
+after the minimal route. Additional negatives cover moment/class/ambiguity,
+source tags, mode, array bounds and fresh resource/moment proofs. A real internal
+MOD-chain regression observes one nonzero Wwise PlayingID and one mounted red
+glyph through recompiles/end/cancel in both diagnostic modes. This latter test
+is supplemental regression, not a claim of native ABI/GC/thread safety, actual
+pixels or audible sound. Review found an unsupported Initialize policy extension;
+it was removed before delivery. Full gate and final materialized deltas are
+recorded below; no game/native/impact-timing proof is implied.
+
+Final materialized replay: exactly2 of814 identities change (the two explicit
+Start-resource rows above);812 remain identical, diagnostic mismatches0. The
+new mapped rows remain ineligible without live tags/native requirements; this
+is recognition evidence, not an eligible asset replay. Output regression also
+fails on pristine v0.8.0 module bytes: both new cases have0 posts, expected1;
+existing two grab-chain cases still pass. Current output suite has4 checks.
+Cancellation in the new example occurs after display end and checks no replay,
+not active-cue stop timing. Final ordered gate:31 suites /1,087 checks, each
+exit0 and checks>0;113 validated inputs, syntax pass, package pass. This record
+is included in the final re-verification and package, not written afterwards.
+
+
 ## 2026-11-24: 0.8.0 version promotion, no new runtime behavior
 
 Build: `0.8.0`. Promotion session: `v080-delivery-20261124`. Runtime behavior is

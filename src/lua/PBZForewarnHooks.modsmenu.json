@@ -5,9 +5,9 @@
     "zh-Hant": "Forewarn 危預警"
   },
   "description": {
-    "en": "All editable settings apply after a successful Menu save, normally within about 0.5 s; game stalls may delay this. Reserved rows remain read only. Save status confirms the file, not game output. Avoid concurrent JSON edits.",
-    "zh-Hans": "所有可编辑设置在菜单保存成功后通常约半秒内应用，游戏停顿可能延迟。保留项仍只读。保存状态只确认文件，不确认游戏效果。请勿同时手改JSON。",
-    "zh-Hant": "所有可編輯設定在選單儲存成功後通常約半秒內套用，遊戲停頓可能延遲。保留項仍唯讀。儲存狀態只確認檔案，不確認遊戲效果。請勿同時手改JSON。"
+    "en": "All editable settings apply after a successful Menu save, normally within about 0.5 s; game stalls may delay this. Save status confirms the file, not game output. Avoid concurrent JSON edits.",
+    "zh-Hans": "所有可编辑设置在菜单保存成功后通常约半秒内应用，游戏停顿可能延迟。保存状态只确认文件，不确认游戏效果。请勿同时手改JSON。",
+    "zh-Hant": "所有可編輯設定在選單儲存成功後通常約半秒內套用，遊戲停頓可能延遲。儲存狀態只確認檔案，不確認遊戲效果。請勿同時手改JSON。"
   },
   "settings": [
     {
@@ -69,36 +69,6 @@
         "en": "On: warn only for the confirmed locked target; without a confirmed target, warnings are suppressed. Off: eligible nearby enemies can warn even without lock-on (default). Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
         "zh-Hans": "开启：仅提示确认锁定的目标，没有确认锁定目标时不预警。关闭：附近符合条件的敌人在未锁定时也可预警（默认）。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
         "zh-Hant": "開啟：僅提示確認鎖定的目標，沒有確認鎖定目標時不預警。關閉：附近符合條件的敵人在未鎖定時也可預警（預設）。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
-      }
-    },
-    {
-      "key": "BlackOn",
-      "type": "toggle",
-      "label": {
-        "en": "Black attack warnings",
-        "zh-Hans": "黑光攻击预警",
-        "zh-Hant": "黑光攻擊預警"
-      },
-      "default": true,
-      "help": {
-        "en": "Include all black warnings, including generic preparation cues (default on). Off suppresses black cues while red and blue warnings remain available. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
-        "zh-Hans": "包含所有黑危，包括通用准备阶段提示（默认开启）。关闭会抑制黑危，红蓝预警仍保留。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
-        "zh-Hant": "包含所有黑危，包括通用準備階段提示（預設開啟）。關閉會抑制黑危，紅藍預警仍保留。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
-      }
-    },
-    {
-      "key": "GenericAttack",
-      "type": "toggle",
-      "default": false,
-      "label": {
-        "en": "Generic preparation warnings (trial)",
-        "zh-Hans": "通用准备阶段预警（试验）",
-        "zh-Hant": "通用準備階段預警（試驗）"
-      },
-      "help": {
-        "en": "Experimental replacement, default off. Warns at authored preparation coordinates for supported bullet warning resources and grab capability; not measured hit timing. Replaces the two boss-scoped routes while enabled, using LeadMs. Prior timing/coverage parity is unverified. Applies after a successful Menu save without replaying consumed cues.",
-        "zh-Hans": "实验替代模式，默认关闭。对支持的弹体告警资源及抓取能力按动作准备坐标预警，非实测命中时间。开启时替代两位首领专属路径，统一使用预警提前量；原有时序与覆盖等价性尚未验证。菜单保存成功后应用，不补播已消费的预警。",
-        "zh-Hant": "實驗替代模式，預設關閉。對支援的彈體告警資源及抓取能力按動作準備座標預警，非實測命中時間。開啟時替代兩位首領專屬路徑，統一使用預警提前量；原有時序與覆蓋等價性尚未驗證。選單儲存成功後套用，不補播已消費的預警。"
       }
     },
     {
@@ -202,170 +172,6 @@
         "en": "Vertical anchor as a fraction of HUD height (0.1–0.8; default 0.32). Smaller is higher, larger is lower; horizontal placement remains centered. Applies after a successful Menu save; changes affect current eligibility and pending warnings without replaying consumed cues.",
         "zh-Hans": "危字锚点占HUD高度的比例（0.1–0.8，默认0.32）。越小越靠上，越大越靠下；水平方向保持居中。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
         "zh-Hant": "危字錨點占HUD高度的比例（0.1–0.8，預設0.32）。越小越靠上，越大越靠下；水平方向保持置中。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
-      }
-    },
-    {
-      "type": "heading",
-      "label": {
-        "en": "Diagnostics · apply after saving",
-        "zh-Hans": "诊断 · 保存后应用",
-        "zh-Hant": "診斷 · 儲存後套用"
-      }
-    },
-    {
-      "key": "Diagnostics",
-      "type": "toggle",
-      "label": {
-        "en": "Save diagnostics",
-        "zh-Hans": "保存诊断",
-        "zh-Hant": "儲存診斷"
-      },
-      "default": true,
-      "help": {
-        "en": "Enable detailed warning diagnostics and resource evidence (default on). Off reduces detail and disables attack observations; small runtime snapshots/log messages may still be written. This is not a switch for all logging or for warnings. Applies after a successful Menu save.",
-        "zh-Hans": "启用详细预警诊断与资源证据（默认开启）。关闭会减少明细并禁用攻击观察，仍可能写入小型运行快照或日志消息；不是所有日志或预警的总开关。菜单保存成功后应用。",
-        "zh-Hant": "啟用詳細預警診斷與資源證據（預設開啟）。關閉會減少明細並停用攻擊觀察，仍可能寫入小型執行快照或日誌訊息；不是所有日誌或預警的總開關。選單儲存成功後套用。"
-      }
-    },
-    {
-      "key": "ObserveAttacks",
-      "type": "toggle",
-      "label": {
-        "en": "Read-only attack observation",
-        "zh-Hans": "只读攻击观察",
-        "zh-Hant": "唯讀攻擊觀察"
-      },
-      "default": true,
-      "help": {
-        "en": "Collect bounded read-only attack evidence for diagnosis (default on). Requires diagnostics; Lua observation also requires hooks. Observations do not themselves create extra warnings. Off keeps the existing warning pipeline. Applies after a successful Menu save.",
-        "zh-Hans": "收集有容量上限的只读攻击证据供诊断（默认开启），需要诊断开启；Lua观察还需要钩子开启。观察记录本身不产生补充预警。关闭后保留原预警主链。菜单保存成功后应用。",
-        "zh-Hant": "收集有容量上限的唯讀攻擊證據供診斷（預設開啟），需要診斷開啟；Lua觀察還需要掛鉤開啟。觀察記錄本身不產生補充預警。關閉後保留原預警主鏈。選單儲存成功後套用。"
-      }
-    },
-    {
-      "key": "Hooks",
-      "type": "toggle",
-      "label": {
-        "en": "Lua discovery hooks",
-        "zh-Hans": "Lua 发现钩子",
-        "zh-Hant": "Lua 發現掛鉤"
-      },
-      "default": true,
-      "help": {
-        "en": "Enable Lua discovery hints and JS hook import (default on). Lua attack observation also needs diagnostics and observation. Off pauses capture/publication; ordinary JS discovery continues. Registered callbacks remain inert until re-enabled and are removed at final unload. Applies after a successful Menu save.",
-        "zh-Hans": "启用Lua发现提示与JS钩子导入（默认开启），Lua攻击观察还需诊断和观察开启。关闭会暂停捕获及发布，普通JS发现继续；已注册回调保持惰性，重新开启可恢复，最终卸载时清理。菜单保存成功后应用。",
-        "zh-Hant": "啟用Lua發現提示與JS掛鉤匯入（預設開啟），Lua攻擊觀察還需診斷和觀察開啟。關閉會暫停擷取及發布，普通JS發現繼續；已註冊回呼保持惰性，重新開啟可恢復，最終卸載時清理。選單儲存成功後套用。"
-      }
-    },
-    {
-      "key": "ObservationFlushMs",
-      "type": "number",
-      "label": {
-        "en": "Observation save interval (ms)",
-        "zh-Hans": "观察保存间隔（毫秒）",
-        "zh-Hant": "觀察儲存間隔（毫秒）"
-      },
-      "min": 5000,
-      "max": 60000,
-      "step": 1000,
-      "default": 20000,
-      "slider": true,
-      "help": {
-        "en": "Minimum interval between regular JS observation-log writes, in milliseconds (5000–60000; default 20000 = 20 s). Unchanged content is skipped; shutdown may force a write. It does not set warning/sound timing or Lua snapshot frequency. Applies after a successful Menu save.",
-        "zh-Hans": "JS观察日志常规写入的最小间隔，单位毫秒（5000–60000，默认20000，即20秒）。内容未变则跳过，退出时可能强制写入。不改变预警、声音时机或Lua快照频率。菜单保存成功后应用。",
-        "zh-Hant": "JS觀察日誌例行寫入的最小間隔，單位毫秒（5000–60000，預設20000，即20秒）。內容未變則跳過，退出時可能強制寫入。不改變預警、聲音時機或Lua快照頻率。選單儲存成功後套用。"
-      }
-    },
-    {
-      "type": "heading",
-      "label": {
-        "en": "Reserved · read only",
-        "zh-Hans": "保留项 · 只读",
-        "zh-Hant": "保留項 · 唯讀"
-      }
-    },
-    {
-      "key": "TickMs",
-      "type": "readonly",
-      "label": {
-        "en": "Runtime tick interval (ms)",
-        "zh-Hans": "运行更新间隔（毫秒）",
-        "zh-Hant": "執行更新間隔（毫秒）"
-      },
-      "help": {
-        "en": "Requested interval for the JS runtime timer (default 16 ms; accepted 16–100). Larger values reduce sampling frequency and can delay or miss short warning windows. Actual timing depends on the game. Read only here to protect timing; manual changes require a full restart.",
-        "zh-Hans": "JS主循环请求的定时器间隔（默认16毫秒，可接受16–100）。调大会降低采样频率，可能延迟或错过短预警窗口，实际节奏受游戏影响。为保护时序，菜单只读；手改需完全重启。",
-        "zh-Hant": "JS主迴圈要求的計時器間隔（預設16毫秒，可接受16–100）。調大會降低取樣頻率，可能延遲或錯過短預警視窗，實際節奏受遊戲影響。為保護時序，選單唯讀；手改需完全重新啟動。"
-      }
-    },
-    {
-      "key": "DiscoverMs",
-      "type": "readonly",
-      "label": {
-        "en": "Task discovery interval (ms)",
-        "zh-Hans": "任务发现间隔（毫秒）",
-        "zh-Hant": "任務發現間隔（毫秒）"
-      },
-      "help": {
-        "en": "Minimum interval between JS discovery passes over known actors' active tasks (default 50 ms; accepted 16–250). Larger values can discover attacks later. It is separate from the actor scan below. Read only here to protect discovery timing; manual changes require a full restart.",
-        "zh-Hans": "JS对已知角色活动任务执行发现扫描的最小间隔（默认50毫秒，可接受16–250）。调大可能更晚发现攻击，与下方角色扫描不同。为保护发现时序，菜单只读；手改需完全重启。",
-        "zh-Hant": "JS對已知角色活動任務執行發現掃描的最小間隔（預設50毫秒，可接受16–250）。調大可能更晚發現攻擊，與下方角色掃描不同。為保護發現時序，選單唯讀；手改需完全重新啟動。"
-      }
-    },
-    {
-      "key": "ScanMs",
-      "type": "readonly",
-      "label": {
-        "en": "Actor scan interval (ms)",
-        "zh-Hans": "角色扫描间隔（毫秒）",
-        "zh-Hant": "角色掃描間隔（毫秒）"
-      },
-      "help": {
-        "en": "Minimum interval between JS enemy-actor list scans (default 250 ms; accepted 100–1000). Larger values can delay finding newly present enemies; Lua hints are separate. Read only here to protect discovery timing; manual changes require a full restart.",
-        "zh-Hans": "JS敌方角色列表扫描的最小间隔（默认250毫秒，可接受100–1000）。调大可能推迟发现新出现的敌人；Lua提示另行处理。为保护发现时序，菜单只读；手改需完全重启。",
-        "zh-Hant": "JS敵方角色清單掃描的最小間隔（預設250毫秒，可接受100–1000）。調大可能推遲發現新出現的敵人；Lua提示另行處理。為保護發現時序，選單唯讀；手改需完全重新啟動。"
-      }
-    },
-    {
-      "key": "LateGraceMs",
-      "type": "readonly",
-      "label": {
-        "en": "Late discovery grace (ms)",
-        "zh-Hans": "晚发现宽限（毫秒）",
-        "zh-Hant": "晚發現寬限（毫秒）"
-      },
-      "help": {
-        "en": "Timeline-time tolerance after a warning node starts (default 80 ms; accepted 0–250). A node already ended is still skipped. This is not extra lead, a parry window or permission to replay old warnings. Read only here to protect scheduling; manual changes require a full restart.",
-        "zh-Hans": "预警节点开始后的时间轴时间容差（默认80毫秒，可接受0–250），节点已结束仍跳过。不是额外提前量、格挡窗口或补播旧预警许可。为保护调度，菜单只读；手改需完全重启。",
-        "zh-Hant": "預警節點開始後的時間軸時間容差（預設80毫秒，可接受0–250），節點已結束仍跳過。不是額外提前量、格擋視窗或補播舊預警許可。為保護排程，選單唯讀；手改需完全重新啟動。"
-      }
-    },
-    {
-      "key": "MaxGlyphMs",
-      "type": "readonly",
-      "label": {
-        "en": "Maximum glyph duration (ms)",
-        "zh-Hans": "危字最长显示时间（毫秒）",
-        "zh-Hant": "危字最長顯示時間（毫秒）"
-      },
-      "help": {
-        "en": "Maximum glyph window after a cue in game time (default 1200 ms; accepted 100–3000). Node end, withdrawal or pause can hide it earlier. Natural glyph expiry does not define the sound clip's length. Read only here to protect display lifetime; manual changes require a full restart.",
-        "zh-Hans": "发危后按游戏时间计算的危字窗口上限（默认1200毫秒，可接受100–3000）。节点结束、撤回或暂停可更早隐藏。危字自然到期不决定音效长度。为保护显示生命周期，菜单只读；手改需完全重启。",
-        "zh-Hant": "發危後按遊戲時間計算的危字視窗上限（預設1200毫秒，可接受100–3000）。節點結束、撤回或暫停可更早隱藏。危字自然到期不決定音效長度。為保護顯示生命週期，選單唯讀；手改需完全重新啟動。"
-      }
-    },
-    {
-      "key": "FontPath",
-      "type": "readonly",
-      "label": {
-        "en": "Built-in glyph font",
-        "zh-Hans": "内置危字字体",
-        "zh-Hant": "內建危字字型"
-      },
-      "help": {
-        "en": "Game font asset used to draw the danger glyph. Read only: this build fixes the known font path and ignores manual replacements. Change glyph size and vertical position in the layout section instead; layout changes apply after a successful Menu save.",
-        "zh-Hans": "绘制危字使用的游戏字体资源。只读：本版固定使用已知字体路径，手改其他路径也会被忽略。请用布局分组中的大小和垂直位置调整显示，这两项在菜单保存后应用。",
-        "zh-Hant": "繪製危字使用的遊戲字型資源。唯讀：本版固定使用已知字型路徑，手改其他路徑也會被忽略。請用版面分組中的大小和垂直位置調整顯示，這兩項在選單儲存後套用。"
       }
     }
   ]

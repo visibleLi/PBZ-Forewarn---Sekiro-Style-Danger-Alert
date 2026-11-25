@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib
 
 
-VERSION = '0.8.0'
+VERSION = '0.9.0'
 
 # Every suite is discovered, not listed: a new test file runs automatically.
 # Order is deterministic (sorted by path) so verification summaries are stable.
@@ -50,7 +50,6 @@ SOURCE_ROOT_FILES = (
     'tools/check-interfaces.cjs',
     'tools/dev-types/package.json', 'tools/dev-types/package-lock.json',
     'tools/dev-types/.gitignore', 'tools/dev-types/audio-environment.d.ts',
-    '.claude/skills/pbzforewarn-dev/SKILL.md',
     'README.txt', 'AGENTS.md', 'evidence/release2-tested-runtime-hashes.json',
     '.agent/rules/gates.md',
     'docs/CHANGELOG.txt', 'docs/CREDITS.md', 'docs/DEVELOPMENT.md',

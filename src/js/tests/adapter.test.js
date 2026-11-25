@@ -482,8 +482,7 @@ test("disabled inventory does not read optional role diagnostic fields", () => {
     assert.deepEqual(r.inventory, []);
 });
 
-const fallbackUE = UE;
-const fallbackAdapter = createAdapter(fallbackUE, {}, () => {}, { semanticFallback: true });
+const retiredOptionsAdapter = createAdapter(UE, {}, null, { genericAttack: false, semanticFallback: true, castWarning: true });
 const qishuActor = "/World/BP_Monster_QiShu_Huo_C_1";
 const qishuContext = (ability) => ({ actor: qishuActor, ability, task: "/Task/QiShu", activation: "1" });
 function semanticAction(ability, typeValue, className = "GAA_DelayDeflectProjectileBullet_C") {
@@ -499,84 +498,71 @@ function semanticTimeline(a, start = 0.8) {
     return timeline([event({ Action: a, StartTime: start, duration: 0.5 })]);
 }
 
-test("Qishu fire-ring RedEye semantic action becomes a supplementary red warning", () => {
-    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
-    const result = fallbackAdapter.events(semanticTimeline(semanticAction(ability, 3)), classifyEffect, asc,
-        qishuContext(ability), null, { captureDiagnostics: false });
-    assert.equal(result.events.length, 1);
-    assert.equal(result.events[0].color, "red");
-    assert.equal(result.events[0].meta.semanticFallback.ruleId, "qishu-round-fire-ring");
-    assert.equal(result.events[0].meta.semanticFallback.status, "scheduled");
-    assert.equal(result.checks.size, 1); assert.equal(result.contexts.size, 1);
-});
-
-test("Qishu assault-end RedEye semantic action becomes a supplementary red warning", () => {
-    const ability = "/Game/Boss/GA_Qishu_Huo_SkillAttack_F_AssaultEnd_C";
-    const result = fallbackAdapter.events(semanticTimeline(semanticAction(ability, 3), 3.8), classifyEffect, asc,
-        qishuContext(ability), null, { captureDiagnostics: false });
-    assert.equal(result.events.length, 1);
-    assert.equal(result.events[0].color, "red");
-    assert.equal(result.events[0].meta.semanticFallback.ruleId, "qishu-assault-end");
-});
-
-test("semantic fallback rejects non-RedEye and conflicting type fields", () => {
-    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
-    const cantDeflect = semanticAction(ability, 0);
-    const conflict = semanticAction(ability, 3); conflict.DeflectType = 2;
-    for (const a of [cantDeflect, conflict]) {
-        const result = fallbackAdapter.events(semanticTimeline(a), classifyEffect, asc,
-            qishuContext(ability), null, { captureDiagnostics: false });
-        assert.equal(result.events.length, 0);
+test("retired boss contexts cannot schedule legacy cues even when old options are true and generic is false", () => {
+    const local = createAdapter(UE, {}, null, { genericAttack: false, semanticFallback: true, castWarning: true });
+    const cases = [
+        ...["/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C", "/Game/Boss/GA_Qishu_Huo_SkillAttack_F_AssaultEnd_C"].map(ability => ({
+            a: semanticAction(ability, 3), context: qishuContext(ability)
+        })),
+        { a: object("/Retired/CastAction", {
+            NiagaraEffect: object("/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101"),
+            ActivationRequirements: emptyRequirements(),
+            GetClass: () => object("/SGameCombatSystem/Weapon/Action/GAAction_WeaponParticleFrame.GAAction_WeaponParticleFrame_C")
+        }), context: { actor: "/World/BP_Monster_FemaleVessel_YuZan_C_1", ability: "/Abilities/GA_YuZan_Skill_03_C_1" } }
+    ];
+    for (const { a, context } of cases) {
+        const tl = semanticTimeline(a); tl.path = context.ability + ".Main";
+        for (const captureDiagnostics of [false, true]) {
+            const r = local.events(tl, classifyEffect, asc, context, null, { captureDiagnostics });
+            assert.deepEqual(r.events, []); assert.equal(r.checks.size, 0); assert.equal(r.contexts.size, 0);
+            assert.equal(r.inventory.length, captureDiagnostics ? 1 : 0);
+            if (captureDiagnostics) {
+                assert.equal(r.inventory[0].semanticFallback, undefined); assert.equal(r.inventory[0].castWarning, undefined);
+                assert.equal(r.inventory[0].attackSemantics.usedForScheduling, false);
+                assert.equal(r.inventory[0].attackSemantics.timingBasis, "unverified-not-scheduled");
+            }
+        }
     }
 });
 
-test("semantic fallback is scoped to QiShu ability and action class", () => {
-    const otherActor = fallbackAdapter.events(semanticTimeline(semanticAction(
-        "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C", 3)), classifyEffect, asc,
-        { actor: "/World/OtherEnemy", ability: "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C", task: "/Task/Other" },
-        null, { captureDiagnostics: false });
-    const otherClass = fallbackAdapter.events(semanticTimeline(semanticAction(
-        "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C", 3, "OrdinaryAction")), classifyEffect, asc,
-        qishuContext("/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C"), null, { captureDiagnostics: false });
-    assert.equal(otherActor.events.length, 0); assert.equal(otherClass.events.length, 0);
+test("retired semantic scopes keep non-RedEye conflict and renamed evidence diagnostic only", () => {
+    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
+    const conflict = semanticAction(ability, 3); conflict.DeflectType = 2;
+    const cases = [
+        { a: semanticAction(ability, 0), context: qishuContext(ability), value: 0, conflict: false },
+        { a: conflict, context: qishuContext(ability), value: 3, conflict: true },
+        { a: semanticAction(ability, 3), context: { actor: "/World/OtherEnemy", ability }, value: 3, conflict: false },
+        { a: semanticAction(ability, 3, "OrdinaryAction"), context: qishuContext(ability), value: 3, conflict: false }
+    ];
+    for (const { a, context, value, conflict } of cases) {
+        const result = retiredOptionsAdapter.events(semanticTimeline(a), classifyEffect, asc, context);
+        assert.equal(result.events.length, 0);
+        const evidence = result.inventory[0].attackSemantics;
+        assert.equal(evidence.deflect.value, value); assert.equal(evidence.deflect.conflict, conflict);
+        assert.equal(evidence.usedForScheduling, false); assert.equal(evidence.timingBasis, "unverified-not-scheduled");
+        assert.equal(result.inventory[0].semanticFallback, undefined);
+    }
 });
 
-test("a distinct standard red node does not suppress a QiShu semantic node", () => {
+test("ordinary red blue and black nodes remain physical warnings alongside retired boss semantics", () => {
     const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
-    const standard = action("StandardRed", object(redPath));
-    const semantic = semanticAction(ability, 3);
-    const result = fallbackAdapter.events(timeline([
-        event({ Action: standard, StartTime: 0.5, duration: 0.2 }),
-        event({ Action: semantic, StartTime: 0.8, duration: 0.5 })
-    ]), classifyEffect, asc, qishuContext(ability), null, { captureDiagnostics: false });
-    assert.equal(result.events.length, 2);
-    assert.equal(result.events[0].meta.semanticFallback, undefined);
-    assert.equal(result.events[1].meta.semanticFallback.ruleId, "qishu-round-fire-ring");
+    for (const [color, effect] of [["red", redPath], ["blue", bluePath], ["black", BLACK_EFFECT_OBJECT]]) {
+        const standard = action("Standard", object(effect));
+        if (color === "black") standard.GetClass = () => object(BLACK_ACTION_CLASS);
+        const tl = timeline([
+            event({ Action: semanticAction(ability, 3), StartTime: 0.8, duration: 0.5 }),
+            event({ Action: standard, StartTime: 2, duration: 0.5, TriggerTimeOffset: -0.1, EndTriggerTimeOffset: 0.03 })
+        ]);
+        for (const captureDiagnostics of [false, true]) {
+            const result = retiredOptionsAdapter.events(tl, classifyEffect, asc, qishuContext(ability), null, { captureDiagnostics });
+            assert.deepEqual(scheduling(result), [{ key: "main/1", color, start: 1.9, end: 2.53, eligible: true, leadSeconds: undefined }]);
+            assert.equal(result.checks.get("main/1"), standard); assert.equal(result.contexts.get("main/1").asc, asc);
+            assert.equal(result.events[0].meta.semanticFallback, undefined); assert.equal(result.events[0].meta.castWarning, undefined);
+        }
+    }
 });
 
-test("standard blue warning does not suppress a distinct QiShu red fallback", () => {
-    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
-    const blue = object("/BlueAction", {
-        NiagaraEffect: object("/PBZVFXPack/VFX/BattleFX/Test/NS_AttackAlert_Blue_01.NS_AttackAlert_Blue_01"),
-        ActivationRequirements: emptyRequirements(),
-        GetClass: () => object("/Class/BlueAction")
-    });
-    const result = fallbackAdapter.events(timeline([
-        event({ Action: blue, StartTime: 0.5, duration: 0.2 }),
-        event({ Action: semanticAction(ability, 3), StartTime: 0.8, duration: 0.5 })
-    ]), classifyEffect, asc, qishuContext(ability), null, { captureDiagnostics: false });
-    assert.equal(result.events.length, 2);
-    assert.deepEqual(result.events.map(item => item.color).sort(), ["blue", "red"]);
-});
-
-test("disabling semantic fallback leaves the original warning set unchanged", () => {
-    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
-    const disabled = createAdapter(UE, {}, () => {}, { semanticFallback: false });
-    const result = disabled.events(semanticTimeline(semanticAction(ability, 3)), classifyEffect, asc,
-        qishuContext(ability), null, { captureDiagnostics: false });
-    assert.equal(result.events.length, 0);
-});
-test("captured QiShu plans retain observed type and authored timing and disappear when fallback is disabled", () => {
+test("captured retired QiShu plans retain observed type and authored timing without scheduling", () => {
     const captured = require("./fixtures/qishu-captured-plans.json");
     assert.equal(captured.evidenceBuild, "26367565");
     assert.equal(captured.rules.length, 2);
@@ -597,18 +583,17 @@ test("captured QiShu plans retain observed type and authored timing and disappea
         const nodes = Array.from({ length: index }, (_, i) => event({ Action: object("/Captured/Unused" + i) }));
         nodes.push(event({ Action: attack, StartTime: fact.start, duration: fact.end - fact.start }));
         const value = timeline(nodes), context = qishuContext("/Captured/" + fact.ability + "_1");
-        const enabled = fallbackAdapter.events(value, classifyEffect, asc, context, null, { captureDiagnostics: false });
-        assert.equal(enabled.events.length, 1);
-        const warning = enabled.events[0];
-        assert.equal(warning.meta.key, fact.key);
-        assert.equal(warning.meta.semanticFallback.typeValue, fact.attackSemantics.deflect.value);
-        assert.equal(warning.color, "red");
-        assert.equal(warning.start, fact.start);
-        assert(Math.abs(warning.end - fact.end) < 1e-12);
-        assert.equal(warning.eligible, true);
-        const disabled = createAdapter(UE, {}, () => {}, { semanticFallback: false })
-            .events(value, classifyEffect, asc, context, null, { captureDiagnostics: false });
-        assert.equal(disabled.events.length, 0);
+        for (const captureDiagnostics of [false, true]) {
+            const result = retiredOptionsAdapter.events(value, classifyEffect, asc, context, null, { captureDiagnostics });
+            assert.equal(result.events.length, 0); assert.equal(result.checks.size, 0); assert.equal(result.contexts.size, 0);
+            if (captureDiagnostics) {
+                const evidence = result.inventory[index];
+                assert.equal(evidence.key, fact.key); assert.equal(evidence.start, fact.start);
+                assert(Math.abs(evidence.end - fact.end) < 1e-12);
+                assert.equal(evidence.attackSemantics.deflect.value, fact.attackSemantics.deflect.value);
+                assert.equal(evidence.attackSemantics.usedForScheduling, false); assert.equal(evidence.semanticFallback, undefined);
+            } else assert.deepEqual(result.inventory, []);
+        }
     }
 });
 // Generic paths and fields from the 2026-11-22 static export research.
@@ -632,8 +617,10 @@ function bulletAction(bullet = redBullet(), name = "/Arbitrary/Action") {
 function scheduling(result) {
     return result.events.map(({ key, color, start, end, eligible, leadSeconds }) => ({ key, color, start, end, eligible, leadSeconds }));
 }
-test("nested standard red bullet resource is inventory only and JSON serializable", () => {
-    const r = collect(timeline([event({ Action: bulletAction() })]));
+const observationAdapter = createAdapter(UE, {}, null, { genericAttack: false });
+function observe(tl) { return observationAdapter.events(tl, classifyEffect, asc, { actor: "/Enemy" }); }
+test("nested standard red bullet resource is inventory only and JSON serializable when generic is disabled", () => {
+    const r = observe(timeline([event({ Action: bulletAction() })]));
     const evidence = r.inventory[0].bulletSignalCandidates;
     assert.equal(evidence.status, "read"); assert.equal(evidence.usedForScheduling, false);
     assert.equal(evidence.unresolved, false); assert.equal(r.candidateScanUnresolved, false);
@@ -643,10 +630,10 @@ test("nested standard red bullet resource is inventory only and JSON serializabl
     assert.equal(r.events.length, 0); assert.equal(r.checks.size, 0); assert.equal(r.contexts.size, 0);
     assert.deepEqual(JSON.parse(JSON.stringify(evidence)), evidence);
 });
-test("bullet candidates survive renamed enemy ability and non-generic object paths", () => {
+test("disabled generic candidates survive renamed enemy ability and non-generic object paths", () => {
     const outcomes = ["QiShu", "RenamedEnemy"].map(name => {
         const a = bulletAction(redBullet("/Changed/" + name + "/Data"), "/Changed/" + name + "/Action");
-        const r = adapter.events(timeline([event({ Action: a })]), classifyEffect, asc,
+        const r = observationAdapter.events(timeline([event({ Action: a })]), classifyEffect, asc,
             { actor: "/World/" + name, ability: "/Changed/" + name + "/Ability" });
         assert.equal(r.events.length, 0);
         return r.inventory[0].bulletSignalCandidates.candidates.map(c => ({ kind: c.kind, color: c.color }));
@@ -659,11 +646,11 @@ test("unloaded soft bullet data requests retry and later resolution is observed"
     const soft = { Get() { referenceCalls++; throw Error("unknown soft API"); },
         LoadSynchronous() { loads++; throw Error("forbidden"); } };
     const a = bulletAction(soft), tl = timeline([event({ Action: a })]);
-    const pending = collect(tl);
+    const pending = observe(tl);
     assert.equal(pending.events.length, 0); assert.equal(pending.candidateScanUnresolved, true);
     assert.equal(pending.inventory[0].bulletSignalCandidates.unresolved, true);
     a.BulletData = redBullet(); // native reference becomes readable on a later compile
-    const resolved = collect(tl);
+    const resolved = observe(tl);
     assert.equal(resolved.candidateScanUnresolved, false);
     assert.equal(resolved.inventory[0].bulletSignalCandidates.candidates.length, 1);
     assert.equal(resolved.events.length, 0); assert.equal(loads, 0); assert.equal(referenceCalls, 0);
@@ -673,18 +660,18 @@ test("ordinary actions omit absent bullet metadata without retry", () => {
     assert.equal(r.inventory[0].bulletSignalCandidates, undefined);
     assert.equal(r.candidateScanUnresolved, false); assert.equal(r.events.length, 1);
 });
-test("diagnostics off performs zero additional bullet reads or candidate scheduling", () => {
+test("disabled generic diagnostics off performs zero bullet reads or candidate scheduling", () => {
     let bulletReads = 0, graphReads = 0;
     const bullet = redBullet(), a = bulletAction(bullet);
     Object.defineProperty(a, "BulletData", { get() { bulletReads++; return bullet; } });
     Object.defineProperty(bullet, "PreAttackEvents", { get() { graphReads++; throw Error("observation only"); } });
     const tl = timeline([event({ Action: a }), event()]);
-    const compact = adapter.events(tl, classifyEffect, asc, {}, null, { captureDiagnostics: false });
+    const compact = observationAdapter.events(tl, classifyEffect, asc, {}, null, { captureDiagnostics: false });
     assert.equal(bulletReads, 0); assert.equal(graphReads, 0);
     assert.equal(compact.events.length, 1); assert.deepEqual(compact.inventory, []);
     assert.equal(compact.candidateScanUnresolved, false);
     assert.equal(compact.events[0].meta.bulletSignalCandidates, undefined);
-    const full = collect(tl);
+    const full = observe(tl);
     assert(bulletReads > 0); assert(graphReads > 0);
     assert.deepEqual(scheduling(full), scheduling(compact));
 });
@@ -716,7 +703,7 @@ test("conditional capture capability keeps conditions without executing or mutat
     assert.equal(nativeCalls, 0); assert.equal(writes, 0); assert.equal(loads, 0);
     assert.doesNotThrow(() => JSON.stringify(evidence));
 });
-test("bullet observation cannot change legacy or standard cue keys timing colors tags or binding", () => {
+test("bullet observation cannot revive retired semantics or change ordinary cue keys timing tags or binding", () => {
     const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C";
     const legacy = semanticAction(ability, 3); legacy["Bullet Data"] = redBullet();
     const standard = action("Standard"); standard.BulletData = redBullet();
@@ -727,11 +714,13 @@ test("bullet observation cannot change legacy or standard cue keys timing colors
     const tl = timeline([event({ Action: standard, Guid: { A: 1, B: 2, C: 3, D: 4 } }),
         event({ Action: legacy, StartTime: 0.8, duration: 0.5 }), event({ Action: black }), event({ Action: extra })]);
     const context = qishuContext(ability);
-    const full = fallbackAdapter.events(tl, classifyEffect, asc, context);
-    const compact = fallbackAdapter.events(tl, classifyEffect, asc, context, null, { captureDiagnostics: false });
-    assert.equal(full.events.length, 3); assert.deepEqual(scheduling(full), scheduling(compact));
-    assert.equal(full.events[0].eligible, false); assert.equal(full.events[1].meta.semanticFallback.status, "scheduled");
-    assert.deepEqual(full.events.map(e => e.color), ["red", "red", "black"]);
+    const full = retiredOptionsAdapter.events(tl, classifyEffect, asc, context);
+    const compact = retiredOptionsAdapter.events(tl, classifyEffect, asc, context, null, { captureDiagnostics: false });
+    assert.equal(full.events.length, 2); assert.deepEqual(scheduling(full), scheduling(compact));
+    assert.equal(full.events[0].eligible, false); assert.equal(full.inventory[1].semanticFallback, undefined);
+    assert.equal(full.inventory[1].attackSemantics.usedForScheduling, false);
+    assert.deepEqual(full.events.map(e => e.color), ["red", "black"]);
+    assert(!full.events.some(e => e.key === "main/1"));
     assert.deepEqual([...full.checks.keys()], [...compact.checks.keys()]);
     assert.deepEqual([...full.contexts.entries()], [...compact.contexts.entries()]);
     for (const e of full.events) {
@@ -816,6 +805,33 @@ function grabBulletAction() {
         BulletData: object("/Renamed/GrabBullet", { PreAttackEvents: { Events: array(execution) } }),
         ActivationRequirements: emptyRequirements() });
 }
+test("generic preparation defaults on for renamed sources while explicit false leaves ordinary nodes and candidates", () => {
+    const a = bulletAction(redBullet("/Renamed/Default/Data"), "/Renamed/Default/Action"), ordinary = action("Ordinary", object(bluePath));
+    const tl = timeline([event({ Action: a }), event({ Action: ordinary })]);
+    const context = { actor: "/World/RenamedEnemy", ability: "/Renamed/Default/Ability" };
+    for (const [options, enabled] of [[undefined, true], [{}, true], [{ genericAttack: true }, true],
+        [{ semanticFallback: true, castWarning: true }, true], [{ genericAttack: false }, false]]) {
+        const local = createAdapter(UE, {}, null, options);
+        for (const captureDiagnostics of [false, true]) {
+            const result = local.events(tl, classifyEffect, asc, context, null, { captureDiagnostics });
+            assert.deepEqual(result.events.map(e => e.key), enabled ? ["main/0", "main/1"] : ["main/1"]);
+            assert.equal(result.events.at(-1).color, "blue");
+            assert.equal(result.events.at(-1).meta.recognition.source, "niagara-warning-resource");
+            if (enabled) {
+                const e = result.events[0];
+                assert.equal(e.color, "red"); assert.equal(e.eligible, true);
+                assert.equal(e.meta.recognition.source, "bullet-preparation");
+                assert.equal(local.bulletWarningEligibility(a, e.meta, asc, e.meta.bulletWarning).eligible, true);
+            }
+            if (captureDiagnostics) {
+                assert.equal(result.inventory[0].bulletSignalCandidates.candidates[0].color, "red");
+                assert.equal(result.inventory[0].bulletSignalCandidates.usedForScheduling, false);
+                assert.equal(result.inventory[0].attackSemantics.usedForScheduling, false);
+            } else assert.deepEqual(result.inventory, []);
+        }
+    }
+});
+
 test("generic preparation produces renamed nested standard cues independently of diagnostics", () => {
     const local = genericAdapter(), a = bulletAction(redBullet("/Renamed/NoBoss/Data"), "/Renamed/NoBoss/Action");
     const tl = timeline([event({ Action: a, StartTime: 2, duration: 0.5, TriggerTimeOffset: -0.1, EndTriggerTimeOffset: 0.03 })]);
@@ -866,24 +882,31 @@ test("generic preparation never bypasses missing role bindings or role source ta
     assert.equal(bound.contexts.get(bound.events[0].key).asc, roleASC);
     assert.equal(bound.events[0].meta.eligibilitySource, "role-binding-asc-assumption");
 });
-test("generic mode bypasses legacy semantic scopes and disabling it restores them", () => {
-    const local = createAdapter(UE, {}, null, { semanticFallback: true });
-    const ability = "/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C", a = semanticAction(ability, 3);
-    const get = () => local.events(semanticTimeline(a), classifyEffect, asc, qishuContext(ability), null, { captureDiagnostics: false });
-    assert.equal(get().events[0].meta.recognition.source, "semantic-fallback");
-    local.configureGenericAttack(true); assert.equal(get().events.length, 0);
-    local.configureGenericAttack(false); assert.equal(get().events[0].meta.recognition.source, "semantic-fallback");
-});
-test("generic mode bypasses legacy cast scopes and disabling it restores them", () => {
-    const { RULE } = require("../PBZForewarn/cast-warning");
-    const local = createAdapter(UE, {}, null, { castWarning: true });
-    const a = typedObject("/CastAction", RULE.actionClass, { NiagaraEffect: object(RULE.effectPath), ActivationRequirements: emptyRequirements() });
-    const context = { actor: "/World/BP_Monster_FemaleVessel_YuZan_C_1", ability: "/Abilities/GA_YuZan_Skill_03_C_1" };
-    const tl = timeline([event({ Action: a })]); tl.path = context.ability + ".Main";
-    const get = () => local.events(tl, classifyEffect, asc, context, null, { captureDiagnostics: false });
-    assert.equal(get().events[0].meta.recognition.source, "cast-warning");
-    local.configureGenericAttack(true); assert.equal(get().events.length, 0);
-    local.configureGenericAttack(false); assert.equal(get().events[0].meta.recognition.source, "cast-warning");
+test("generic mode toggles only preparation and never restores retired boss warnings", () => {
+    const local = createAdapter(UE, {}, null, { genericAttack: false, semanticFallback: true, castWarning: true });
+    const context = qishuContext("/Game/Boss/GA_Qishu_Huo_RoundSkill_FireRing_C");
+    const cast = typedObject("/Retired/CastAction",
+        "/SGameCombatSystem/Weapon/Action/GAAction_WeaponParticleFrame.GAAction_WeaponParticleFrame_C", {
+            NiagaraEffect: object("/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101"),
+            ActivationRequirements: emptyRequirements()
+        });
+    const castContext = { actor: "/World/BP_Monster_FemaleVessel_YuZan_C_1", ability: "/Abilities/GA_YuZan_Skill_03_C_1" };
+    const castTimeline = timeline([event({ Action: cast })]); castTimeline.path = castContext.ability + ".Main";
+    const standard = action(), candidate = bulletAction();
+    const tl = timeline([event({ Action: semanticAction(context.ability, 3) }), event({ Action: candidate }), event({ Action: standard })]);
+    for (const enabled of [false, true, false]) {
+        local.configureGenericAttack(enabled);
+        for (const captureDiagnostics of [false, true]) {
+            const r = local.events(tl, classifyEffect, asc, context, null, { captureDiagnostics });
+            assert.deepEqual(r.events.map(e => e.key), enabled ? ["main/1", "main/2"] : ["main/2"]);
+            assert.equal(r.events.at(-1).meta.recognition.source, "niagara-warning-resource");
+            if (enabled) assert.equal(r.events[0].meta.recognition.source, "bullet-preparation");
+            for (const e of r.events) {
+                assert.equal(e.meta.semanticFallback, undefined); assert.equal(e.meta.castWarning, undefined);
+            }
+            assert.equal(local.events(castTimeline, classifyEffect, asc, castContext, null, { captureDiagnostics }).events.length, 0);
+        }
+    }
 });
 test("generic preparation shares physical node keys dedupe and ordinary priority", () => {
     const local = genericAdapter(), a = bulletAction();
@@ -975,5 +998,61 @@ test("generic factory faults fail closed without swallowing an ordinary warning"
     assert.equal(factories, 1); assert.equal(calls, 1); assert.equal(r.events.length, 1);
     assert.equal(r.events[0].color, "red");
     assert.equal(local.bulletWarningEligibility(bulletAction(), { start: 1, end: 1.2 }, asc, {}).eligible, false);
+});
+// Independent cooked-asset shape: overlap EffectData particle explicitly selects
+// Start (SDK enum 1), not a bullet event. Sanitized paths, no game asset copied.
+function lifecycleParticleAction() {
+    const particle = { Particle: object("/PBZVFXPack/VFX/BattleFX/Common/NS_AttackAlert_Red_001.NS_AttackAlert_Red_001"),
+        ActivateMoment: 1 };
+    const bullet = typedObject("/Renamed/LifecycleBullet",
+        "/PBZCombatAsset/Prototypes/Bullet/BulletData/BP_PBZ_OverlapBulletData.BP_PBZ_OverlapBulletData_C",
+        { StartDelay: 0.7, EffectData: { ParticleData: array(particle) } });
+    return { a: bulletAction(bullet), particle };
+}
+test("generic overlap lifecycle Start resource yields authored preparation without inventing delay", () => {
+    const local = genericAdapter(), { a } = lifecycleParticleAction();
+    const compact = genericCollect(local, a), full = genericCollect(local, a, { captureDiagnostics: true });
+    assert.equal(compact.events.length, 1); assert.deepEqual(scheduling(compact), scheduling(full));
+    const e = compact.events[0], proof = e.meta.bulletWarning;
+    assert.equal(e.color, "red"); assert.equal(e.eligible, true);
+    assert.equal(e.start, 1); assert.equal(e.end, 1.2);
+    assert.equal(proof.lifecycle, "EffectData.Start");
+    assert.equal(proof.timingBasis, "authored-action-preparation-candidate");
+    assert.equal(proof.executionVerified, false); assert.equal(proof.nativeLaunchCoordinateConfirmed, false);
+    assert.equal(local.bulletWarningEligibility(a, e.meta, asc, proof).eligible, true);
+});
+test("lifecycle preparation rejects unknown moments ambiguous signals and unproven data classes", () => {
+    for (const moment of [undefined, 0, 2, "Start", NaN]) {
+        const { a, particle } = lifecycleParticleAction(); particle.ActivateMoment = moment;
+        assert.equal(genericCollect(genericAdapter(), a).events.length, 0);
+    }
+    const { a, particle } = lifecycleParticleAction();
+    a.BulletData.EffectData.ParticleData = array(particle, particle);
+    assert.equal(genericCollect(genericAdapter(), a).events.length, 0);
+    a.BulletData.EffectData.ParticleData = array(particle);
+    a.BulletData.StartEvents = redBullet().StartEvents;
+    assert.equal(genericCollect(genericAdapter(), a).events.length, 0);
+    delete a.BulletData.StartEvents;
+    a.BulletData.GetClass = () => object("/Other/Overlap");
+    assert.equal(genericCollect(genericAdapter(), a).events.length, 0);
+});
+test("lifecycle preparation keeps source tags mode bounds and fresh resource proof", () => {
+    const local = genericAdapter(), { a, particle } = lifecycleParticleAction();
+    const first = genericCollect(local, a).events[0];
+    const check = () => local.bulletWarningEligibility(a, first.meta, asc, first.meta.bulletWarning).eligible;
+    particle.ActivateMoment = 0; assert.equal(check(), false);
+    assert.equal(genericCollect(local, a).events.length, 0);
+    particle.ActivateMoment = 1; assert.equal(check(), true);
+    const original = particle.Particle;
+    particle.Particle = object(bluePath); assert.equal(check(), false);
+    particle.Particle = original;
+    a.ActivationRequirements.RequireTags = ["Combat.Missing"];
+    assert.equal(genericCollect(local, a).events[0].eligible, false);
+    a.ActivationRequirements = emptyRequirements();
+    a.BulletData.EffectData.ParticleData = array(...Array(33).fill(particle));
+    assert.equal(genericCollect(local, a).events.length, 0);
+    a.BulletData.EffectData.ParticleData = array(particle);
+    local.configureGenericAttack(false); assert.equal(genericCollect(local, a).events.length, 0);
+    assert.equal(loads, 0); assert.equal(writes, 0);
 });
 console.log("Adapter mock tests: " + passed + " passed. No game launched; no gameplay writes; no synchronous loads.");

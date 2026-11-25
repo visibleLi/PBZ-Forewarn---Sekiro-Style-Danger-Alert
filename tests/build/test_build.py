@@ -193,8 +193,8 @@ class BuildTests(unittest.TestCase):
             self.assertIn('tests/build/test_build.py', archive.namelist())
             self.assertIn('tools/set_version.py', archive.namelist())
             self.assertIn('AGENTS.md', archive.namelist())
-            for name in ('.claude/skills/pbzforewarn-dev/SKILL.md',
-                         'tools/check-interfaces.cjs', 'tools/dev-types/package.json',
+            self.assertFalse(any('.claude' in Path(name).parts for name in archive.namelist()))
+            for name in ('tools/check-interfaces.cjs', 'tools/dev-types/package.json',
                          'tools/dev-types/package-lock.json', 'tools/dev-types/.gitignore',
                          'tools/dev-types/audio-environment.d.ts'):
                 self.assertIn(name, archive.namelist())

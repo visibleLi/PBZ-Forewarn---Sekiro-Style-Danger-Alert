@@ -6,6 +6,7 @@ const EFFECT = "/SGameCombatSystem/Bullet/Event/BP_BulletEvent_Effect.BP_BulletE
 const EXECUTION = "/SGameExecution/Bullet/Events/BP_BulletEvent_PlayExecution.BP_BulletEvent_PlayExecution_C";
 const GRAB = "/SGameExecution/GA/GA_ExecutedAbilityBase_Grab.GA_ExecutedAbilityBase_Grab_C";
 const FILTER = "/Script/SGameCombatSystem.BulletEvent_FilterEventActor";
+const OVERLAP = "/PBZCombatAsset/Prototypes/Bullet/BulletData/BP_PBZ_OverlapBulletData.BP_PBZ_OverlapBulletData_C";
 
 function supportsActionClass(actionClass) { return actionClass === DELAY || actionClass === DURATION; }
 
@@ -147,6 +148,24 @@ function createBulletWarning({ valid, path, list, effectPath, requirements }) {
                 const root = read(bullet, lifecycle);
                 if (root === undefined) continue;
                 for (const event of array(read(root, "Events"))) visit(event, lifecycle, [], [], [], 0);
+            }
+            // Native overlap lifecycle prefabs declare their moment per particle.
+            // This remains an authored preparation risk, never StartDelay/VFX time.
+            if (actionClass === DELAY && typeof read(bullet, "GetClass") === "function" && klass(bullet) === OVERLAP) {
+                const data = read(bullet, "EffectData"), particles = read(data, "ParticleData");
+                if (particles !== undefined) array(particles).forEach((particle, index) => {
+                    if (++visited > 128) throw Error("node-cap");
+                    const effect = effectPath({ NiagaraEffect: read(particle, "Particle") });
+                    const color = classifyEffect(effect && effect.path);
+                    if (!color) return;
+                    const moment = read(particle, "ActivateMoment");
+                    if (moment !== 1) throw Error("particle-moment-unverified");
+                    matches.push({ color, kind: "standard-warning-resource",
+                        lifecycle: "EffectData.Start",
+                        effectPath: effect.path, route: [{ classPath: OVERLAP,
+                            eventPath: path(bullet), particleIndex: index, activateMoment: moment }],
+                        riskConditions: [], refs: [] });
+                });
             }
             // One physical action, one cue. Ambiguous/multiple selected signals stay observations.
             if (matches.length !== 1) return null;

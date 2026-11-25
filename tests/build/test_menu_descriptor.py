@@ -17,14 +17,14 @@ class DescriptorTests(unittest.TestCase):
         source = (ROOT / 'src/js/PBZForewarn/main.js').read_text(encoding='utf8')
         default_block = re.search(r'const DEFAULTS = \{(.*?)\};', source, re.S).group(1)
         names = set(re.findall(r'\b(\w+):', default_block))
-        legacy_keys = {'SemanticFallback', 'YuZanCastWarning', 'YuZanCastLeadMs'}
-        self.assertEqual(names - set(keyed), legacy_keys)
-        self.assertEqual(set(keyed) - names, set())
-        self.assertEqual(len(keyed), 20)
-        self.assertEqual(keyed['GenericAttack']['type'], 'toggle')
-        self.assertIs(keyed['GenericAttack']['default'], False)
-        for name in ('TickMs', 'DiscoverMs', 'ScanMs', 'LateGraceMs', 'MaxGlyphMs', 'FontPath'):
-            self.assertEqual(keyed[name]['type'], 'readonly')
+        visible = {'LeadMs', 'RangeCm', 'OnlyLockedTarget', 'SoundOn', 'SoundVolume',
+                   'GlyphOn', 'GlyphFontSize', 'GlyphY'}
+        self.assertEqual(set(keyed), visible)
+        self.assertTrue(visible <= names)
+        self.assertFalse({'SemanticFallback', 'YuZanCastWarning', 'YuZanCastLeadMs'} & names)
+        self.assertEqual(len(names), 20)
+        self.assertEqual(sum(row['type'] == 'heading' for row in rows), 3)
+        self.assertNotIn('readonly', {row['type'] for row in rows})
         for row in rows:
             self.assertTrue({'en', 'zh-Hans', 'zh-Hant'} <= row['label'].keys())
         for lang in ('en', 'zh-Hans', 'zh-Hant'):
@@ -48,8 +48,7 @@ class DescriptorTests(unittest.TestCase):
                 self.assertNotIn('restart', row['help']['en'].lower())
             elif key != 'FontPath':
                 self.assertIn('restart', row['help']['en'])
-        self.assertIn('ignores manual', keyed['FontPath']['help']['en'])
-        self.assertNotEqual(keyed['TickMs']['label']['zh-Hans'], 'TickMs')
+        self.assertEqual(len(keyed), 8)
 
     def test_live_runtime_keys_match_editable_menu_rows(self):
         descriptor = json.loads((ROOT / 'src/lua/PBZForewarnHooks.modsmenu.json').read_text(encoding='utf8'))
@@ -57,11 +56,10 @@ class DescriptorTests(unittest.TestCase):
         block = re.search(r'const reservedKeys = \[(.*?)\];', source, re.S).group(1)
         reserved = set(re.findall(r'"(\w+)"', block))
         rows = [row for row in descriptor['settings'] if 'key' in row]
-        self.assertEqual(reserved, {row['key'] for row in rows if row['type'] == 'readonly'})
-        legacy_block = re.search(r'const legacyKeys = \[(.*?)\];', source, re.S).group(1)
-        legacy = set(re.findall(r'"(\w+)"', legacy_block))
-        self.assertEqual(legacy, {'SemanticFallback', 'YuZanCastWarning', 'YuZanCastLeadMs'})
-        self.assertEqual(sum(row['type'] != 'readonly' for row in rows), 14)
+        self.assertEqual(reserved, {'TickMs', 'DiscoverMs', 'ScanMs', 'LateGraceMs', 'MaxGlyphMs', 'FontPath'})
+        self.assertFalse(reserved & {row['key'] for row in rows})
+        self.assertNotIn('const legacyKeys', source)
+        self.assertEqual(sum(row['type'] != 'readonly' for row in rows), 8)
         for row in rows:
             if row['type'] == 'readonly':
                 self.assertNotEqual(row['label']['zh-Hans'], row['key'])

@@ -90,7 +90,7 @@ report = {'version': VERSION, 'distributionName': 'PBZForewarn-' + VERSION,
           'javascriptSyntax': 'passed', 'originalWavSha256': wav_hash,
           'bankSha256': bank_manifest['bankSha256'], 'sourcePcmSha256': bank_manifest['sourcePcmSha256'],
           'playablePcmSha256': bank_manifest['pcm']['sha256'], 'audioTrimStartMs': bank_manifest['trimStartMs'],
-          'scope': 'Offline mocked UE/Puerts/UE4SS, observation and semantic-fallback checks, plus binary bank checks. No game launch, in-game Wwise bank load, audible playback, lock-state or combat verification.',
+          'scope': 'Offline mocked UE/Puerts/UE4SS, generic warnings, settings migration and observation checks, plus binary bank checks. No game launch, in-game Wwise bank load, audible playback, lock-state or combat verification.',
           'validatedInputs': inputs_after}
 summary_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf8')
 print(json.dumps({key: value for key, value in report.items() if key != 'validatedInputs'}, ensure_ascii=False, indent=2))

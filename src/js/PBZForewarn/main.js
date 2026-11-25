@@ -9,18 +9,17 @@ const bankConfig = require("./wwise-bank-config");
 const { createAudioEnvironmentProbe } = require("./audio-environment");
 const { createTargetFilter } = require("./target-filter");
 const { createDiagnosticStore } = require("./diagnostic-store");
-const { createCastFollowup } = require("./cast-followup");
 const { createGrabReactionReader } = require("./grab-reaction");
 const { createGrabWarningCycle } = require("./grab-warning-cycle");
-const VERSION = "0.8.0";
+const VERSION = "0.9.0";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
-    Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, SemanticFallback: true, GenericAttack: false,
+    Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, GenericAttack: true,
     ObservationFlushMs: 20000,
-    YuZanCastWarning: true, YuZanCastLeadMs: 350,
     OnlyLockedTarget: false, SoundOn: true, SoundVolume: 0.8,
     FontPath: "/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font" };
-const BOUNDS = { LeadMs: [0, 1000], YuZanCastLeadMs: [0, 1000], ObservationFlushMs: [5000, 60000],
+const MENU_KEYS = ["LeadMs", "RangeCm", "OnlyLockedTarget", "SoundOn", "SoundVolume", "GlyphOn", "GlyphFontSize", "GlyphY"];
+const BOUNDS = { LeadMs: [0, 1000], ObservationFlushMs: [5000, 60000],
     RangeCm: [500, 10000], TickMs: [16, 100], DiscoverMs: [16, 250], ScanMs: [100, 1000],
     LateGraceMs: [0, 250], MaxGlyphMs: [100, 3000], GlyphFontSize: [30, 240], GlyphY: [0.1, 0.8], SoundVolume: [0, 2] };
 let state = null;
@@ -40,6 +39,7 @@ function parseSettings(text) {
         const m = /^\s*([A-Za-z]+)\s*=\s*([^#;\r\n]+?)\s*(?:[#;].*)?$/.exec(line);
         if (m) applySetting(result, m[1], m[2]);
     }
+    result.GenericAttack = true;
     return result;
 }
 function parseJsonSettings(text) {
@@ -53,9 +53,16 @@ function parseJsonSettings(text) {
         if (bytes > 65536) throw Error("Settings JSON exceeds 64 KiB");
     }
     const values = JSON.parse(text.replace(/^﻿/, ""));
-    if (!values || typeof values !== "object" || Array.isArray(values) ||
-        Object.values(values).some(value => value !== null && typeof value === "object" || typeof value === "number" && !Number.isFinite(value)))
-        throw Error("Settings JSON must be a flat object");
+    const object = value => !!value && typeof value === "object" && !Array.isArray(value);
+    if (!object(values)) throw Error("Settings JSON must be an object");
+    const validate = (value, depth) => {
+        if (!value || typeof value !== "object") return;
+        if (depth > 8) throw Error("Settings JSON exceeds container depth 8");
+        for (const child of Object.values(value)) validate(child, depth + 1);
+    };
+    validate(values, 1);
+    for (const key of ["_internal", "_extra"])
+        if (Object.hasOwn(values, key) && !object(values[key])) throw Error("Invalid settings container: " + key);
     // Lua rejects unpaired UTF-16 escapes too, including in unknown fields.
     const validUnicode = value => {
         for (let i = 0; i < value.length; i++) {
@@ -72,15 +79,43 @@ function parseJsonSettings(text) {
         if (!validUnicode(JSON.parse(token))) throw Error("Settings JSON contains an unpaired surrogate");
         return '""';
     }).trim();
-    if (/[\[\]{}]/.test(structure.slice(1, -1)) ||
-        (structure.match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g) || []).some(token => !Number.isFinite(Number(token))))
-        throw Error("Settings JSON must contain only finite scalar members");
+    // Validate typed members before duplicate keys are collapsed by JSON.parse.
+    const tokens = text.replace(/^﻿/, "").match(/"(?:[^"\\]|\\.)*"|[{}\[\]:,]|[^\s{}\[\]:,]+/g) || [];
+    const containers = [];
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i], parent = containers[containers.length - 1];
+        if (tokens[i + 1] === ":") { parent.key = JSON.parse(token); continue; }
+        if (token === ":" || token === ",") continue;
+        if (token === "}" || token === "]") { containers.pop(); continue; }
+        const name = parent && Object.keys(DEFAULTS).find(key => key.toLowerCase() === parent.key?.toLowerCase());
+        const settingsObject = parent && (parent.scope === "root" || parent.scope === "internal");
+        const internalContainer = parent?.scope === "root" && ["_internal", "_extra"].includes(parent.key);
+        if (internalContainer && token !== "{") throw Error("Invalid settings container: " + parent.key);
+        if (settingsObject && name && (token === "{" || token === "[")) throw Error("Setting must be scalar: " + parent.key);
+        if (token === "{" || token === "[") {
+            if (containers.length >= 8) throw Error("Settings JSON exceeds container depth 8");
+            containers.push({ scope: !parent ? "root" : internalContainer && parent.key === "_internal" ? "internal" : "metadata" });
+        }
+    }
+    if ((structure.match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g) || []).some(token => !Number.isFinite(Number(token))))
+        throw Error("Settings JSON must contain only finite numbers");
     const result = { ...DEFAULTS };
-    const ordered = Object.entries(values).sort(([a], [b]) => {
-        const left = a.toLowerCase(), right = b.toLowerCase();
-        return left < right ? -1 : left > right ? 1 : a < b ? -1 : a > b ? 1 : 0;
-    });
-    for (const [key, value] of ordered) applySetting(result, key, value);
+    const structured = Object.hasOwn(values, "_internal") || Object.hasOwn(values, "_extra");
+    const readMembers = (members, internal) => {
+        const ordered = Object.entries(members).sort(([a], [b]) => {
+            const left = a.toLowerCase(), right = b.toLowerCase();
+            return left < right ? -1 : left > right ? 1 : a < b ? -1 : a > b ? 1 : 0;
+        });
+        for (const [key, value] of ordered) {
+            const name = Object.keys(DEFAULTS).find(item => item.toLowerCase() === key.toLowerCase());
+            if (!name) continue;
+            if (value !== null && typeof value === "object") throw Error("Setting must be scalar: " + key);
+            if (!structured || MENU_KEYS.includes(name) !== internal) applySetting(result, key, value);
+        }
+    };
+    readMembers(values, false);
+    if (object(values._internal)) readMembers(values._internal, true);
+    if (values._extra?.PBZForewarnGenericAttackEpoch !== 1) result.GenericAttack = true;
     return result;
 }
 function start() {
@@ -89,7 +124,7 @@ function start() {
     const s = { session, stopped: false, ticking: false, seq: 0, events: [], audioEvents: [], once: new Map(),
         actors: [], hintedActors: new Map(), records: new Map(), lastDiscovery: 0, lastScan: 0, lastReport: 0,
         worldKey: "", nextRecord: 0, hooksSession: "", hooksSeq: 0, hooksAlive: false, hookHealth: null, lastHookRead: 0,
-        paused: true, stats: { cues: 0, fallbackCues: 0, castCues: 0, followupSuppressed: 0, cancels: 0, duplicateCancelsSuppressed: 0, missed: 0, conditionsNotMet: 0,
+        paused: true, stats: { cues: 0, cancels: 0, duplicateCancelsSuppressed: 0, missed: 0, conditionsNotMet: 0,
             bulletCues: 0, grabFollowupsDiscarded: 0,
             previewOnlySkipped: 0, recognized: 0, tasks: 0, hooks: 0, errors: 0 },
         lastTickWall: 0, maxTickGap: 0, lastLongTick: 0, gameNow: 0, naturalCompletions: new Set(),
@@ -104,18 +139,13 @@ function start() {
         flushStats: { writes: 0, catalogWrites: 0, observationWrites: 0, observationWriteFailures: 0,
             lastChars: 0, maxWriteMs: 0, maxSerializeMs: 0, maxObservationWriteMs: 0, maxObservationSerializeMs: 0 } };
     s.diagnostics = createDiagnosticStore({ now: () => Date.now() });
-    s.castFollowup = createCastFollowup();
     s.grabCycle = createGrabWarningCycle({ now: () => Date.now() });
     s.pendingGrabDelivery = new Map();
-    s.pendingCastDelivery = new Map();
-    function acceptCastDelivery(id) {
+    function acceptGrabDelivery(id) {
         const grab = s.pendingGrabDelivery.get(id);
         if (grab) { s.grabCycle.recordDelivery(grab, id); s.pendingGrabDelivery.delete(id); }
-        const pending = s.pendingCastDelivery.get(id);
-        if (!pending) return;
-        s.castFollowup.recordCue(pending, id); s.pendingCastDelivery.delete(id);
     }
-    function followupContext(r, live) {
+    function cycleContext(r, live) {
         return { world: s.worldKey + "|" + s.clockEpoch, actor: a.path(r.actor), ability: a.path(r.ability),
             timeline: r.timelineKey, key: r.key, serial: r.serial, activation: String(r.activation), live };
     }
@@ -146,8 +176,7 @@ function start() {
             action: shortPath(item.action), actionClass: item.actionClass, effect: item.effect, color: item.color,
             start: item.start, end: item.end, roleName: item.roleName, recognition: item.recognition || null,
             requirements: evidence ? { requireTags: evidence.requireTags, ignoreTags: evidence.ignoreTags, tagQuery: evidence.tagQuery } : null,
-            attackSemantics: item.attackSemantics || null, semanticFallback: item.semanticFallback || null,
-            castWarning: item.castWarning || null, bulletWarning: item.bulletWarning || null,
+            attackSemantics: item.attackSemantics || null, bulletWarning: item.bulletWarning || null,
             bulletSignalCandidates: item.bulletSignalCandidates || null, reason: item.reason,
             detailLevel: item.requirementsEvidence || item.attackSemantics ? "full" : "compact" };
     }
@@ -163,21 +192,10 @@ function start() {
             result.resourceId = resourceId(data.meta);
             result.ability = shortPath(data.meta.ability); result.actor = shortPath(data.meta.actor);
             result.actionClass = data.meta.actionClass;
-            if (data.meta.semanticFallback) {
-                result.source = "semantic-fallback";
-                result.fallbackRule = data.meta.semanticFallback.ruleId;
-                result.timingBasis = data.meta.semanticFallback.timingBasis;
-            }
             if (data.meta.bulletWarning) {
                 result.source = "bullet-preparation";
                 result.preparationKind = data.meta.bulletWarning.kind;
                 result.timingBasis = data.meta.bulletWarning.timingBasis;
-            }
-            if (data.meta.castWarning) {
-                result.source = "cast-warning";
-                result.castRule = data.meta.castWarning.ruleId;
-                result.spellPhase = "cast";
-                result.timingBasis = data.meta.castWarning.timingBasis;
             }
         }
         if (result.taskKey) { const parts = result.taskKey.split("|"); result.task = shortPath(parts[parts.length - 1]); delete result.taskKey; }
@@ -189,7 +207,7 @@ function start() {
         return result;
     }
     function diagnostic(kind, data, onceKey) {
-        if (kind === "sound-play" && data && data.playingId) acceptCastDelivery(data.id);
+        if (kind === "sound-play" && data && data.playingId) acceptGrabDelivery(data.id);
         if (onceKey) {
             const previous = s.once.get(onceKey);
             if (previous && Date.now() - previous < 10000) return;
@@ -200,7 +218,7 @@ function start() {
         if (!["inventory", "eligibility", "task-found", "hook-hint", "rate-jump", "active-ability-no-timeline", "timeline-coverage"].includes(kind)) log(kind, data);
     }
     const a = createAdapter(UE, puerts, (k, d) => diagnostic(k, d, k + JSON.stringify(d)),
-        { semanticFallback: false, genericAttack: false });
+        { genericAttack: false });
     s.a = a;
     const readGrabReaction = createGrabReactionReader(a);
     s.executionCapabilities = new Map();
@@ -227,7 +245,7 @@ function start() {
     }
     function grabCycleContext(r, live) {
         const entry = s.executionCapabilities.get(capabilityKey(r));
-        return { ...followupContext(r, live), ended: r.ended || !a.valid(r.task) ||
+        return { ...cycleContext(r, live), ended: r.ended || !a.valid(r.task) ||
                 a.safe(() => r.ability.bIsActive, null) === false || a.safe(() => r.ability.bIsAbilityEnding, null) === true,
             payloads: entry ? [...entry.payloads.keys()] : [] };
     }
@@ -276,17 +294,36 @@ function start() {
         configPath = UE.BlueprintPathsLibrary.ConvertRelativePathToFull(content.replace(/\\/g, "/").replace(/\/+$/, "") +
             "/../../platform/steam/ue4ss/Mods/PBZForewarnHooks/PBZForewarnHooks.config.json", "");
         if (!configPath) throw Error("Settings path unavailable");
-        s.settings = UE.BlueprintPathsLibrary.FileExists(configPath) ? parseJsonSettings(readText(configPath, true)) :
-            parseSettings(readText(saved + "PBZForewarn.txt"));
+        let json, handoffError = null;
+        if (UE.BlueprintPathsLibrary.FileExists(configPath)) {
+            try { json = readText(configPath, true); } catch (error) { handoffError = error; }
+        }
+        // Lua may hold the original while publishing/recovering the same settings.
+        // Read only one matching recovery pair; never import stale TXT in that gap.
+        if (json === undefined && !UE.BlueprintPathsLibrary.FileExists(configPath)) {
+            try {
+                const pending = [".pre-menu-cleanup", ".pre-generic-default"]
+                    .filter(suffix => UE.BlueprintPathsLibrary.FileExists(configPath + suffix + ".pending"));
+                if (pending.length > 1) throw Error("Ambiguous settings migration snapshots");
+                if (pending.length) {
+                    const original = readText(configPath + pending[0] + ".pending", true);
+                    if (original !== readText(configPath + pending[0] + ".bak", true))
+                        throw Error("Settings migration snapshot does not match backup");
+                    json = original;
+                }
+            } catch (error) { handoffError = error; }
+            // Publication can finish during either a successful or failed recovery read.
+            if (UE.BlueprintPathsLibrary.FileExists(configPath)) json = readText(configPath, true);
+        }
+        if (json === undefined && UE.BlueprintPathsLibrary.FileExists(configPath)) json = readText(configPath, true);
+        if (json === undefined && handoffError) throw handoffError;
+        s.settings = json === undefined ? parseSettings(readText(saved + "PBZForewarn.txt")) : parseJsonSettings(json);
     } catch (error) { configError = String(error); }
-    a.configureSemanticFallback(!s.settings.GenericAttack && s.settings.SemanticFallback === true);
     a.configureGenericAttack(s.settings.GenericAttack === true);
-    a.configureCastWarning(!s.settings.GenericAttack && s.settings.YuZanCastWarning === true, s.settings.YuZanCastLeadMs / 1000);
     s.diagnostics = createDiagnosticStore({ enabled: s.settings.Diagnostics, now: () => Date.now() });
     if (configError) diagnostic("config-read-error", { path: configPath, error: configError, usingDefaults: true });
     const reservedKeys = ["TickMs", "DiscoverMs", "ScanMs", "LateGraceMs", "MaxGlyphMs", "FontPath"];
-    const legacyKeys = ["SemanticFallback", "YuZanCastWarning", "YuZanCastLeadMs"];
-    const liveKeys = Object.keys(DEFAULTS).filter(key => !reservedKeys.includes(key) && !legacyKeys.includes(key));
+    const liveKeys = Object.keys(DEFAULTS).filter(key => !reservedKeys.includes(key));
     const menuEventsPath = configPath.replace(/PBZForewarnHooks\/PBZForewarnHooks\.config\.json$/, "PBZModsMenuBridge/events-PBZForewarnHooks.txt");
     let lastSettingsCheck = -Infinity, lastSettingsChange = 0;
     s.menuSettings = { change: 0, restartRequired: [], outputs: {} };
@@ -455,12 +492,10 @@ function start() {
         s.scheduler.options.leadSeconds = s.settings.LeadMs / 1000;
         a.configureGenericAttack(s.settings.GenericAttack === true);
         if (changed.includes("GenericAttack")) {
-            s.executionCapabilities.clear(); s.castFollowup.clear(); s.pendingCastDelivery.clear();
+            s.executionCapabilities.clear();
             s.grabCycle.clear(); s.pendingGrabDelivery.clear();
         }
-        a.configureSemanticFallback(!s.settings.GenericAttack && s.settings.SemanticFallback === true);
-        a.configureCastWarning(!s.settings.GenericAttack && s.settings.YuZanCastWarning === true, s.settings.YuZanCastLeadMs / 1000);
-        s.diagnostics.setEnabled(s.settings.Diagnostics);
+                s.diagnostics.setEnabled(s.settings.Diagnostics);
         configureObservation();
         // Recompile with stable event keys; the scheduler retains fired/past tombstones.
         for (const r of s.records.values()) {
@@ -468,15 +503,12 @@ function start() {
             for (const [key, id] of [...r.audioByEvent]) {
                 const event = r.events.find(e => e.key === key);
                 if (event && (!s.settings.BlackOn && event.color === "black" ||
-                    !s.settings.SemanticFallback && event.meta.semanticFallback ||
-                    !s.settings.YuZanCastWarning && event.meta.castWarning ||
-                    changed.includes("GenericAttack") && (event.meta.bulletWarning || event.meta.castWarning || event.meta.semanticFallback)))
+                    changed.includes("GenericAttack") && event.meta.bulletWarning))
                     emit("cancel", { id, taskKey: r.key, eventKey: key, reason: "settings-disabled" });
             }
         }
         if (changed.includes("Diagnostics")) s.catalogedTemplates.clear();
         if (changed.includes("Hooks") && !s.settings.Hooks) { s.hintedActors.clear(); s.hooksAlive = false; }
-        if (changed.includes("YuZanCastWarning")) { s.castFollowup.clear(); s.pendingCastDelivery.clear(); }
         diagnostic("config-runtime-update", { changed, settings: Object.fromEntries(liveKeys.map(key => [key, s.settings[key]])),
             observing, luaAcknowledged: false, outputVerified: false });
     }
@@ -489,10 +521,9 @@ function start() {
     function inputKey(name) { return a.safe(() => { const key = new UE.Key(); key.KeyName = name; return key; }, null); }
     const previewKey = inputKey("F9"), previewAltKeys = [inputKey("LeftAlt"), inputKey("RightAlt")];
     function emit(kind, event) {
-        if (kind === "reset") { s.castFollowup.clear(); s.pendingCastDelivery.clear(); s.executionCapabilities.clear();
+        if (kind === "reset") { s.executionCapabilities.clear();
             s.grabCycle.clear(); s.pendingGrabDelivery.clear(); }
         if (kind === "cancel" && event && event.id) {
-            s.castFollowup.withdrawCue(event.id); s.pendingCastDelivery.delete(event.id);
             s.grabCycle.withdrawCue(event.id); s.pendingGrabDelivery.delete(event.id);
         }
         if (kind === "cancel" && event && event.id) {
@@ -510,8 +541,6 @@ function start() {
         if (s.audioEvents.length > 256) { s.audioEvents.shift(); diagnostic("audio-queue-limit", { maximum: 256 }, "audio-queue-limit"); }
         if (kind === "cue") {
             const role = event.meta && event.meta.roleName;
-            const semanticFallback = event.meta && event.meta.semanticFallback;
-            const castWarning = event.meta && event.meta.castWarning;
             const bulletWarning = event.meta && event.meta.bulletWarning;
             observe("warning-cue", { ...taskObservationContext(s.records.get(event.taskKey)), id: event.id, actor: role ? null : event.meta && event.meta.actor,
                 ability: role ? null : event.meta && event.meta.ability, activation: role ? null : event.activation,
@@ -520,11 +549,8 @@ function start() {
                 action: event.meta && event.meta.action, eventKey: event.eventKey,
                 color: event.color, plannedStart: event.start, observedTimelineTime: event.observedTime,
                 observedRate: event.observedRate, estimatedLeadGameSeconds: event.actualLeadGameSeconds,
-                soundSubmitted: false, source: bulletWarning ? "bullet-preparation" : castWarning ? "cast-warning" : semanticFallback ? "semantic-fallback" : "existing-0.5-scheduler",
-                castRule: castWarning ? castWarning.ruleId : null, spellPhase: castWarning ? "cast" : null,
-                fallbackRule: semanticFallback ? semanticFallback.ruleId : null,
-                timingBasis: bulletWarning ? bulletWarning.timingBasis : castWarning ? castWarning.timingBasis :
-                    semanticFallback ? semanticFallback.timingBasis : "original-warning-node",
+                soundSubmitted: false, source: bulletWarning ? "bullet-preparation" : "existing-0.5-scheduler",
+                timingBasis: bulletWarning ? bulletWarning.timingBasis : "original-warning-node",
                 executionVerified: false, usedForScheduling: true });
             if (s.settings.Diagnostics && event.meta) {
                 const id = resourceId(event.meta);
@@ -537,14 +563,10 @@ function start() {
                     (s.settings.GlyphOn || s.settings.SoundOn))
                     s.pendingGrabDelivery.set(event.id, { ...grabCycleContext(r, true), eventKey: event.eventKey,
                         payloads: [bulletWarning.executedAbilityPath] });
-                if (castWarning && s.settings.YuZanCastWarning && (s.settings.GlyphOn || s.settings.SoundOn))
-                    s.pendingCastDelivery.set(event.id, followupContext(r, true));
                 r.audioIds.add(event.id); if (event.eventKey) r.audioByEvent.set(event.eventKey, event.id);
                 if (r.audioIds.size > 256) r.audioIds.delete(r.audioIds.values().next().value);
             }
             s.stats.cues++; diagnostic("CUE", { seq: entry.seq, ...compactEvent(event) });
-            if (event.meta && event.meta.semanticFallback) s.stats.fallbackCues++;
-            if (castWarning) s.stats.castCues++;
             if (bulletWarning) s.stats.bulletCues++;
         }
         if (kind === "cancel") {
@@ -689,8 +711,6 @@ function start() {
     }
     function clearRecords(reason = "context-reset") {
         s.grabCycle.clear(); s.pendingGrabDelivery.clear();
-        s.castFollowup.clear();
-        s.pendingCastDelivery.clear();
         for (const r of s.records.values()) { observeTask(r, "observation-boundary", { reason, dangerEndedVerified: false }); detach(r); }
         s.records.clear(); s.naturalCompletions.clear();
     }
@@ -836,9 +856,6 @@ function start() {
         // Reconcile before retiring old task records: a stage handoff must be
         // witnessed while both records are still available, never reconstructed
         // later from two close timestamps or a global cooldown.
-        s.castFollowup.update([...s.records.values()].map(r => followupContext(r,
-            r.present && !r.ended && a.valid(r.task) && a.valid(r.ability) &&
-            a.safe(() => r.ability.bIsActive, false) && !a.safe(() => r.ability.bIsAbilityEnding, true))));
         if (s.settings.GenericAttack) s.grabCycle.update([...s.records.values()].map(r => grabCycleContext(r,
             r.present && !r.ended && a.valid(r.task) && a.valid(r.ability) &&
             a.safe(() => r.ability.bIsActive, false) === true && !a.safe(() => r.ability.bIsAbilityEnding, true))));
@@ -924,17 +941,14 @@ function start() {
                 for (const event of r.events.slice(0, 128)) {
                     const execution = r.contexts.get(event.key);
                     const role = execution && execution.roleName;
-                    const semanticFallback = event.meta && event.meta.semanticFallback;
-                    const castWarning = event.meta && event.meta.castWarning;
+                    const bulletWarning = event.meta && event.meta.bulletWarning;
                     const plan = { ...context, actor: role ? null : context.actor,
                         ability: role ? null : context.ability, activation: role ? null : context.activation,
                         ownerActorCandidate: context.actor, roleActorCandidate: role ? a.path(execution.actor) : null,
                         action: event.meta.action, eventKey: event.key,
                         color: event.color, start: event.start, end: event.end, eligible: event.eligible,
-                        source: castWarning ? "cast-warning" : semanticFallback ? "semantic-fallback" : "existing-warning-resource",
-                        castRule: castWarning ? castWarning.ruleId : null, spellPhase: castWarning ? "cast" : null,
-                        fallbackRule: semanticFallback ? semanticFallback.ruleId : null,
-                        timingBasis: castWarning ? castWarning.timingBasis : semanticFallback ? semanticFallback.timingBasis : "timeline-warning-event",
+                        source: bulletWarning ? "bullet-preparation" : "existing-warning-resource",
+                        timingBasis: bulletWarning ? bulletWarning.timingBasis : "timeline-warning-event",
                         executionVerified: false, usedForScheduling: true };
                     const signature = JSON.stringify({ ...plan, taskTimelineTime: null }), key = "warning:" + event.key;
                     if (r.observedPlans.get(key) !== signature) {
@@ -1089,7 +1103,7 @@ function start() {
             }
             if (paused !== s.paused) diagnostic("state", { paused });
             s.paused = paused;
-            if (paused) { s.castFollowup.clear(); s.executionCapabilities.clear(); s.grabCycle.clear(); s.pendingGrabDelivery.clear(); }
+            if (paused) { s.executionCapabilities.clear(); s.grabCycle.clear(); s.pendingGrabDelivery.clear(); }
             const targetStatus = s.targetFilter.read(player, s.settings.OnlyLockedTarget);
             if (s.settings.OnlyLockedTarget && s.targetStatus && targetStatus.key !== s.targetStatus.key) emit("reset", { reason: "lock-target-change" });
             s.targetStatus = targetStatus;
@@ -1098,7 +1112,7 @@ function start() {
             s.gameNow = gameNow;
             const rewind = s.observedGameTime !== null && gameNow < s.observedGameTime - 0.001;
             if (!s.observationContext || s.observationContext.worldKey !== wk || rewind) {
-                s.castFollowup.clear(); s.executionCapabilities.clear(); s.grabCycle.clear(); s.pendingGrabDelivery.clear();
+                s.executionCapabilities.clear(); s.grabCycle.clear(); s.pendingGrabDelivery.clear();
                 s.clockEpoch++;
                 for (const record of s.records.values()) record.observedPlans = null;
                 observe("observer-reset", { previousWorldKey: s.observationContext && s.observationContext.worldKey,
@@ -1174,11 +1188,6 @@ function start() {
                             const targetAllowed = s.targetFilter.allows(executionActor, s.targetStatus);
                             const blackAllowed = event.color !== "black" || a.safe(() => UE.ETeamAttitude.Hostile !== undefined &&
                                 UE.FactionUtils.GetFactionRelation(executionActor, player) === UE.ETeamAttitude.Hostile, false);
-                            const semanticType = event.meta && event.meta.semanticFallback ?
-                                a.semanticFallbackEligibility(r.checks.get(event.key)) : null;
-                            const castCheck = event.meta && event.meta.castWarning ? a.castWarningEligibility(r.checks.get(event.key), {
-                                actor: a.path(executionActor), ability: a.path(r.ability),
-                                timeline: a.path(a.safe(() => r.task.Timeline, null)) }) : null;
                             const bulletCheck = event.meta && event.meta.bulletWarning ? a.bulletWarningEligibility(
                                 r.checks.get(event.key), event.meta, context ? context.asc : r.asc, event.meta.bulletWarning) : null;
                             const check = context && context.reason ? { eligible: false, reason: context.reason } :
@@ -1186,8 +1195,6 @@ function start() {
                                 !blackAllowed ? { eligible: false, reason: "black-not-confirmed-hostile" } :
                                 role && (!a.valid(context.actor) || !eligibleActor(context.actor, player)) ?
                                 { eligible: false, reason: "role-not-eligible" } :
-                                semanticType && !semanticType.eligible ? semanticType :
-                                castCheck && !castCheck.eligible ? castCheck :
                                 bulletCheck && !bulletCheck.eligible ? bulletCheck :
                                 a.requirements(r.checks.get(event.key), context ? context.asc : r.asc);
                             const audioId = r.audioByEvent.get(event.key);
@@ -1214,19 +1221,6 @@ function start() {
                             }
                             return { ...event, eligible: check.eligible, suppressed: !!grabSuppression,
                                 ...(grabSuppression ? { meta: { ...event.meta, grabSuppression } } : {}) };
-                        }).filter(event => {
-                            const suppression = !s.settings.GenericAttack && s.settings.YuZanCastWarning &&
-                                s.castFollowup.suppression({ ...followupContext(r, true),
-                                    timeline: a.path(a.safe(() => r.task.Timeline, null)) }, event);
-                            if (!suppression) return true;
-                            if (!r.followupSuppressed) r.followupSuppressed = new Set();
-                            if (!r.followupSuppressed.has(event.key)) {
-                                r.followupSuppressed.add(event.key); s.stats.followupSuppressed++;
-                                const info = { ...taskObservationContext(r), action: event.meta.action, eventKey: event.key,
-                                    color: event.color, ...suppression, source: "cast-followup-policy", usedForScheduling: false };
-                                diagnostic("followup-suppressed", info); observe("warning-suppressed", info);
-                            }
-                            return false;
                         });
                         samples.push({ key: r.key, activation: r.activation, timelineKey: r.timelineKey, time: current, events: freshEvents });
                     } catch (e) {
@@ -1262,16 +1256,13 @@ function start() {
                 s.menuSettings.outputs.glyph = s.presentation.status().failure ? "restart-required" : "update-returned-unverified";
                 // presentation.update proves a HUD render call succeeded for the
                 // active list. Audio is acknowledged separately in diagnostic().
-                if (!paused) for (const active of Array.isArray(rendered) ? rendered : []) acceptCastDelivery(active.id);
+                if (!paused) for (const active of Array.isArray(rendered) ? rendered : []) acceptGrabDelivery(active.id);
             }
             catch (e) {
                 s.menuSettings.outputs.glyph = "restart-required";
                 s.presentation.dispose(); diagnostic("hud-update-error", { error: String(e) }, "hud-update-error");
             }
             if (reportSettingsOutput) diagnostic("config-output-update", { ...s.menuSettings, outputVerified: false });
-            // A failed tick must not leave an old request waiting to be credited
-            // by an unrelated later output. Audio acknowledgements are synchronous.
-            s.pendingCastDelivery.clear();
             const activeOutputIds = new Set(result.active.map(event => event.id));
             for (const id of s.pendingGrabDelivery.keys()) if (!activeOutputIds.has(id)) s.pendingGrabDelivery.delete(id);
             if (!paused) {

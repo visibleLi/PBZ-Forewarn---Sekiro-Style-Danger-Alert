@@ -1,37 +1,27 @@
-PBZForewarn 0.8.0 — Sekiro-Style Danger Alert
+PBZForewarn 0.9.0 — Sekiro-Style Danger Alert
 只狼风格“危”预警
 
 English
 =======
 
-WHAT'S NEW IN 0.8 — 0.8.0
-- Keeps the optional live Menu and shared JSON settings introduced in 0.7.
-- Replaces the two boss-scoped routes when GenericAttack is enabled, using shared
-  bullet warning resources and grab-risk structure rather than boss names.
-- Removes the three individual boss controls from Menu; GenericAttack remains
-  editable and default off. Turn it off for the prior compatibility routes.
-- Retains ordinary warning recognition across diagnostic-free recompiles, so an
-  already delivered grab preparation can suppress its observed later black cue.
-
-The dev.5 gameplay session recorded three complete grab cycles with one accepted
-initial warning and no later Main/Success warning output. Independent warnings
-also remained available in that sample. This is limited gameplay evidence, not
-all-enemy/all-move coverage or an acoustic/screen timing measurement.
+WHAT'S NEW IN 0.9 — 0.9.0
+- Enables generic preparation once on upgrade, including old saved 0/false values.
+  After the upgrade marker is saved, a later manual false remains respected.
+- The old boss/ability-name warning routes are removed; no switch restores them.
+- Menu contains only eight everyday controls: lead, range, locked target, sound,
+  volume, glyph visibility, size and vertical position. No third-party patch needed.
+- Black warnings and diagnostic features remain available internally, not as Menu
+  rows. Startup backs up pre-upgrade JSON before updating the same config file.
+- Adds the overlap-bullet Start-resource preparation route. One test.2 session
+  recorded six red cues accepted by the audio interface; this is limited evidence,
+  not all-move coverage or a native-crash repair.
 
 Generic cues use LeadMs and authored preparation coordinates, not measured impact
-or original effect time. Grab risk does not guarantee a grab. A unique observed
-same-actor/payload handoff can suppress later preparation and ordinary black cues;
-ended-stage evidence expires after a 1 s observation gap. A new continuation
-must follow its ability's ended Main into Success; other branches keep warnings.
-Missing initial delivery or ambiguous stages keep the fallback. This is a
-presentation association, not proven native attack identity. No native-crash
-repair is claimed.
-
-WHAT'S NEW IN 0.7
-- Optional Mods Menu settings with English, Simplified and Traditional Chinese help.
-- One JSON config imports the old TXT once and keeps it as a backup.
-- 16 editable settings apply after a successful Menu save; seven rows stay read only.
-- Includes the existing Acolyte Yanru and No. 3 Musician Puppet extra warnings.
+or original effect time. Grab risk does not guarantee a grab. An earlier dev.5
+session recorded three complete first-only grab cycles; the latest test.2 session
+did not exercise that chain. Short/late black warnings remain a known limit.
+These are software-log observations, not acoustic/screen measurements or
+all-enemy/all-move coverage.
 
 All ordinary warnings from 0.5 remain. Not every move is covered.
 
@@ -57,7 +47,7 @@ Both PBZModLoader and UE4SS are required.
 
 INSTALL
 Mod Manager: close the game, install both requirements, disable older Forewarn,
-import PBZForewarn-0.8.0.zip, and enable all of its parts.
+import PBZForewarn-0.9.0.zip, and enable all of its parts.
 
 Manual: with both requirements already installed, merge ProjectPBZ and platform
 into the game root. Keep every file and fully restart.
@@ -65,42 +55,41 @@ into the game root. Keep every file and fully restart.
 Press Alt+F9 to preview the warning sound.
 
 SETTINGS
-0.8.0 includes English, Simplified Chinese and Traditional Chinese labels
-and help for every setting, including read-only rows. Test sessions confirmed
-saved output-switch changes and font-size updates in logs; the user reported normal
-operation. Other settings have offline checks but were not all changed in game.
-These observations are not acoustic/screen measurements or full language/input coverage.
+The eight Menu controls have English, Simplified and Traditional Chinese labels
+and help. Existing output and font-size settings have limited earlier gameplay
+observations; this new compact layout/migration has offline checks only.
 Settings file (relative to game root):
 platform\steam\ue4ss\Mods\PBZForewarnHooks\PBZForewarnHooks.config.json
-On first launch, existing Saved\PBZForewarn.txt values are imported once. The old
-TXT is left untouched as a backup; once JSON exists, editing TXT has no effect.
-For manual edits, use JSON true/false for switches and numbers for numeric values.
-All 14 editable settings apply after a successful Menu save, normally within
-about 0.5 s (game stalls may delay this). The six reserved rows remain read only.
-Timing changes affect pending warnings without replaying consumed cues. Eligibility
-changes can withdraw current warnings. Glyph layout rebuilds only this mod's canvas.
-Disabling Lua hooks pauses capture/publication; inert registrations remain until
-final unload. Game-thread scheduling may delay Lua transitions.
-Disabling sound stops Forewarn's audio; enabling it does not replay old warnings.
-Enabling glyphs can show only a warning window that is still active.
+
+Install/update as usual; no extra patch or manual configuration step is required.
+On first start, Forewarn imports the old Saved\PBZForewarn.txt if no JSON exists.
+On upgrade, the existing JSON is backed up as
+PBZForewarnHooks.config.json.pre-generic-default.bak. Old flat JSON is also grouped:
+eight public settings stay at the top, internal values move into _internal, and
+unknown values stay in _extra. The three retired boss keys are not executed.
+This upgrade enables generic preparation once, including old GenericAttack=0/false
+from TXT or test.1 JSON. Other settings are preserved. The reserved numeric marker
+_extra.PBZForewarnGenericAttackEpoch=1 records the upgrade; keep it when later
+setting _internal.GenericAttack=false manually. That later false is respected on
+restart. No switch restores the deleted boss rules; no third-party patch is needed.
 
 Optional in-game settings: install Mods Menu (Nexus mod 149) and its UE4SS Bridge.
-After the first launch creates the JSON, open Settings > Mods Menu > UE4SS Mods >
-Forewarn. If the entry is missing, close and reopen settings or restart the game.
-Without Mods Menu, edit the JSON while the game is closed. Neither Menu nor its
-Bridge is bundled. Do not edit JSON externally while saving through the menu;
-stale same-field edits are not protected. Menu save status confirms persistence,
-not sound/display success. If an output fails to update, fully restart; the saved
-value is retained. Without a complete Menu notification, edits apply on restart.
-Updating the mod does not replace your JSON. Back it up before uninstalling,
-since it lives in the mod folder. To downgrade, fully exit and install the older
-version; it reads the untouched Saved\PBZForewarn.txt, so newer JSON edits must be
-copied back manually. Invalid JSON is preserved and reported; defaults are used
-for that run. Restore a valid JSON while the game is closed.
-The deprecated JSON keys SemanticFallback, YuZanCastWarning and YuZanCastLeadMs
-remain internal compatibility settings for fallback comparison with GenericAttack=false.
-They are ignored in generic mode and are not exposed in the Menu. Updates preserve
-the existing JSON and its legacy values.
+Open Settings > Mods Menu > UE4SS Mods > Forewarn after the first launch. Neither
+Menu nor Bridge is bundled or modified. The eight controls apply after a successful
+Menu save, normally within about 0.5 s; game stalls may delay this. Menu saves keep
+_internal and _extra. Do not edit JSON concurrently with Menu saves.
+
+Timing changes affect pending warnings without replaying consumed cues. Disabling
+sound stops this mod's audio; enabling it does not replay old warnings. Glyph
+changes affect only the mod's canvas and still-active warning windows.
+Without Menu, edit JSON while the game is closed. Internal settings are under
+_internal; use true/false or numbers and fully restart after manual edits. Back up
+the config before uninstalling. To downgrade, exit and restore the pre-migration
+JSON backup for versions that expect flat JSON. The reserved _internal and _extra
+fields must be JSON objects; an older custom scalar with either name is not
+automatically converted. Invalid/unreadable configuration is reported, left
+unchanged on disk and uses defaults rather than importing stale TXT. No new
+acoustic/screen result is implied.
 
 Warning timing and targets
 - LeadMs=350 — how early the warning appears before the original warning node.
@@ -112,22 +101,16 @@ Warning timing and targets
 
 Appearance and sound
 - GlyphOn=1 — show the “危” glyph. 1 = on, 0 = off.
-- BlackOn=1 — include black-light attacks. 1 = on, 0 = off.
 - GlyphFontSize=120 — glyph size. Range: 30-240.
 - GlyphY=0.32 — vertical glyph position. Range: 0.1-0.8.
 - SoundOn=1 — play the warning sound. 1 = on, 0 = off.
 - SoundVolume=0.8 — this mod's volume. Range: 0-2.
 
-Diagnostics and observation
-- Diagnostics=1 — save diagnostic snapshots. Set to 0 to reduce disk logging.
-- ObserveAttacks=1 — collect limited read-only attack evidence. Set to 0 to
-  disable.
-- Hooks=1 — read the optional Lua observation hooks. Set to 0 to disable.
-- GenericAttack=0 — experimental generic preparation replacement. 1 = trial on,
-  0 = prior boss-scoped rules.
-- ObservationFlushMs=20000 — minimum interval between observation-log writes.
-  Range: 5000-60000 ms. It changes diagnostic file size and write frequency
-  only, never warning or sound timing.
+Internal features (not Menu controls)
+Black warnings, generic preparation recognition and diagnostic/observation hooks
+remain implemented. Their values remain under _internal; only the old generic
+off value is enabled once by this upgrade. Later marked false is respected.
+The obsolete per-boss configuration is no longer read.
 
 NOTES
 - 350 ms is a target, not a guarantee for every move. Very short attacks may
@@ -159,28 +142,18 @@ AI assisted research, coding and debugging.
 中文
 ====
 
-0.8 更新内容 — 0.8.0
-- 保留0.7引入的可选即时菜单与统一JSON设置。
-- GenericAttack开启时，按共享弹体告警资源与抓取风险结构替代两位首领专属路径，
-  不再按Boss名字决定通用提示。
-- 菜单移除三个逐首领设置；GenericAttack可编辑、默认关闭，关闭可恢复旧兼容路径。
-- 普通告警来源在不采集诊断的重编译中仍保留，首次抓取准备提示送达后可抑制已关联的后续黑危。
+0.9 更新内容 — 0.9.0
+- 升级时将旧GenericAttack=0/false开启一次，保存升级标记后再手动关闭会保留，不每次强开。
+- 旧Boss/技能名专属预警路径已移除，任何开关都不能恢复旧特判。
+- 菜单只保留8项日常设置：提前量、距离、仅锁定、声音、音量、显示危字、大小、垂直位置。
+- 黑危、诊断和观察等功能仍在，仅移出菜单。无需第三方菜单补丁或额外安装步骤。
+- 启动时备份升级前JSON，更新同一配置文件；除通用旧关闭值升级开启外，其他设置保留。
+- 新增重叠弹体Start资源准备路径；test.2一场记录6条红危获音频接口接受，只是有限证据，
+  不代表全招支持或原生崩溃修复。
 
-dev.5一场实机记录中，三轮完整抓取周期仅保留首次已接受的准备提示，后续Main/Success
-节点未输出；同场独立攻击仍有预警。这是有限实机证据，不代表全敌人、全招覆盖，
-也不是声学或屏幕时间测量。
-
-通用提示统一使用LeadMs和作者准备坐标，不是实测命中或原特效时间；抓取风险不保证
-实际抓取。唯一观测到的同角色/同载荷交接可抑制后续准备与普通黑危；结束证据最多
-保留1秒观测空档。跨时间轴须为所属能力已结束的Main转入Success，其他分支保留预警。
-首次输出失败或阶段有歧义时保留后续提示。这是展示关联，不是已证明的原生攻击身份。
-本版不宣称修复原生崩溃。
-
-0.7 更新内容
-- 可选 Mods Menu 设置页，包含英文、简中、繁中逐项说明。
-- 设置统一到一个 JSON，首次导入旧 TXT 并保留原件备份。
-- 16个可编辑设置在菜单保存成功后应用，7个保留项仍只读。
-- 包含已有炎茹火环/突进收招补充危，以及玉瓒转圈施法提示。
+通用提示使用LeadMs和作者准备坐标，不是实测命中或原特效时间；抓取风险不保证实际抓取。
+此前dev.5一场记录曾有三轮完整首次抓取收口，最新test.2场次未覆盖该链。
+部分短起手黑危仍可能偏晚。这些是软件日志观察，不是声学、屏幕或全敌人/全招测量。
 
 0.5 的普通提示全部保留，但不是全招覆盖。
 
@@ -205,7 +178,7 @@ PBZModLoader 和 UE4SS 都必须安装。
 
 安装
 管理器：完全退出游戏，装好两个前置，停用旧 Forewarn，导入
-PBZForewarn-0.8.0.zip，并把包内全部部分启用。
+PBZForewarn-0.9.0.zip，并把包内全部部分启用。
 
 手动：前置已装好的情况下，把包内 ProjectPBZ 和 platform 合并到游戏根目录。
 保留全部文件并完全重启。
@@ -213,31 +186,30 @@ PBZForewarn-0.8.0.zip，并把包内全部部分启用。
 按 Alt+F9 试听危音效。
 
 设置
-0.8.0 的所有设置（含只读项）均提供英文、简中、繁中名称与说明。
-测试会话日志确认输出开关保存与字号更新，用户反馈运行正常；其他设置虽有离线检查，
-尚未逐项在游戏中切换。这些观察不是声画测量或完整语言、操作方式覆盖。
+菜单8项设置提供英文、简中、繁中名称与说明。旧版部分输出与字号设置有有限实机记录；
+本次精简布局和迁移仅离线检查，尚未实机验收。
 配置位置（相对游戏根目录）：
 platform\steam\ue4ss\Mods\PBZForewarnHooks\PBZForewarnHooks.config.json
-首次启动会一次性导入 Saved\PBZForewarn.txt 的旧设置；旧 TXT 原样保留作备份。
-JSON 存在后，不再读取旧 TXT；手改开关使用 JSON 的 true/false，数值使用数字。
-全部14个可编辑设置在菜单保存成功后通常约半秒内应用，游戏停顿可能延迟；6个保留项仍只读。
-提前量更新影响待发预警，不补播已消费预警；筛选变更可撤回当前预警。危字布局只重建本MOD显示层。
-关闭Lua钩子会暂停捕获和发布，惰性注册保留到最终卸载；游戏线程调度可能延迟Lua切换。
-关声停止本MOD音效，开声不补播旧预警；开字只显示仍有效的预警窗口。
 
-可选菜单：安装 Mods Menu（Nexus mod 149）及其 UE4SS Bridge。
-首次启动生成 JSON 后，进入 设置 > 模组菜单 > UE4SS 模组 > Forewarn。
-没出现时关闭重开设置或重启游戏。未装菜单仍可在退出游戏后手改 JSON。
-本包不附带菜单或 Bridge。不要同时用菜单和编辑器修改配置；首版不保护同字段
-旧编辑冲突。菜单保存状态只确认文件，不确认声画效果。若输出未更新，请完全重启；
-已保存值会保留。没有完整菜单通知的手改仍在重启后应用。
-更新本 MOD 不会替换 JSON；卸载前请备份，因为它放在 MOD 文件夹里。
-降级须先退出游戏再安装旧版；旧版仍读保留的 Saved\PBZForewarn.txt，
-新 JSON 中的改动需手动抄回。JSON 损坏时原件保留并记录错误，本次使用默认值；
-请退出游戏后恢复有效 JSON。
-已弃用的 JSON 键 SemanticFallback、YuZanCastWarning、YuZanCastLeadMs
-仅保留作内部兼容，在 GenericAttack=false 时用于旧路径对照；通用模式忽略它们，
-菜单不再提供这些设置。更新会保留现有 JSON 及其中的旧值。
+正常安装/更新即可，无额外补丁或手动配置步骤。没有JSON时，首次启动会导入旧的
+Saved\PBZForewarn.txt。本次升级先备份既有JSON为
+PBZForewarnHooks.config.json.pre-generic-default.bak；旧平铺配置同时归整为公开8项顶层、
+内部值_internal和未知数据_extra。三个旧首领键不参与执行。
+本次升级将旧TXT或test.1 JSON中的GenericAttack=0/false统一开启一次，其他设置保留。
+保留标记_extra.PBZForewarnGenericAttackEpoch=1（数字）后，若再手动把_internal.GenericAttack
+改为false，后续重启会尊重这个关闭值，不反复强开。关闭也不能恢复已删除的首领特判。
+无需第三方补丁。
+
+可选菜单：安装Mods Menu（Nexus mod 149）及其UE4SS Bridge，首次启动后进入
+设置 > 模组菜单 > UE4SS 模组 > Forewarn。本包不附带或修改菜单/Bridge。
+8项设置在菜单保存成功后通常约半秒内应用，游戏停顿可能延迟；保存会保留_internal和_extra。
+不要同时用菜单和编辑器修改JSON。提前量更新不补播已消费提示；关声停止本MOD音效，
+开声不补播旧危；危字变化只作用于本MOD显示层和仍有效的提示窗口。
+
+未装菜单时，退出游戏后可手改JSON。内部设置在_internal中，开关用true/false，数值用数字，
+手改后完全重启。卸载前备份配置；降级到读取平铺JSON的旧版时，退出后恢复迁移前备份。
+保留字段_internal与_extra必须是JSON对象；旧自定义同名数值不自动转换。非法或不可读配置会报错，
+原文件保持不变并使用默认值，不转读旧TXT。菜单保存成功不等于声画结果验证。
 
 提示时间与目标
 - LeadMs=350 — 相对游戏原预警节点的提前量，范围 0-1000ms。
@@ -246,19 +218,15 @@ JSON 存在后，不再读取旧 TXT；手改开关使用 JSON 的 true/false，
 
 显示与声音
 - GlyphOn=1 — 显示危字，1 开启，0 关闭。
-- BlackOn=1 — 是否包含黑光攻击，1 开启，0 关闭。
 - GlyphFontSize=120 — 危字大小，范围 30-240。
 - GlyphY=0.32 — 危字垂直位置，范围 0.1-0.8。
 - SoundOn=1 — 播放危音效，1 开启，0 关闭。
 - SoundVolume=0.8 — 本 MOD 音量，范围 0-2。
 
-诊断与观察
-- Diagnostics=1 — 保存诊断快照；设为 0 可减少磁盘日志。
-- ObserveAttacks=1 — 收集有限的只读攻击证据；设为 0 关闭。
-- Hooks=1 — 读取可选的 Lua 观察 Hooks；设为 0 关闭。
-- GenericAttack=0 — 通用准备阶段替代试验。1=试验开启，0=旧首领专属规则。
-- ObservationFlushMs=20000 — 观察日志的最小写入间隔，范围 5000-60000ms。
-  只影响诊断文件的体积和写入频率，不影响危字或音效时机。
+内部功能（不在菜单展示）
+黑危、通用准备识别、诊断及观察钩子仍保留；值在_internal中，仅旧通用关闭值本次升级开启一次，
+带升级标记后再手动false会保留。
+已退役的逐首领设置不再读取。
 
 注意
 - 350ms 是目标值，不保证每招都够早。短起手可能提前不足，极短招式可能稍晚。

@@ -1,6 +1,6 @@
 'use strict';
-// Runs the actual main + adapter + scheduler in a mocked Puerts environment.
-// No game, files outside this process, timers, UI, or audio are started.
+// Existing partial-integration regression: actual main + adapter + scheduler,
+// with owned output/filter modules and Puerts mocked. No native or in-game proof.
 const assert = require('assert');
 const vm = require('vm');
 const fs = require('fs');
@@ -11,6 +11,22 @@ const mainSource = fs.readFileSync(path.join(__dirname, '../PBZForewarn/main.js'
 let passed = 0;
 function test(name, body) { body(); passed++; console.log('PASS ' + name); }
 const array = xs => ({ Num: () => xs.length, Get: i => xs[i] });
+const PUBLIC_SETTINGS = ['LeadMs','RangeCm','OnlyLockedTarget','SoundOn','SoundVolume','GlyphOn','GlyphFontSize','GlyphY'];
+const INTERNAL_SETTINGS = ['BlackOn','GenericAttack','Diagnostics','ObserveAttacks','Hooks','ObservationFlushMs',
+    'TickMs','DiscoverMs','ScanMs','LateGraceMs','MaxGlyphMs','FontPath'];
+const RETIRED_SETTINGS = ['SemanticFallback','YuZanCastWarning','YuZanCastLeadMs'];
+function structuredSettings(marked = true) {
+    return { LeadMs:225, RangeCm:1800, OnlyLockedTarget:true, SoundOn:false, SoundVolume:0.35,
+        GlyphOn:false, GlyphFontSize:96, GlyphY:0.44,
+        _internal:{ BlackOn:false, GenericAttack:false, Diagnostics:false, ObserveAttacks:false, Hooks:false,
+            ObservationFlushMs:5000, TickMs:32, DiscoverMs:100, ScanMs:500, LateGraceMs:120, MaxGlyphMs:1800,
+            FontPath:'/Preserved/Custom.Font' },
+        _extra:{ ...(marked ? {PBZForewarnGenericAttackEpoch:1} : {}),
+            FutureSetting:23, FutureOptions:{ labels:['quiet',{ enabled:false }], note:'保留' } } };
+}
+function genericDisabledSettings(internal = {}) {
+    return {json:JSON.stringify({_internal:{GenericAttack:false,...internal},_extra:{PBZForewarnGenericAttackEpoch:1}})};
+}
 function fixture(config, startup = {}) {
     const env = { wall: 1800000000000, game: 0, paused: false, files: new Map(), logs: [], timers: new Map(), failCues: [],
         nextTimer: 0, objects: new Map(), actors: [], actorsInScan: [], hud: [], failUI: false, failClock: false, failWrite: false, audioEvents: [], audioCalls: [], audioPaused: true, lockedTarget: null, keysDown: new Set() };
@@ -52,12 +68,32 @@ function fixture(config, startup = {}) {
     env.configPath = normalize(content + '../../platform/steam/ue4ss/Mods/PBZForewarnHooks/PBZForewarnHooks.config.json');
     env.configReads = []; env.configWrites = []; env.menuReads = [];
     env.menuPath = env.configPath.replace('PBZForewarnHooks/PBZForewarnHooks.config.json', 'PBZModsMenuBridge/events-PBZForewarnHooks.txt');
+    // Model patch-style saves, not the third-party script. Internal edits in
+    // notification tests are manual changes; only PUBLIC_SETTINGS are Menu rows.
     env.menuSave = (values, change = 1) => {
-        env.files.set(env.configPath, JSON.stringify(values));
+        const json = JSON.parse(env.files.get(env.configPath) || JSON.stringify(env.settings));
+        if (!Object.hasOwn(json,'_internal') && !Object.hasOwn(json,'_extra')) {
+            json._internal = {};
+            for (const key of INTERNAL_SETTINGS) if (Object.hasOwn(json,key)) { json._internal[key]=json[key]; delete json[key]; }
+        }
+        for (const [key, value] of Object.entries(values)) {
+            if (PUBLIC_SETTINGS.includes(key)) json[key] = value;
+            else if (INTERNAL_SETTINGS.includes(key)) {
+                json._internal = { ...(json._internal || {}), [key]:value };
+                delete json[key];
+            } else if (RETIRED_SETTINGS.includes(key)) json._extra = { ...(json._extra || {}), [key]:value };
+        }
+        env.files.set(env.configPath, JSON.stringify(json));
         env.files.set(env.menuPath, 'Changed=' + change + '\r\nEnd=1\r\n');
     };
     if (config !== undefined) env.files.set(saved + 'PBZForewarn.txt', config);
     if (startup.json !== undefined) env.files.set(env.configPath, startup.json);
+    if (startup.migrationOriginal !== undefined) for (const suffix of ['.pre-menu-cleanup.pending','.pre-menu-cleanup.bak'])
+        if (!startup.moveBeforeConfigRead || suffix.endsWith('.bak')) env.files.set(env.configPath + suffix,startup.migrationOriginal);
+    if (startup.migrationBackup !== undefined) env.files.set(env.configPath+'.pre-menu-cleanup.bak',startup.migrationBackup);
+    if (startup.genericOriginal !== undefined) for (const suffix of ['.pre-generic-default.pending','.pre-generic-default.bak'])
+        if (!startup.moveBeforeConfigRead || suffix.endsWith('.bak')) env.files.set(env.configPath+suffix,startup.genericOriginal);
+    if (startup.genericBackup !== undefined) env.files.set(env.configPath+'.pre-generic-default.bak',startup.genericBackup);
     const UE = {
         KismetSystemLibrary: { IsValid: x => !!(x && x._path && x.bValid !== false), GetPathName: x => x._path,
             Conv_SoftObjectReferenceToString: x => x.softPath || '',
@@ -66,8 +102,14 @@ function fixture(config, startup = {}) {
             FileExists: p => { if (startup.failConfigExists && p === env.configPath) throw Error('config stat failed'); return env.files.has(p); } },
         EasyCsv: { LoadStringFromLocalFile(p, ref) {
             if (p === env.menuPath) env.menuReads.push(p);
-            if (p === env.configPath || p === saved + 'PBZForewarn.txt') env.configReads.push(p);
+            if (p === env.configPath || p.startsWith(env.configPath+'.pre-menu-cleanup.') ||
+                p.startsWith(env.configPath+'.pre-generic-default.') || p === saved + 'PBZForewarn.txt') env.configReads.push(p);
+            if (p === env.configPath && startup.moveBeforeConfigRead && env.files.has(p)) {
+                env.files.set(p+(startup.genericOriginal !== undefined ? '.pre-generic-default.pending' : '.pre-menu-cleanup.pending'),env.files.get(p)); env.files.delete(p);
+            }
+            if (p === env.configPath+startup.publishDuringRecovery?.suffix) env.files.set(env.configPath,startup.publishDuringRecovery.json);
             ref.value = env.files.get(p) || '';
+            if (startup.failRecoveryRead && p === env.configPath+startup.failRecoveryRead) return false;
             if (p === env.configPath && startup.failConfigRead) {
                 if (startup.failConfigRead === 'throw') throw Error('config read failed');
                 return false;
@@ -115,7 +157,6 @@ function fixture(config, startup = {}) {
         return ({ ue: UE, puerts, cpp: {}, './core': core, './adapter': adapter,
         './presentation': presentation, './wwise-audio': nativeAudio, './wwise-bank-config': require('../PBZForewarn/wwise-bank-config'), './target-filter': targetFilter,
         './diagnostic-store': require('../PBZForewarn/diagnostic-store'),
-        './cast-followup': require('../PBZForewarn/cast-followup'),
         './grab-reaction': require('../PBZForewarn/grab-reaction'),
         './grab-warning-cycle': require('../PBZForewarn/grab-warning-cycle'),
         './observation-store': startup.badStore ? {createObservationStore(){throw Error('optional store failed');}} : require('../PBZForewarn/observation-store'),
@@ -143,10 +184,50 @@ function fixture(config, startup = {}) {
 test('startup configures native audio without writing an external audio bus', () => {
     const e = fixture(); assert.equal(e.bus().seq, 0); assert.equal(e.bus().paused, true);
     assert(!e.files.has(e.saved + 'PBZForewarn.txt')); assert(!e.files.has(e.configPath));
-    assert.equal(e.settings.LeadMs, 350); assert.deepEqual(e.configWrites, []);
+    assert.equal(e.settings.LeadMs, 350); assert.equal(e.settings.GenericAttack, true); assert.deepEqual(e.configWrites, []);
     assert.equal([...e.timers.values()][0].ms, 16); assert(![...e.files.keys()].some(p => p.endsWith('_bus.json')));
     assert.equal(e.bankPath, 'D:/Mock/ProjectPBZ/Content/PBZForewarn/PBZForewarn.bnk');
     assert.equal(e.bankRelativePath, 'PBZForewarn/PBZForewarn.bnk'); assert.equal(e.bankConfig.eventId, 1682749338); e.mod.stop();
+});
+test('unmarked test.1 structured false upgrades only GenericAttack without writing the config', () => {
+    const json=JSON.stringify(structuredSettings(false)), e=fixture(undefined,{json});
+    assert.deepEqual(e.settings, { LeadMs:225, RangeCm:1800, OnlyLockedTarget:true, SoundOn:false, SoundVolume:0.35,
+        GlyphOn:false, GlyphFontSize:96, GlyphY:0.44, BlackOn:false, GenericAttack:true,
+        Diagnostics:false, ObserveAttacks:false, Hooks:false, ObservationFlushMs:5000,
+        TickMs:32, DiscoverMs:100, ScanMs:500, LateGraceMs:120, MaxGlyphMs:1800,
+        FontPath:'/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font' });
+    e.mod.stop(); assert.equal(e.files.get(e.configPath),json); assert.deepEqual(e.configWrites,[]);
+});
+test('only the exact reserved numeric epoch honors a deliberate false across Menu save and restart', () => {
+    const e=fixture(undefined,genericDisabledSettings()); assert.equal(e.settings.GenericAttack,false);
+    e.menuSave({LeadMs:225,SoundOn:false}); e.tick(0.1);
+    assert.equal(e.settings.GenericAttack,false); assert.equal(e.settings.LeadMs,225);
+    assert.equal(JSON.parse(e.files.get(e.configPath))._extra.PBZForewarnGenericAttackEpoch,1);
+    e.mod.stop(); e.mod.start(); assert.equal(e.settings.GenericAttack,false); assert.equal(e.settings.SoundOn,false);
+    assert(!Object.hasOwn(e.settings,'PBZForewarnGenericAttackEpoch')); e.mod.stop(); assert.deepEqual(e.configWrites,[]);
+});
+test('missing unknown and nonnumeric upgrade epochs enable GenericAttack without configuring metadata', () => {
+    for(const epoch of [undefined,true,false,'1',null,0,2,{},[]]) {
+        const json=JSON.stringify({LeadMs:225,_internal:{GenericAttack:false,Hooks:false},
+            _extra:{PBZForewarnGenericAttackEpoch:epoch,GenericAttack:false,SoundOn:false,FutureSetting:23}});
+        const e=fixture(undefined,{json}); assert.equal(e.settings.GenericAttack,true); assert.equal(e.settings.Hooks,false);
+        assert.equal(e.settings.LeadMs,225); assert.equal(e.settings.SoundOn,true);
+        assert(!Object.hasOwn(e.settings,'PBZForewarnGenericAttackEpoch')); e.mod.stop();
+        assert.equal(e.files.get(e.configPath),json); assert.deepEqual(e.configWrites,[]);
+    }
+    for(const values of [{GenericAttack:false,PBZForewarnGenericAttackEpoch:1},
+        {_internal:{GenericAttack:false,PBZForewarnGenericAttackEpoch:1}},
+        {_internal:{GenericAttack:false},_extra:{pbzforewarngenericattackepoch:1}}]) {
+        const e=fixture(undefined,{json:JSON.stringify(values)}); assert.equal(e.settings.GenericAttack,true); e.mod.stop();
+    }
+});
+test('legacy flat false and TXT zero always receive the one-time enabled default', () => {
+    for(const startup of [{},{json:'{"LeadMs":225,"GenericAttack":false,"Hooks":false}'}]) {
+        const e=fixture('LeadMs=225\nGenericAttack=0\nHooks=0',startup);
+        assert.equal(e.settings.GenericAttack,true); assert.equal(e.settings.LeadMs,225); assert.equal(e.settings.Hooks,false);
+        assert.equal(e.mod.parseSettings('GenericAttack=false').GenericAttack,true);
+        e.mod.stop(); assert.deepEqual(e.configWrites,[]);
+    }
 });
 test('settings preserve existing file and clamp supported numeric values', () => {
     const body = 'LeadMs=9000\nGlyphOn=false\nHooks=0\nTickMs=1\nGlyphY=0.4'; const e = fixture(body);
@@ -176,6 +257,78 @@ test('JSON missing alone permits case-insensitive legacy parsing without rewriti
     e.mod.stop(); assert.equal(e.files.get(e.saved + 'PBZForewarn.txt'), legacy);
     assert(!e.files.has(e.configPath)); assert.deepEqual(e.configWrites, []);
 });
+test('startup during flat migration uses pending original settings rather than stale TXT or defaults', () => {
+    const original='{"GenericAttack":false,"SoundOn":false,"LeadMs":175}';
+    for(const startup of [{migrationOriginal:original},
+        {json:original,migrationOriginal:original,moveBeforeConfigRead:true}]) {
+        const e=fixture('GenericAttack=1\nSoundOn=1\nLeadMs=900',startup);
+        assert(!e.files.has(e.configPath));
+        assert.equal(e.settings.GenericAttack,true); assert.equal(e.settings.SoundOn,false); assert.equal(e.settings.LeadMs,175);
+        assert(!e.configReads.includes(e.saved+'PBZForewarn.txt'));
+        assert.equal(e.files.get(e.configPath+'.pre-menu-cleanup.pending'),original);
+        assert.equal(e.files.get(e.configPath+'.pre-menu-cleanup.bak'),original);
+        e.files.set(e.configPath,'{"LeadMs":175,"SoundOn":false,"_internal":{"GenericAttack":false}}');
+        e.tick(0.7); assert.equal(e.settings.GenericAttack,true); assert.equal(e.settings.SoundOn,false); e.mod.stop();
+        assert.deepEqual(e.configWrites,[]);
+    }
+    for(const recovery of [{migrationBackup:'{"GenericAttack":true}'},
+        {failRecoveryRead:'.pre-menu-cleanup.pending'},{failRecoveryRead:'.pre-menu-cleanup.bak'}]) {
+        const e=fixture('GenericAttack=0\nSoundOn=0\nLeadMs=900',{migrationOriginal:original,...recovery});
+        assert.equal(e.settings.GenericAttack,true); assert.equal(e.settings.SoundOn,true); assert.equal(e.settings.LeadMs,350);
+        assert(!e.configReads.includes(e.saved+'PBZForewarn.txt')); assert(e.logs.some(x=>x.includes('config-read-error')));
+        assert.equal(e.files.get(e.configPath+'.pre-menu-cleanup.pending'),original);
+        assert.equal(e.files.get(e.configPath+'.pre-menu-cleanup.bak'),recovery.migrationBackup || original);
+        e.mod.stop(); assert.deepEqual(e.configWrites,[]);
+    }
+    const current='{"LeadMs":250,"SoundOn":false,"_internal":{"GenericAttack":true}}';
+    const e=fixture('GenericAttack=0\nSoundOn=0\nLeadMs=900',{json:current,migrationOriginal:original,failConfigRead:true});
+    assert.equal(e.settings.GenericAttack,true); assert.equal(e.settings.SoundOn,true); assert.equal(e.settings.LeadMs,350);
+    assert.deepEqual(e.configReads,[e.configPath,e.configPath]); assert(e.logs.some(x=>x.includes('config-read-error')));
+    assert.equal(e.files.get(e.configPath),current); assert.equal(e.files.get(e.configPath+'.pre-menu-cleanup.pending'),original);
+    assert.equal(e.files.get(e.configPath+'.pre-menu-cleanup.bak'),original); e.mod.stop(); assert.deepEqual(e.configWrites,[]);
+});
+test('generic-default migration reads its own matching snapshots despite an old cleanup backup', () => {
+    const original='{"LeadMs":175,"SoundOn":false,"_internal":{"GenericAttack":false,"Hooks":false}}';
+    for(const startup of [{genericOriginal:original,migrationBackup:'{"LeadMs":950}'},
+        {json:original,genericOriginal:original,moveBeforeConfigRead:true}]) {
+        const e=fixture('GenericAttack=0\nLeadMs=900',startup);
+        assert.equal(e.settings.GenericAttack,true); assert.equal(e.settings.LeadMs,175);
+        assert.equal(e.settings.SoundOn,false); assert.equal(e.settings.Hooks,false);
+        assert(!e.configReads.includes(e.saved+'PBZForewarn.txt'));
+        assert(!e.configReads.includes(e.configPath+'.pre-menu-cleanup.bak'));
+        e.mod.stop(); assert.equal(e.files.get(e.configPath+'.pre-generic-default.pending'),original);
+        assert.equal(e.files.get(e.configPath+'.pre-generic-default.bak'),original); assert.deepEqual(e.configWrites,[]);
+    }
+});
+test('ambiguous or unmatched generic-default recovery never imports stale TXT or cleanup backup', () => {
+    const original='{"LeadMs":175,"SoundOn":false,"_internal":{"GenericAttack":false}}';
+    for(const recovery of [{genericBackup:'{"LeadMs":950}'},{genericBackup:''},
+        {migrationOriginal:original},{failRecoveryRead:'.pre-generic-default.pending'},
+        {failRecoveryRead:'.pre-generic-default.bak'}]) {
+        const e=fixture('LeadMs=900\nSoundOn=0',{genericOriginal:original,migrationBackup:original,...recovery});
+        assert.equal(e.settings.LeadMs,350); assert.equal(e.settings.SoundOn,true); assert.equal(e.settings.GenericAttack,true);
+        assert(!e.configReads.includes(e.saved+'PBZForewarn.txt')); assert(e.logs.some(x=>x.includes('config-read-error')));
+        e.mod.stop(); assert.deepEqual(e.configWrites,[]);
+    }
+});
+test('canonical publication wins a recovery read race including a failed snapshot read', () => {
+    const original='{"LeadMs":175,"SoundOn":false}', current='{"LeadMs":250,"_internal":{"GenericAttack":false},"_extra":{"PBZForewarnGenericAttackEpoch":1}}';
+    for(const suffix of ['.pre-menu-cleanup','.pre-generic-default']) for(const fail of [false,true]) {
+        const e=fixture('LeadMs=900',{[suffix==='.pre-menu-cleanup'?'migrationOriginal':'genericOriginal']:original,
+            publishDuringRecovery:{suffix:suffix+'.pending',json:current},
+            ...(fail ? {failRecoveryRead:suffix+'.pending'} : {})});
+        assert.equal(e.settings.LeadMs,250); assert.equal(e.settings.GenericAttack,false); assert.equal(e.settings.SoundOn,true);
+        assert.equal(e.configReads.at(-1),e.configPath); assert(!e.configReads.includes(e.saved+'PBZForewarn.txt'));
+        assert(!e.logs.some(x=>x.includes('config-read-error'))); e.mod.stop(); assert.deepEqual(e.configWrites,[]);
+    }
+});
+test('existing canonical generic-default config never falls back to stale snapshots when unreadable', () => {
+    const current='{"LeadMs":250,"_internal":{"GenericAttack":false},"_extra":{"PBZForewarnGenericAttackEpoch":1}}';
+    const e=fixture('LeadMs=900',{json:current,failConfigRead:true,genericOriginal:'{"LeadMs":175}'});
+    assert.equal(e.settings.LeadMs,350); assert.deepEqual(e.configReads,[e.configPath,e.configPath]);
+    assert(e.logs.some(x=>x.includes('config-read-error'))); e.mod.stop(); assert.equal(e.files.get(e.configPath),current);
+    assert.deepEqual(e.configWrites,[]);
+});
 test('JSON BOM duplicate keys and numeric strings follow startup semantics', () => {
     const e = fixture('Hooks=0', { json: '﻿{"Hooks":false,"Hooks":true,"LeadMs":"125"}' });
     assert.equal(e.settings.Hooks, true); assert.equal(e.settings.LeadMs, 125); e.mod.stop();
@@ -201,8 +354,7 @@ test('oversized Unicode and lone surrogates reject the whole JSON consistently',
 test('Unicode whitespace and overwritten invalid JSON members stay consistent with Lua', () => {
     const e = fixture(' Hooks= 0 \nLeadMs=　200　');
     assert.equal(e.settings.Hooks, false); assert.equal(e.settings.LeadMs, 200); e.mod.stop();
-    for (const json of ['{"Hooks":false,"Extra":{},"Extra":null}',
-        '{"Hooks":false,"Extra":"\\ud800","Extra":null}', '{"Hooks":false,"Extra":1e999,"Extra":null}']) {
+    for (const json of ['{"Hooks":false,"Extra":"\\ud800","Extra":null}', '{"Hooks":false,"Extra":1e999,"Extra":null}']) {
         const r = fixture('Hooks=0', {json});
         assert.equal(r.settings.Hooks, true); assert(r.logs.some(x => x.includes('config-read-error'))); r.mod.stop();
     }
@@ -210,16 +362,16 @@ test('Unicode whitespace and overwritten invalid JSON members stay consistent wi
     assert.equal(r.settings.LeadMs, 200); r.mod.stop();
 });
 test('JSON numeric bounds and boolean meanings match the legacy reader', () => {
-    const values = { LeadMs: 9000, YuZanCastLeadMs: -1, ObservationFlushMs: 1, RangeCm: 20000,
+    const values = { LeadMs: 9000, ObservationFlushMs: 1, RangeCm: 20000,
         TickMs: 1, DiscoverMs: 999, ScanMs: 1, LateGraceMs: 999, MaxGlyphMs: -1,
         GlyphFontSize: 900, GlyphY: 0, SoundVolume: 9, GlyphOn: false, Hooks: 0,
-        SoundOn: 'FALSE', Diagnostics: '1', SemanticFallback: 'on', GenericAttack: false,
+        SoundOn: 'FALSE', Diagnostics: '1', GenericAttack: false,
         FontPath: '/Ignored/As/Before', FutureSetting: 23 };
     const e = fixture(undefined, { json: JSON.stringify(values) });
     const legacy = e.mod.parseSettings(Object.entries(values).map(([k, v]) => k + '=' + v).join('\n'));
     assert.deepEqual(e.settings, legacy); assert.equal(e.settings.LeadMs, 1000); assert.equal(e.settings.TickMs, 16);
     assert.equal(e.settings.SoundVolume, 2); assert.equal(e.settings.GlyphOn, false);
-    assert.equal(e.settings.Hooks, false); assert.equal(e.settings.SoundOn, false); assert.equal(e.settings.SemanticFallback, true);
+    assert.equal(e.settings.Hooks, false); assert.equal(e.settings.SoundOn, false); assert.equal(e.settings.GenericAttack, true);
     e.mod.stop(); assert.deepEqual(e.configWrites, []);
 });
 test('invalid numeric and boolean JSON fields retain defaults rather than coercing unrelated types', () => {
@@ -230,9 +382,9 @@ test('invalid numeric and boolean JSON fields retain defaults rather than coerci
     assert.equal(e.settings.SoundOn, true); assert.equal(e.settings.GlyphOn, true); assert.equal(e.settings.Hooks, true);
     e.mod.stop();
 });
-test('empty malformed and non-flat JSON use defaults and never stale legacy or replacement files', () => {
+test('empty malformed and non-object JSON use defaults and never stale legacy or replacement files', () => {
     for (const json of ['', '{broken', 'null', '[]', '42', 'true', '"LeadMs=900"',
-        '{"LeadMs":900,"FutureSetting":{}}', '{"LeadMs":900,"FutureSetting":[]}']) {
+        '{"LeadMs":900,"_internal":[]}', '{"LeadMs":900,"_extra":null}']) {
         const e = fixture('LeadMs=900\nTickMs=100\nSoundOn=0', { json });
         assert.equal(e.settings.LeadMs, 350); assert.equal(e.settings.TickMs, 16); assert.equal(e.settings.SoundOn, true);
         assert.deepEqual(e.configReads, [e.configPath]); assert(e.logs.some(x => x.includes('config-read-error')));
@@ -242,12 +394,118 @@ test('empty malformed and non-flat JSON use defaults and never stale legacy or r
         assert(report.recent.some(x => x.kind === 'config-read-error'));
     }
 });
+test('structured JSON loads eight public and twelve internal settings without rewriting hidden data', () => {
+    const values=structuredSettings(), json=JSON.stringify(values), e=fixture('LeadMs=900\nGenericAttack=1',{json});
+    assert.deepEqual(Object.keys(values).filter(key=>!key.startsWith('_')).sort(), PUBLIC_SETTINGS.slice().sort());
+    assert.deepEqual(Object.keys(values._internal).sort(), INTERNAL_SETTINGS.slice().sort());
+    assert.equal(e.settings.LeadMs,225); assert.equal(e.settings.RangeCm,1800); assert.equal(e.settings.OnlyLockedTarget,true);
+    assert.equal(e.settings.SoundOn,false); assert.equal(e.settings.SoundVolume,0.35); assert.equal(e.settings.GlyphOn,false);
+    assert.equal(e.settings.GlyphFontSize,96); assert.equal(e.settings.GlyphY,0.44);
+    assert.equal(e.settings.BlackOn,false); assert.equal(e.settings.GenericAttack,false); assert.equal(e.settings.Diagnostics,false);
+    assert.equal(e.settings.ObserveAttacks,false); assert.equal(e.settings.Hooks,false); assert.equal(e.settings.ObservationFlushMs,5000);
+    assert.equal(e.settings.TickMs,32); assert.equal(e.settings.DiscoverMs,100); assert.equal(e.settings.ScanMs,500);
+    assert.equal(e.settings.LateGraceMs,120); assert.equal(e.settings.MaxGlyphMs,1800);
+    assert.equal(e.settings.FontPath,'/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font');
+    assert.deepEqual(Object.keys(e.settings).sort(), PUBLIC_SETTINGS.concat(INTERNAL_SETTINGS).sort());
+    assert.equal([...e.timers.values()][0].ms,32); assert.deepEqual(e.configReads,[e.configPath]);
+    e.mod.stop(); assert.equal(e.files.get(e.configPath),json); assert.deepEqual(e.configWrites,[]);
+});
+test('either own structured container disables flat internal aliases and nonreserved extra values never configure runtime', () => {
+    for(const containers of [{_internal:{}},{_extra:{Hooks:false,GenericAttack:false,LeadMs:900,SoundOn:false}},
+        {_internal:{},_extra:{Hooks:false,GenericAttack:false}}]) {
+        const e=fixture(undefined,{json:JSON.stringify({LeadMs:175,Hooks:false,GenericAttack:false,BlackOn:false,...containers})});
+        assert.equal(e.settings.LeadMs,175); assert.equal(e.settings.Hooks,true); assert.equal(e.settings.GenericAttack,true);
+        assert.equal(e.settings.BlackOn,true); assert.equal(e.settings.SoundOn,true); e.mod.stop();
+    }
+});
+test('structured public and internal scalars are read only from their assigned locations', () => {
+    const e=fixture(undefined,{json:JSON.stringify({LeadMs:175,SoundOn:false,Hooks:true,BlackOn:true,GenericAttack:true,
+        _internal:{LeadMs:950,SoundOn:true,Hooks:false,BlackOn:false,GenericAttack:false},
+        _extra:{PBZForewarnGenericAttackEpoch:1,LeadMs:600,SoundOn:true,Hooks:true,BlackOn:true,GenericAttack:true}})});
+    assert.equal(e.settings.LeadMs,175); assert.equal(e.settings.SoundOn,false); assert.equal(e.settings.Hooks,false);
+    assert.equal(e.settings.BlackOn,false); assert.equal(e.settings.GenericAttack,false); e.mod.stop();
+});
+test('structured internal aliases retain case ordering and scalar numeric grammar', () => {
+    const e=fixture(undefined,{json:'{"leadms":"0b11001000","_internal":{"Hooks":true,"hooks":false,"TickMs":"32","GenericAttack":"FALSE"},"_extra":{"PBZForewarnGenericAttackEpoch":1}}'});
+    assert.equal(e.settings.LeadMs,200); assert.equal(e.settings.Hooks,false); assert.equal(e.settings.TickMs,32);
+    assert.equal(e.settings.GenericAttack,false); e.mod.stop();
+});
+test('present structured containers must be objects even when their values would otherwise be ignored', () => {
+    for(const key of ['_internal','_extra']) for(const value of [null,false,0,'hidden',[]]) {
+        const json=JSON.stringify({LeadMs:900,[key]:value}), e=fixture('LeadMs=800',{json});
+        assert.equal(e.settings.LeadMs,350); assert(e.logs.some(x=>x.includes('config-read-error')));
+        e.mod.stop(); assert.equal(e.files.get(e.configPath),json); assert.deepEqual(e.configWrites,[]);
+    }
+});
+test('known object and array setting values fail closed in relevant and irrelevant containers', () => {
+    for(const container of [null,'_internal']) for(const key of ['LeadMs','Hooks','GenericAttack']) for(const value of [{},[]]) {
+        const values={SoundOn:false}; if(container) values[container]={[key]:value}; else values[key]=value;
+        const json=JSON.stringify(values), e=fixture('SoundOn=0',{json});
+        assert.equal(e.settings.SoundOn,true); assert.equal(e.settings.LeadMs,350); assert.equal(e.settings.GenericAttack,true);
+        assert(e.logs.some(x=>x.includes('config-read-error'))); e.mod.stop(); assert.equal(e.files.get(e.configPath),json);
+    }
+    for(const json of ['{"LeadMs":{},"LeadMs":4}', '{"_internal":[],"_internal":{}}',
+        '{"_internal":{"Hooks":{},"Hooks":false}}', '{"_internal":{"LeadMs":[],"LeadMs":4}}']) {
+        const e=fixture('LeadMs=900\nHooks=0',{json});
+        assert.equal(e.settings.LeadMs,350,json); assert.equal(e.settings.Hooks,true,json);
+        assert(e.logs.some(x=>x.includes('config-read-error')),json); e.mod.stop();
+        assert.equal(e.files.get(e.configPath),json); assert.deepEqual(e.configWrites,[]);
+    }
+});
+test('unknown nested data outside or inside containers is ignored without rejecting valid settings', () => {
+    for(const json of ['{"Hooks":false,"LeadMs":175,"FutureSetting":{}}',
+        '{"Hooks":false,"LeadMs":175,"FutureSetting":[{"note":"kept"}]}',
+        '{"Hooks":false,"Extra":{},"Extra":null}',
+        '{"LeadMs":175,"_internal":{"Hooks":false,"FutureSetting":{"notes":[1,null]}}}',
+        '{"LeadMs":175,"_internal":{"Hooks":false},"_extra":{"Hooks":{},"LeadMs":[],"GenericAttack":[false],"FutureSetting":{"notes":[1,null]}}}']) {
+        const e=fixture(undefined,{json}); assert.equal(e.settings.Hooks,false);
+        assert.equal(e.settings.LeadMs,json.includes('175')?175:350); assert(!e.logs.some(x=>x.includes('config-read-error')));
+        e.mod.stop(); assert.equal(e.files.get(e.configPath),json); assert.deepEqual(e.configWrites,[]);
+    }
+});
+test('JSON container depth counts the root and rejects overwritten overdeep values', () => {
+    let nested='leaf'; for(let i=0;i<7;i++) nested={next:nested};
+    for(const [value,valid] of [[nested,true],[{next:nested},false]]) {
+        const json=JSON.stringify({LeadMs:175,FutureSetting:value}), e=fixture('LeadMs=900',{json});
+        assert.equal(e.settings.LeadMs,valid?175:350); assert.equal(e.logs.some(x=>x.includes('config-read-error')),!valid);
+        e.mod.stop(); assert.equal(e.files.get(e.configPath),json);
+    }
+    const e=fixture(undefined,{json:'{"LeadMs":175,"FutureSetting":'+JSON.stringify({next:nested})+',"FutureSetting":null}'});
+    assert.equal(e.settings.LeadMs,350); assert(e.logs.some(x=>x.includes('config-read-error'))); e.mod.stop();
+});
+test('deep unknown and overwritten JSON values still reject invalid Unicode and nonfinite numbers', () => {
+    for(const value of ['"\\ud800"','"\\udc00"','1e999']) for(const container of ['FutureSetting','_extra']) {
+        const json='{"LeadMs":175,"'+container+'":{"nested":['+value+']},"'+container+'":{}}';
+        const e=fixture('LeadMs=900',{json}); assert.equal(e.settings.LeadMs,350);
+        assert(e.logs.some(x=>x.includes('config-read-error'))); e.mod.stop(); assert.equal(e.files.get(e.configPath),json);
+    }
+});
+test('JSON accepts the exact UTF8 byte limit and rejects one byte beyond it in preserved data', () => {
+    const values={LeadMs:175,_extra:{note:'中'.repeat(100)}}, overhead=Buffer.byteLength(JSON.stringify(values),'utf8');
+    values._extra.padding='x'.repeat(65536-overhead-13);
+    const exact=JSON.stringify(values); assert.equal(Buffer.byteLength(exact,'utf8'),65536);
+    for(const json of [exact,exact.replace('175','1750')]) {
+        const valid=Buffer.byteLength(json,'utf8')===65536, e=fixture(undefined,{json});
+        assert.equal(e.settings.LeadMs,valid?175:350); assert.equal(e.logs.some(x=>x.includes('config-read-error')),!valid); e.mod.stop();
+    }
+});
+test('retired settings are absent from defaults and ignored in TXT flat JSON and structured JSON', () => {
+    const values={SemanticFallback:true,YuZanCastWarning:true,YuZanCastLeadMs:9999,GenericAttack:false};
+    for(const startup of [{}, {json:JSON.stringify(values)}, {json:JSON.stringify({_internal:values,_extra:values,...values})}]) {
+        const e=fixture('SemanticFallback=1\nYuZanCastWarning=1\nYuZanCastLeadMs=9999\nGenericAttack=0',startup);
+        assert.equal(e.settings.GenericAttack,true);
+        const parsed=e.mod.parseSettings('SemanticFallback=1\nYuZanCastWarning=1\nYuZanCastLeadMs=9999');
+        assert.equal(parsed.GenericAttack,true);
+        for(const key of RETIRED_SETTINGS) { assert(!Object.hasOwn(e.settings,key)); assert(!Object.hasOwn(parsed,key)); }
+        e.mod.stop();
+    }
+});
 test('unreadable JSON including a false read result with populated output uses defaults', () => {
     for (const failConfigRead of [true, 'throw']) {
         const json = '{"LeadMs":900,"SoundOn":false}';
         const e = fixture('LeadMs=800\nSoundOn=0', { json, failConfigRead });
         assert.equal(e.settings.LeadMs, 350); assert.equal(e.settings.SoundOn, true);
-        assert.deepEqual(e.configReads, [e.configPath]); assert(e.logs.some(x => x.includes('config-read-error')));
+        assert.deepEqual(e.configReads, [e.configPath,e.configPath]); assert(e.logs.some(x => x.includes('config-read-error')));
         e.mod.stop(); assert.equal(e.files.get(e.configPath), json); assert.deepEqual(e.configWrites, []);
     }
 });
@@ -284,7 +542,7 @@ test('Menu save updates editable controls without restarting the runtime or rese
     e.tick(0.2);
     assert.strictEqual(e.settings, settings); assert.equal(settings.SoundOn, false); assert.equal(settings.SoundVolume, 0.25);
     assert.equal(settings.GlyphOn, false); assert.equal(settings.LeadMs, 900); assert.equal(settings.Hooks, false);
-    assert.equal(settings.SemanticFallback, true); assert.deepEqual([...e.timers.keys()], timers);
+    assert(!Object.hasOwn(settings,'SemanticFallback')); assert.deepEqual([...e.timers.keys()], timers);
     assert.equal(e.cues().length, 1); e.tick(0.81); assert.equal(e.cues().length, 1);
     const savedEntry=e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] config-saved '));
     const savedConfig=JSON.parse(savedEntry.slice(savedEntry.indexOf('{')));
@@ -293,12 +551,35 @@ test('Menu save updates editable controls without restarting the runtime or rese
     assert(e.logs.some(x => x.includes('config-output-update') && x.includes('outputVerified')));
     assert.deepEqual(e.configReads, [e.configPath,e.configPath]); e.mod.stop(); assert.deepEqual(e.configWrites, []);
 });
-test('reserved controls remain startup values even when a Menu notice contains manual edits', () => {
-    const e=fixture(undefined,{json:'{}'}); e.menuSave({TickMs:100,DiscoverMs:250,ScanMs:1000,LateGraceMs:250,
-        MaxGlyphMs:3000,GenericAttack:true,FontPath:'/Other',LeadMs:150}); e.tick(0.2);
-    assert.equal(e.settings.TickMs,16); assert.equal(e.settings.DiscoverMs,50); assert.equal(e.settings.ScanMs,250);
-    assert.equal(e.settings.LateGraceMs,80); assert.equal(e.settings.MaxGlyphMs,1200); assert.equal(e.settings.GenericAttack,true);
-    assert.equal(e.settings.LeadMs,150); e.mod.stop();
+test('visible Menu saves preserve nondefault hidden settings and arbitrary extra data across restart', () => {
+    const values=structuredSettings(), e=fixture(undefined,{json:JSON.stringify(values)}), settings=e.settings;
+    const visible={LeadMs:450,RangeCm:2200,OnlyLockedTarget:false,SoundOn:true,SoundVolume:0.6,
+        GlyphOn:true,GlyphFontSize:140,GlyphY:0.5};
+    e.menuSave(visible); const saved=JSON.parse(e.files.get(e.configPath));
+    assert.deepEqual(saved,{...values,...visible}); assert.deepEqual(saved._internal,values._internal); assert.deepEqual(saved._extra,values._extra);
+    e.tick(0.1); assert.strictEqual(e.settings,settings);
+    for(const [key,value] of Object.entries(visible)) assert.equal(e.settings[key],value,key);
+    for(const key of ['BlackOn','GenericAttack','Diagnostics','ObserveAttacks','Hooks']) assert.equal(e.settings[key],false,key);
+    assert.equal(e.settings.ObservationFlushMs,5000); assert.equal(e.settings.TickMs,32); assert.equal(e.settings.DiscoverMs,100);
+    assert.equal(e.settings.ScanMs,500); assert.equal(e.settings.LateGraceMs,120); assert.equal(e.settings.MaxGlyphMs,1800);
+    assert.equal(e.settings.FontPath,'/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font');
+    e.mod.stop(); e.mod.start(); assert.equal(e.settings.LeadMs,450); assert.equal(e.settings.SoundOn,true);
+    assert.equal(e.settings.GenericAttack,false); assert.equal(e.settings.BlackOn,false); assert.equal(e.settings.Diagnostics,false);
+    assert.equal(e.settings.TickMs,32); assert.deepEqual(JSON.parse(e.files.get(e.configPath)),saved);
+    e.mod.stop(); assert.deepEqual(e.configWrites,[]);
+});
+test('all six reserved controls retain startup values after a notice and numeric values apply on restart', () => {
+    const values=structuredSettings(), e=fixture(undefined,{json:JSON.stringify(values)});
+    const reserved={TickMs:100,DiscoverMs:250,ScanMs:1000,LateGraceMs:250,MaxGlyphMs:3000,FontPath:'/Other'};
+    e.menuSave({...reserved,LeadMs:150}); e.tick(0.2);
+    assert.equal(e.settings.TickMs,32); assert.equal(e.settings.DiscoverMs,100); assert.equal(e.settings.ScanMs,500);
+    assert.equal(e.settings.LateGraceMs,120); assert.equal(e.settings.MaxGlyphMs,1800); assert.equal(e.settings.GenericAttack,false);
+    assert.equal(e.settings.FontPath,'/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font');
+    assert.equal(e.settings.LeadMs,150);
+    const saved=JSON.parse(e.files.get(e.configPath)); assert.deepEqual(saved._internal,{...values._internal,...reserved});
+    assert.deepEqual(saved._extra,values._extra); e.mod.stop(); e.mod.start();
+    assert.equal(e.settings.TickMs,100); assert.equal(e.settings.DiscoverMs,250); assert.equal(e.settings.ScanMs,1000);
+    assert.equal(e.settings.LateGraceMs,250); assert.equal(e.settings.MaxGlyphMs,3000); e.mod.stop();
 });
 test('live lead changes preserve fired identities while moving only pending cue times', () => {
     const e=fixture(undefined,{json:'{}'}); e.tick(0.7); const id=e.cues()[0].id;
@@ -360,19 +641,6 @@ test('live observation flush interval changes the next due write without resetti
     e.menuSave({ObserveAttacks:false},2); e.tick(0.72,5200);
     const after=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
     assert.equal(after.flush.observationWrites,3); e.mod.stop();
-});
-test('removed boss Menu keys keep their startup compatibility values without config rewriting', () => {
-    const e=qishuRuntime();e.tick(0.7);assert.equal(e.cues().length,1);
-    e.menuSave({SemanticFallback:false});const json=e.files.get(e.configPath);e.tick(0.8,500);
-    assert.equal(e.settings.SemanticFallback,true);assert(!e.cancels().some(x=>x.reason==='settings-disabled'));
-    assert.equal(e.files.get(e.configPath),json);e.mod.stop();
-});
-test('removed cast Menu keys cannot change the startup compatibility lead or rule', () => {
-    const e=yuzanCastRuntime('YuZanCastLeadMs=0');e.tick(0);
-    e.menuSave({YuZanCastLeadMs:500,YuZanCastWarning:false});e.tick(0.5,500);
-    assert.equal(e.cues().length,0);assert.equal(e.settings.YuZanCastLeadMs,0);
-    assert.equal(e.settings.YuZanCastWarning,true);e.tick(0.7387645244598389,16);
-    assert.equal(e.cues().length,1);e.mod.stop();
 });
 test('Menu notice checks are bounded and unchanged notices never reread JSON', () => {
     const e = fixture(undefined, { json:'{}' }); e.menuSave({SoundOn:false}, 5); e.tick(0.1);
@@ -695,8 +963,8 @@ test('a tag-blocked warning records why it was skipped and how late it was seen'
     assert.equal(report.stats.previewOnlySkipped,0);
 });
 
-test('diagnostics off with fallback disabled skips deep sampling but keeps warning identity and withdrawal', () => {
-    const e=fixture('Diagnostics=0\nSemanticFallback=0'); let semanticReads=0, evidenceReads=0;
+test('diagnostics off with generic preparation disabled skips deep sampling but keeps warning identity and withdrawal', () => {
+    const e=fixture(undefined,genericDisabledSettings({Diagnostics:false})); let semanticReads=0, evidenceReads=0;
     Object.defineProperty(e.first.action,'DeflectBulletType',{get(){semanticReads++; return 3;}});
     e.first.action.GetAbilitySystemComponent=()=>{evidenceReads++; return e.owner.asc;};
     e.tick(0.7); assert.equal(e.cues().length,1); e.first.task.OnCancelled.Fire(); e.tick(0.72); e.mod.stop();
@@ -894,144 +1162,78 @@ test('global observation sampling covers multiple tasks without withholding cues
     assert(report.events.filter(x=>x.kind==='attack-plan'&&String(x.actor).startsWith('/Other')).length>=3);
 });
 
-test('QiShu semantic fallback creates a red cue while leaving the action read-only',()=>{
-    const e=fixture('SemanticFallback=1');
-    e.owner.enemy._path='/Game/Test.BP_Monster_QiShu_Huo_C_1';
-    e.owner.ability._path='/Game/Test.GA_Qishu_Huo_RoundSkill_FireRing_C_1';
-    e.first.action.NiagaraEffect=null;
-    e.first.action['Deflect Bullet Type']=3;
-    e.first.action.GetClass=()=>({_path:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
-    e.first.task.CurrentTime=0.7;
-    e.tick(0.7);
-    assert.equal(e.cues().length,1);
-    assert.equal(e.cues()[0].color,'red');
-    assert(e.logs.some(x=>x.includes('"source":"semantic-fallback"')));
-    e.mod.stop();
-    const report=observations(e);
-    const cue=report.events.find(x=>x.kind==='warning-cue');
-    assert.equal(cue.source,'semantic-fallback');
-    assert.equal(cue.fallbackRule,'qishu-round-fire-ring');
-    assert.equal(cue.timingBasis,'timeline-action-start');
-    assert.equal(cue.usedForScheduling,true);
-    assert.equal(cue.executionVerified,false);
-    const plan=report.events.find(x=>x.kind==='warning-plan');
-    assert.equal(plan.source,'semantic-fallback');
-    assert.equal(plan.fallbackRule,'qishu-round-fire-ring');
-    assert.equal(plan.usedForScheduling,true);
-    assert.equal(plan.executionVerified,false);
-});
-
-function qishuRuntime(config='SemanticFallback=1', abilityName='GA_Qishu_Huo_RoundSkill_FireRing_C') {
-    const e=fixture(config);
-    e.owner.enemy._path='/Game/Test.BP_Monster_QiShu_Huo_C_1';
-    e.owner.ability._path='/Game/Test.'+abilityName+'_1';
-    e.warningEffect=e.first.action.NiagaraEffect;
-    e.first.action.NiagaraEffect=null;
-    e.first.action['Deflect Bullet Type']=3;
-    e.first.action.GetClass=()=>({_path:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
+function namedOnlyRuntime(kind, config, startup) {
+    const e=fixture(config,startup);
+    if(kind==='cast') {
+        e.owner.enemy._path='/World/BP_Monster_FemaleVessel_YuZan_C_1';
+        e.owner.ability._path=e.owner.enemy._path+'.GA_YuZan_Skill_03_C_1';
+        e.first.action.GetClass=()=>({_path:'/SGameCombatSystem/Weapon/Action/GAAction_WeaponParticleFrame.GAAction_WeaponParticleFrame_C'});
+        e.first.action.NiagaraEffect={_path:'/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101'};
+        e.first.timeline.Actions=array([{...e.first.event,StartTime:0.7387645244598389,duration:0}]);
+    } else {
+        e.owner.enemy._path='/Game/Test.BP_Monster_QiShu_Huo_C_1';
+        e.owner.ability._path='/Game/Test.'+(kind==='round'?'GA_Qishu_Huo_RoundSkill_FireRing_C_1':'GA_Qishu_Huo_SkillAttack_F_AssaultEnd_C_1');
+        e.first.action.NiagaraEffect=null; e.first.action['Deflect Bullet Type']=3;
+        e.first.action.GetClass=()=>({_path:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
+    }
+    e.first.timeline._path=e.owner.ability._path+'.Main';
     return e;
 }
-
-test('delayed standard resource resolution shares a fired fallback node identity without double cue or cancel',()=>{
-    for(const hasGuid of [false,true]) {
-        const e=qishuRuntime();
-        if(hasGuid) e.first.timeline.Actions=array([{...e.first.event,Guid:{A:1,B:2,C:3,D:4}}]);
-        e.tick(0.7);assert.equal(e.cues().length,1);
-        const id=e.cues()[0].id;
-        e.first.action.NiagaraEffect=e.warningEffect;
-        e.tick(0.95,250);
-        assert.equal(e.cues().length,1);assert.equal(e.cues()[0].id,id);
-        assert.equal(e.cancels().length,0);
-        e.mod.stop();
+test('named boss actions without structural preparation resources cannot cue with retired keys enabled',()=>{
+    for(const kind of ['round','assault','cast']) {
+        const e=namedOnlyRuntime(kind,'SemanticFallback=1\nYuZanCastWarning=1\nYuZanCastLeadMs=1000');
+        assert.equal(e.settings.GenericAttack,true);
+        for(const time of [0,0.4,0.7,1.1]) e.tick(time,250);
+        e.owner.ability.activation++; e.tick(0,64); e.tick(0.7,250);
+        assert.equal(e.cues().length,0,kind); assert(e.hud.every(x=>x.active.length===0)); e.mod.stop();
+        const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
+        for(const key of ['fallbackCues','castCues','followupSuppressed']) assert(!Object.hasOwn(report.stats,key),key);
+        for(const key of RETIRED_SETTINGS) assert(!Object.hasOwn(report.settings,key),key);
     }
 });
-test('standard recognition is preferred before cue and a later fallback cannot replay the same physical node',()=>{
-    const e=qishuRuntime();e.first.action.NiagaraEffect=e.warningEffect;
-    e.tick(0.7);assert.equal(e.cues().length,1);
-    const line=e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] CUE '));
-    assert(!line.includes('semantic-fallback'));
-    e.first.action.NiagaraEffect=null;e.tick(0.95,250);
-    assert.equal(e.cues().length,1);assert.equal(e.cancels().length,0);e.mod.stop();
+test('legacy upgrade and marked deliberate GenericAttack false cannot reactivate retired named rules',()=>{
+    const values={GenericAttack:false,SemanticFallback:true,YuZanCastWarning:true,YuZanCastLeadMs:1000};
+    for(const kind of ['round','assault','cast']) for(const [startup,enabled] of [[{},true],
+        [{json:JSON.stringify(values)},true], [{json:JSON.stringify({_internal:values,_extra:values})},true],
+        [genericDisabledSettings(),false],
+        [{json:JSON.stringify({_internal:values,_extra:{...values,PBZForewarnGenericAttackEpoch:1}})},false]]) {
+        const e=namedOnlyRuntime(kind,'GenericAttack=0\nSemanticFallback=1\nYuZanCastWarning=1\nYuZanCastLeadMs=1000',startup);
+        assert.equal(e.settings.GenericAttack,enabled); e.tick(0.4); e.tick(0.7,300); assert.equal(e.cues().length,0,kind);
+        e.menuSave({SemanticFallback:true,YuZanCastWarning:true,YuZanCastLeadMs:1000}); e.tick(0.8,600);
+        assert.equal(e.settings.GenericAttack,enabled); assert.equal(e.cues().length,0); e.mod.stop();
+    }
 });
-test('duplicate semantic GUID nodes and later array reorder cannot produce a second cue',()=>{
-    const e=qishuRuntime();const node={...e.first.event,Guid:{A:1,B:2,C:3,D:4}};
-    e.first.timeline.Actions=array([node,{...node}]);e.tick(0.7);
-    assert.equal(e.cues().length,1);
+test('retired keys and disabled generic preparation leave ordinary red blue black requirements and cancellation intact',()=>{
+    const {BLACK_ACTION_CLASS}=require('../PBZForewarn/attack-recognition');
+    for(const color of ['red','blue','black']) {
+        const e=fixture('SemanticFallback=1\nYuZanCastWarning=1\nYuZanCastLeadMs=1000',genericDisabledSettings());
+        e.owner.enemy._path='/World/BP_Monster_FemaleVessel_YuZan_C_1';
+        e.first.action.NiagaraEffect={_path:color==='black'?'/PBZVFXPack/VFX/BattleFX/Common/NS_AttackAlert_Post_001.NS_AttackAlert_Post_001':
+            '/PBZVFXPack/VFX/BattleFX/Common/NS_AttackAlert_'+(color==='red'?'Red':'Blue')+'_001'};
+        if(color==='black') e.first.action.GetClass=()=>({_path:BLACK_ACTION_CLASS});
+        e.first.action.ActivationRequirements.RequireTags=['ready']; e.tick(0.7); assert.equal(e.cues().length,0,color);
+        e.owner.asc.tags.add('ready'); e.tick(0.72); assert.equal(e.cues().length,1); assert.equal(e.cues()[0].color,color);
+        e.owner.asc.tags.delete('ready'); e.tick(0.74); assert.equal(e.cancels().length,1);
+        e.owner.asc.tags.add('ready'); e.tick(0.76); assert.equal(e.cues().length,1); e.mod.stop();
+    }
+});
+test('duplicate ordinary GUID nodes and a later array reorder preserve one cue identity',()=>{
+    const e=fixture(), node={...e.first.event,Guid:{A:1,B:2,C:3,D:4}};
+    e.first.timeline.Actions=array([node,{...node}]); e.tick(0.7); assert.equal(e.cues().length,1); const id=e.cues()[0].id;
     const unrelated={...node,Action:{_path:'/Action/Unrelated',GetClass:()=>({_path:'/Class/Unrelated'})}};
-    e.first.timeline.Actions=array([unrelated,node]);e.tick(0.95,250);
-    assert.equal(e.cues().length,1);assert.equal(e.cancels().length,0);e.mod.stop();
+    e.first.timeline.Actions=array([unrelated,node]); e.tick(0.95,250);
+    assert.equal(e.cues().length,1); assert.equal(e.cues()[0].id,id); assert.equal(e.cancels().length,0); e.mod.stop();
 });
-test('both semantic rules rearm on a real outer ability activation change',()=>{
-    for(const ability of ['GA_Qishu_Huo_RoundSkill_FireRing_C','GA_Qishu_Huo_SkillAttack_F_AssaultEnd_C']) {
-        const e=qishuRuntime('SemanticFallback=1',ability);
-        e.tick(0.7);assert.equal(e.cues().length,1);
-        e.owner.ability.activation++;e.tick(0.7,64);
-        assert.equal(e.cues().length,2);assert.notEqual(e.cues()[0].id,e.cues()[1].id);
-        e.mod.stop();
-    }
+test('a name-only cast marker cannot suppress a later ordinary Success black warning',()=>{
+    const e=namedOnlyRuntime('cast','YuZanCastWarning=1',genericDisabledSettings()); e.tick(0.4); assert.equal(e.cues().length,0);
+    e.first.task.OnCompleted.Fire(); e.owner.ability.activation++;
+    const success=ordinaryFollowup(e); success.timeline._path=e.owner.ability._path+'.Success'; e.tick(undefined,250);
+    assert.equal(e.cues().length,1); assert.equal(e.cues()[0].color,'black');
+    success.task.OnCancelled.Fire(); e.tick(undefined); assert.equal(e.cancels().length,1); e.mod.stop();
+    assert(observations(e).events.some(x=>x.kind==='warning-cue'&&x.source==='existing-0.5-scheduler'));
 });
-test('different tasks and enemies keep their own semantic cue identities',()=>{
-    const e=qishuRuntime();const other=e.addEnemy('BP_Monster_QiShu_Huo_C_2');
-    other.ability._path='/Game/Other.GA_Qishu_Huo_RoundSkill_FireRing_C_2';
-    const task=e.addTask(other,'other',{actionClass:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
-    task.action.NiagaraEffect=null;task.action['Deflect Bullet Type']=3;task.task.CurrentTime=0.7;
-    e.tick(0.7);assert.equal(e.cues().length,2);
-    assert.notEqual(e.cues()[0].id,e.cues()[1].id);e.mod.stop();
-});
-test('an ineligible standard red node leaves a distinct semantic node available to schedule',()=>{
-    const e=qishuRuntime();
-    const standard={_path:'/Action/Standard',NiagaraEffect:e.warningEffect,
-        GetClass:()=>({_path:'/Class/Ordinary'}),
-        ActivationRequirements:{RequireTags:['Missing.Tag'],IgnoreTags:[],TagQuery:{empty:true}}};
-    e.first.timeline.Actions=array([{...e.first.event,Action:standard,StartTime:8},e.first.event]);
-    e.tick(0.7);assert.equal(e.cues().length,1);
-    assert(e.logs.some(x=>x.includes('"source":"semantic-fallback"')));e.mod.stop();
-});
-test('a standard red role belonging to an unlocked actor cannot suppress the locked owner fallback',()=>{
-    const e=qishuRuntime('SemanticFallback=1\nOnlyLockedTarget=1');
-    const other=e.addEnemy('Other');e.lockedTarget=e.owner.enemy;
-    const standard={_path:'/Action/StandardRole',NiagaraEffect:e.warningEffect,
-        GetClass:()=>({_path:'/Class/Ordinary'}),
-        ActivationRequirements:{RequireTags:[],IgnoreTags:[],TagQuery:{empty:true}}};
-    e.first.timeline.RoleLayers=array([{RoleName:'Other',Actions:array([{...e.first.event,Action:standard}])}]);
-    e.first.task.GetRoleActor=()=>other.enemy;
-    e.tick(0.7);assert.equal(e.cues().length,1);
-    assert(e.logs.some(x=>x.includes('"source":"semantic-fallback"')));e.mod.stop();
-});
-test('semantic type changes and conflicts fail closed inside the compile interval',()=>{
-    for(const change of [a=>a['Deflect Bullet Type']=0,a=>a.DeflectType=2,a=>delete a['Deflect Bullet Type']]) {
-        const e=qishuRuntime();e.tick(0.5);assert.equal(e.cues().length,0);
-        change(e.first.action);e.tick(0.7,16);assert.equal(e.cues().length,0);e.mod.stop();
-    }
-});
-test('stable semantic type three is rechecked without resampling diagnostic timing arrays per tick',()=>{
-    const e=qishuRuntime('SemanticFallback=1\nDiagnostics=0');e.tick(0.5);
-    let deepReads=0;
-    for(const field of ['SendFrameTimes','StartBulletTimes','EndBulletTimes']) Object.defineProperty(e.first.action,field,
-        {get(){deepReads++;throw Error('not for per-tick eligibility');}});
-    e.tick(0.7,16);assert.equal(e.cues().length,1);assert.equal(deepReads,0);e.mod.stop();
-});
-test('a semantic cue uses the same explicit task cancellation path as a standard cue',()=>{
-    const e=qishuRuntime();e.tick(0.7);assert.equal(e.cues().length,1);
-    e.first.task.OnCancelled.Fire();e.tick(0.72);
-    assert(e.cancels().some(item=>item.id===e.cues()[0].id&&item.reason==='task-cancelled'));
-    assert.equal(e.hud.at(-1).active.length,0);e.mod.stop();
-});
-
-test('QiShu semantic fallback can be disabled without changing normal warning behavior',()=>{
-    const e=fixture('SemanticFallback=0');
-    e.owner.enemy._path='/Game/Test.BP_Monster_QiShu_Huo_C_1';
-    e.owner.ability._path='/Game/Test.GA_Qishu_Huo_RoundSkill_FireRing_C_1';
-    e.first.action.NiagaraEffect=null;
-    e.first.action['Deflect Bullet Type']=3;
-    e.first.action.GetClass=()=>({_path:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
-    e.tick(0.7);
-    assert.equal(e.cues().length,0);
-    e.mod.stop();
-});
-
 test('a Main-to-Success switch is retained as a branch observation without another cue',()=>{
-    const e=fixture('GenericAttack=0');
+    const e=fixture(undefined,genericDisabledSettings());
     e.owner.enemy._path='/Game/Test.BP_Monster_FemaleVessel_YuZan_C_1';
     e.owner.ability._path='/Game/Test.GA_YuZan_Skill_03_A_R_Start_C_1';
     const mainTimeline={...e.first.timeline,_path:'/Game/Test.Ability.Main'};
@@ -1177,196 +1379,6 @@ test('bounded1 and bounded2 main produce identical cue and audio events across c
     }assert.deepEqual(outputs[1],outputs[0]);}
 });
 
-function yuzanCastRuntime(config) {
-    const e=fixture(config), {RULE}=require('../PBZForewarn/cast-warning');
-    e.owner.enemy._path='/World/BP_Monster_FemaleVessel_YuZan_C_1';
-    e.owner.ability._path=e.owner.enemy._path+'.GA_YuZan_Skill_03_C_1';
-    e.first.timeline._path=e.owner.ability._path+'.Main';
-    e.first.action.GetClass=()=>({_path:RULE.actionClass});
-    e.first.action.NiagaraEffect._path=RULE.effectPath;
-    e.first.event={...e.first.event,StartTime:0.7387645244598389,duration:0};
-    e.first.timeline.Actions=array([e.first.event]);
-    return e;
-}
-test('YuZan cast emits one black danger before AOE marker with explicit source and intact point timing',()=>{
-    const e=yuzanCastRuntime('LeadMs=0\nYuZanCastLeadMs=350');
-    e.tick(0,20);e.tick(0.3,300);assert.equal(e.cues().length,0);
-    e.tick(0.4,100);assert.equal(e.cues().length,1);assert.equal(e.cues()[0].color,'black');
-    assert.equal(e.hud.at(-1).active[0].meta.castWarning.ruleId,'yuzan-skill03-cast');
-    e.tick(0.5,100);e.tick(0.75,250);assert.equal(e.cues().length,1);assert.equal(e.hud.at(-1).active.length,0);
-    assert.equal(e.first.event.duration,0);assert.equal(e.first.event.StartTime,0.7387645244598389);
-    e.mod.stop();const report=observations(e),cue=report.events.find(x=>x.kind==='warning-cue');
-    assert.equal(cue.source,'cast-warning');assert.equal(cue.castRule,'yuzan-skill03-cast');
-    assert.equal(cue.spellPhase,'cast');assert.equal(cue.executionVerified,false);
-    assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.castCues,1);
-    const compact=report.evidence.records.find(x=>x.kind==='warning-cue');assert.equal(compact.castRule,cue.castRule);
-});
-test('cast switches and observation-off path are independent and preserve existing config files',()=>{
-    for(const config of ['YuZanCastWarning=0','BlackOn=0','OnlyLockedTarget=1']){
-        const e=yuzanCastRuntime(config);e.tick(0.4);assert.equal(e.cues().length,0);e.mod.stop();
-        assert.equal(e.files.get(e.saved+'PBZForewarn.txt'),config);
-    }
-    const e=yuzanCastRuntime('Diagnostics=0\nObserveAttacks=0\nSemanticFallback=0');e.tick(0.4);
-    assert.equal(e.cues().length,1);e.mod.stop();
-    assert(!e.files.has(e.saved+'pbzforewarn_observations.json'));
-    const cfg=e.mod.parseSettings('YuZanCastLeadMs=9999\nYuZanCastWarning=false');
-    assert.equal(cfg.YuZanCastLeadMs,1000);assert.equal(cfg.YuZanCastWarning,false);
-});
-test('cast tag requirements remain live and blocked conditions cannot generate a cue',()=>{
-    const e=yuzanCastRuntime();e.first.action.ActivationRequirements.RequireTags=['cast-ready'];
-    e.tick(0.4);assert.equal(e.cues().length,0);e.owner.asc.tags.add('cast-ready');e.tick(0.45);
-    assert.equal(e.cues().length,1);e.owner.asc.tags.delete('cast-ready');e.tick(0.5);
-    assert.equal(e.cancels().length,1);e.owner.asc.tags.add('cast-ready');e.tick(0.55);
-    assert.equal(e.cues().length,1);e.mod.stop();
-});
-test('cast resource and timeline are rechecked within the compile interval',()=>{
-    for(const change of [e=>e.first.action.NiagaraEffect._path='/Wrong/FX',
-        e=>e.first.task.Timeline={...e.first.timeline,_path:e.owner.ability._path+'.Success'},
-        e=>e.first.action.GetClass=()=>({_path:'/Wrong/Class'})]){
-        const e=yuzanCastRuntime();e.tick(0.1,100);change(e);e.tick(0.4,16);
-        assert.equal(e.cues().length,0);e.mod.stop();
-    }
-});
-test('real cast cancellation stops its sound and a new activation can warn again',()=>{
-    const e=yuzanCastRuntime();e.tick(0.4);const id=e.cues()[0].id;
-    e.first.task.OnCancelled.Fire();e.tick(0.45);assert(e.cancels().some(x=>x.id===id));
-    e.owner.ability.activation++;e.first.task.CurrentTime=0;e.tick(0,64);e.tick(0.4,400);
-    assert.equal(e.cues().length,2);assert.notEqual(e.cues()[1].id,id);e.mod.stop();
-});
-test('later Success black node stays independent from a cast cue',()=>{
-    const {BLACK_ACTION_CLASS}=require('../PBZForewarn/attack-recognition');
-    const e=yuzanCastRuntime();e.tick(0.4);assert.equal(e.cues().length,1);
-    e.first.task.OnCompleted.Fire();e.tick(0.8);
-    const ability={...e.owner.ability,_path:e.owner.enemy._path+'.GA_YuZan_Skill_03_A_L_Start_C_1',tasks:[]};
-    const owner={...e.owner,ability};const t=e.addTask(owner,'success',{start:1.5493558645,duration:0.265,
-        actionClass:BLACK_ACTION_CLASS,effectName:'NS_AttackAlert_Post_001'});
-    t.timeline._path=ability._path+'.Success';t.task.CurrentTime=1.3;
-    e.owner.asc.ActivatableAbilities.Items=array([{ActiveCount:1,NonReplicatedInstances:array([ability]),ReplicatedInstances:array([])}]);
-    e.tick(0.8,250);assert.equal(e.cues().length,2);
-    assert.notEqual(e.cues()[0].id,e.cues()[1].id);e.mod.stop();
-    const cues=observations(e).events.filter(x=>x.kind==='warning-cue');
-    assert.equal(cues[0].source,'cast-warning');assert.equal(cues[1].source,'existing-0.5-scheduler');
-});
-test('two YuZan enemies remain separate and a confirmed lock filters cast cues',()=>{
-    const e=yuzanCastRuntime('OnlyLockedTarget=1');
-    e.lockedTarget=e.owner.enemy;e.tick(0.4);assert.equal(e.cues().length,1);e.mod.stop();
-    const x=yuzanCastRuntime();const o=x.addEnemy('Other');
-    o.enemy._path='/World/BP_Monster_FemaleVessel_YuZan_C_2';
-    o.ability._path=o.enemy._path+'.GA_YuZan_Skill_03_C_2';
-    const t=x.addTask(o,'secondcast',{start:0.7387645244598389,duration:0});
-    t.timeline._path=o.ability._path+'.Main';t.action.GetClass=x.first.action.GetClass;
-    t.action.NiagaraEffect._path=x.first.action.NiagaraEffect._path;t.task.CurrentTime=0.4;
-    x.tick(0.4);assert.equal(x.cues().length,2);assert.notEqual(x.cues()[0].id,x.cues()[1].id);x.mod.stop();
-});
-test('cast disabled still leaves ordinary warning nodes operating',()=>{
-    const e=fixture('YuZanCastWarning=0\nYuZanCastLeadMs=0');e.tick(0.7);
-    assert.equal(e.cues().length,1);assert.equal(e.cues()[0].color,'red');e.mod.stop();
-});
-test('cast with unreadable requirements or a non-YuZan owner never falls back to unconditional warning',()=>{
-    for(const change of [e=>e.first.action.ActivationRequirements=null,
-        e=>e.owner.enemy._path='/World/BP_Monster_Other_C_1',
-        e=>e.owner.enemy.friendly=true,
-        e=>e.owner.enemy.distance=9000]){
-        const e=yuzanCastRuntime();change(e);e.tick(0.4);assert.equal(e.cues().length,0);e.mod.stop();
-    }
-});
-test('cast pause or range loss withdraws once and stale tasks do not replay on resume',()=>{
-    const e=yuzanCastRuntime();e.tick(0.4);const id=e.cues()[0].id;
-    e.paused=true;e.tick(0.45);e.paused=false;e.tick(0.5);
-    assert.equal(e.cues().length,1);assert.equal(e.cancels().filter(x=>x.id===id).length,1);e.mod.stop();
-    const x=yuzanCastRuntime();x.tick(0.4);x.owner.enemy.distance=9000;x.tick(0.5);
-    assert.equal(x.cancels().length,1);x.mod.stop();
-});
-function followupStages(e,side='L'){
-    const {BLACK_ACTION_CLASS}=require('../PBZForewarn/attack-recognition');
-    const ability={...e.owner.ability,_path:e.owner.enemy._path+'.GA_YuZan_Skill_03_A_'+side+'_Start_C_1',tasks:[],activation:1};
-    const owner={...e.owner,ability};
-    const main=e.addTask(owner,'stage-main',{start:9});main.timeline._path=ability._path+'.Main';main.timeline.Actions=array([]);
-    const success=e.addTask(owner,'stage-success',{start:1.5493558645,duration:0.265,
-        actionClass:BLACK_ACTION_CLASS,effectName:'NS_AttackAlert_Post_001'});
-    success.timeline._path=ability._path+'.Success';success.action._path=success.timeline._path+'.GAAction_PowerAttackParticle_C_0';
-    return {ability,main,success,
-        mainNow(){e.owner.ability.bIsActive=false;ability.tasks=[main.task];ability.ActiveTasks=array(ability.tasks);
-            e.owner.asc.ActivatableAbilities.Items=array([{ActiveCount:1,NonReplicatedInstances:array([ability]),ReplicatedInstances:array([])}]);
-            main.task.CurrentTime=0.3;e.tick(0.8,64);},
-        successNow(){main.task.OnCancelled.Fire();ability.tasks=[success.task];ability.ActiveTasks=array(ability.tasks);
-            e.owner.asc.ActivatableAbilities.Items=array([{ActiveCount:1,NonReplicatedInstances:array([ability]),ReplicatedInstances:array([])}]);
-            success.task.CurrentTime=1.3;e.tick(0.8,64);}
-    };
-}
-test('a witnessed cast to side-Main to same-activation Success suppresses one extra black cue with an audit trail',()=>{
-    for(const side of ['L','R']){
-        const e=yuzanCastRuntime();e.tick(0.4);e.tick(0.8,400);e.first.task.OnCompleted.Fire();
-        const stages=followupStages(e,side);stages.mainNow();stages.successNow();e.tick(0.8,250);e.mod.stop();
-        assert.equal(e.cues().length,1);assert.equal(e.cues()[0].color,'black');
-        const diag=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
-        assert.equal(diag.stats.followupSuppressed,1);assert.equal(diag.stats.conditionsNotMet,0);
-        const report=observations(e),suppressed=report.evidence.records.filter(x=>x.kind==='warning-suppressed');
-        assert.equal(suppressed.length,1);assert.equal(suppressed[0].castCueId,e.cues()[0].id);
-        assert.equal(suppressed[0].source,'cast-followup-policy');assert.equal(suppressed[0].priority,3);
-    }
-});
-test('cast disabled or cancelled preserves the Success warning fallback',()=>{
-    for(const mode of ['disabled','cancelled']){
-        const e=yuzanCastRuntime(mode==='disabled'?'YuZanCastWarning=0':undefined);
-        e.tick(0.4);
-        if(mode==='cancelled')e.first.task.OnCancelled.Fire();else e.first.task.OnCompleted.Fire();
-        const stages=followupStages(e);stages.mainNow();stages.successNow();e.mod.stop();
-        const report=observations(e);assert(report.events.some(x=>x.kind==='warning-cue'&&x.source==='existing-0.5-scheduler'));
-        assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.followupSuppressed,0);
-    }
-});
-test('a missing intermediate Main or changed followup activation cannot suppress a Success cue',()=>{
-    for(const mode of ['gap','activation']){
-        const e=yuzanCastRuntime();e.tick(0.4);e.tick(0.8,400);e.first.task.OnCompleted.Fire();
-        const stages=followupStages(e);
-        if(mode==='activation'){stages.mainNow();stages.ability.activation++;}
-        else e.owner.ability.bIsActive=false;
-        stages.successNow();e.mod.stop();
-        assert.equal(e.cues().length,2);
-        assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.followupSuppressed,0);
-    }
-});
-test('stage policy also works with observations disabled',()=>{
-    const e=yuzanCastRuntime('Diagnostics=0\nObserveAttacks=0');e.tick(0.4);e.tick(0.8,400);e.first.task.OnCompleted.Fire();
-    const stages=followupStages(e);stages.mainNow();stages.successNow();e.mod.stop();
-    assert.equal(e.cues().length,1);assert(!e.files.has(e.saved+'pbzforewarn_observations.json'));
-});
-test('cast delivery acknowledgement is granted only after a rendered glyph or accepted audio',()=>{
-    // The policy is private runtime state; an accepted cast request that cannot
-    // be rendered or played must not suppress the later standard fallback.
-    const e=yuzanCastRuntime();
-    e.tick(0.4);assert.equal(e.cues().length,1);
-    // In this deterministic mock the rendered list and accepted audio both
-    // arrive; a separate unit test below exercises the rejected-delivery path.
-    e.tick(0.8,400);e.first.task.OnCompleted.Fire();e.tick(0.8,64);
-    const stages=followupStages(e);stages.mainNow();stages.successNow();e.mod.stop();
-    assert.equal(e.cues().length,1);
-    assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.followupSuppressed,1);
-});
-test('failed sound and failed HUD delivery leave the later standard cue active',()=>{
-    const e=yuzanCastRuntime('GlyphOn=0');
-    e.failUI=true;e.tick(0.4);assert.equal(e.cues().length,1);
-    e.failUI=false;e.tick(0.8,400);e.first.task.OnCompleted.Fire();e.tick(0.8,64);
-    const stages=followupStages(e);stages.mainNow();stages.successNow();e.mod.stop();
-    assert.equal(e.cues().length,2);
-    assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.followupSuppressed,0);
-});
-test('a different live cast invalidates the chain before a cue window and preserves later fallback',()=>{
-    const e=yuzanCastRuntime();e.tick(0.4);e.tick(0.8,400);e.first.task.OnCompleted.Fire();
-    const stages=followupStages(e);
-    e.owner.ability.activation=2;e.first.task.CurrentTime=0.1;e.first.action.NiagaraEffect._path='/Other/FX';
-    e.owner.asc.ActivatableAbilities.Items=array([{ActiveCount:1,NonReplicatedInstances:array([e.owner.ability]),ReplicatedInstances:array([])}]);
-    e.tick(0.8,64);stages.successNow();e.mod.stop();assert.equal(e.cues().length,2);
-});
-test('cast cue limits suppress only the current chain',()=>{
-    for(const limit of ['BlackOn=0','OnlyLockedTarget=1','RangeCm=500']){
-        const e=yuzanCastRuntime(limit);if(limit==='OnlyLockedTarget=1')e.lockedTarget={_path:'/Other'};
-        if(limit==='RangeCm=500')e.owner.enemy.distance=1000;e.tick(0.4);e.tick(0.8,400);e.first.task.OnCompleted.Fire();
-        const stages=followupStages(e);stages.mainNow();stages.successNow();e.mod.stop();
-        assert.equal(JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).stats.followupSuppressed,0);
-    }
-});
 function diagnosticBullet(e, directWarning = false) {
     const effectClass = {_path:'/SGameCombatSystem/Bullet/Event/BP_BulletEvent_Effect.BP_BulletEvent_Effect_C'};
     const effect = {_path:'/PBZVFXPack/VFX/BattleFX/Common/NS_AttackAlert_Red_001.NS_AttackAlert_Red_001'};
@@ -1397,7 +1409,7 @@ test('candidate diagnostics never add a second ordinary cue and preserve cancell
     assert.equal(candidateCatalog(e)[0].bulletSignalCandidates.usedForScheduling,false);
 });
 test('Diagnostics disabled never reads candidate bullet fields',()=>{
-    const e=fixture('Diagnostics=0\nSemanticFallback=0');let reads=0;
+    const e=fixture(undefined,genericDisabledSettings({Diagnostics:false}));let reads=0;
     Object.defineProperty(e.first.action,'BulletData',{get(){reads++;throw Error('must not inspect');}});
     Object.defineProperty(e.first.action,'Bullet Data',{get(){reads++;throw Error('must not inspect');}});
     e.tick(0.7);e.tick(0.72,250);e.mod.stop();assert.equal(reads,0);assert.equal(e.cues().length,1);
@@ -1508,8 +1520,8 @@ test('generic preparation runs with diagnostics and hooks disabled',()=>{
     const e=preparationRuntime();e.menuSave({GenericAttack:true,Diagnostics:false,Hooks:false,ObserveAttacks:false});
     e.tick(0.7,600);assert.equal(e.cues().length,1);e.mod.stop();
 });
-test('replacement trial can be enabled live and disabling cancels without replay',()=>{
-    const e=fixture();diagnosticBullet(e);
+test('hidden generic preparation can be enabled live and disabling cancels without replay',()=>{
+    const e=fixture(undefined,genericDisabledSettings());diagnosticBullet(e);
     e.first.action.GetClass=()=>({_path:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});
     e.tick(0.1);assert.equal(e.cues().length,0);e.menuSave({GenericAttack:true},1);e.tick(0.7,600);
     assert.equal(e.cues().length,1);const id=e.cues()[0].id;

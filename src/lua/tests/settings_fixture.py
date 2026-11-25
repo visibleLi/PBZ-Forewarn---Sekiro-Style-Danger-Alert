@@ -8,6 +8,19 @@ LEGACY = r'C:\Users\Test\AppData\Local\ProjectPBZ\Saved\PBZForewarn.txt'
 
 IO = r'''
 T.settingsFiles={};T.settingsWrites=0;T.settingsReads=0;T.legacyReads=0
+T.settingsOps={};T.backupWrites=0;T.canonicalReads=0
+local function operation(kind,path)T.settingsOps[#T.settingsOps+1]=kind..' '..path end
+local function bodyAt(path)
+  if path==CONFIG_PATH then return T.json end
+  return T.settingsFiles[path]
+end
+local function put(path,body)
+  if path==CONFIG_PATH then T.json=body else T.settingsFiles[path]=body end
+end
+local function migrationPath(path,ending)
+  return path:find('.pre-menu-cleanup'..ending,1,true)~=nil or
+    path:find('.pre-generic-default'..ending,1,true)~=nil
+end
 local originalOpen=io.open
 io.open=function(path,mode)
   path=path:gsub('/','\\')
@@ -22,29 +35,42 @@ io.open=function(path,mode)
       end,close=function()return not T.noticeCloseFails end}
   end
   if path:match('PBZForewarnHooks%.config%.json') then
+    local backup=migrationPath(path,'.bak')
+    local temp=path:find('.tmp-',1,true)~=nil
+    operation(mode,path)
     if mode=='rb' then
       T.settingsReads=T.settingsReads+1
-      if T.jsonDenied and path==CONFIG_PATH then return nil,'permission denied',13 end
-      local body=path==CONFIG_PATH and T.json or T.settingsFiles[path]
+      if path==CONFIG_PATH then
+        T.canonicalReads=T.canonicalReads+1
+        if T.readyToReplace and T.settingsRaceBody then T.json=T.settingsRaceBody;T.settingsRaceBody=nil end
+      end
+      if T.jsonDenied and path==CONFIG_PATH or T.backupDenied and backup or
+          T.pendingDenied and migrationPath(path,'.pending') then return nil,'permission denied',13 end
+      local body=bodyAt(path)
       if body==nil then return nil,'missing',2 end
       return {read=function(self,count)
-          if T.settingsReadThrows then error('read failed')end
-          if T.settingsReadError then return nil,'read failed',5 end
+          if T.settingsReadThrows or backup and T.backupReadThrows then error('read failed')end
+          if T.settingsReadError or backup and T.backupReadError then return nil,'read failed',5 end
           if body=='' then return nil end
           return body:sub(1,count)
         end,
-        close=function()return not T.settingsReadCloseFails end}
+        close=function()return not (T.settingsReadCloseFails or backup and T.backupReadCloseFails) end}
     end
+    assert(mode=='wb','unexpected settings write mode '..mode)
     T.settingsWrites=T.settingsWrites+1
-    if T.settingsOpenFails then return nil,'config open failed',13 end
+    if backup then T.backupWrites=T.backupWrites+1 end
+    if T.settingsOpenFails or backup and T.backupOpenFails or not backup and T.jsonTempOpenFails then return nil,'config open failed',13 end
     return {write=function(self,body)
-        if T.settingsWriteThrows then error('config write failed')end
-        if T.settingsWriteFails then return nil,'short write'end
+        if T.settingsWriteThrows or backup and T.backupWriteThrows or not backup and T.jsonTempWriteThrows then error('config write failed')end
+        if T.settingsWriteFails or backup and T.backupWriteFails or not backup and T.jsonTempWriteFails then return nil,'short write'end
         self.body=body;return self
       end,
       close=function(self)
-        if T.settingsCloseFails then return nil,'config close failed'end
-        T.settingsFiles[path]=T.settingsReadbackMismatch and '{}' or self.body;return true
+        if T.settingsCloseFails or backup and T.backupCloseFails or not backup and T.jsonTempCloseFails then return nil,'config close failed'end
+        local mismatch=T.settingsReadbackMismatch or backup and T.backupReadbackMismatch or not backup and T.jsonTempReadbackMismatch
+        put(path,mismatch and '{}' or self.body)
+        if temp and not backup then T.readyToReplace=true end
+        return true
       end}
   end
   if path:match('PBZForewarn%.txt$') and mode=='rb' then
@@ -61,11 +87,25 @@ io.open=function(path,mode)
   error('unexpected file access '..path)
 end
 os.rename=function(source,target)
-  if T.settingsRenameFails then return nil,'rename failed' end
-  if T.json then return nil,'target exists' end
-  T.json=T.settingsFinalMismatch and '{}' or T.settingsFiles[source];T.settingsFiles[source]=nil;return true
+  operation('rename',source..' -> '..target)
+  local backup=migrationPath(target,'.bak') and not target:find('.tmp-',1,true)
+  local holding=migrationPath(target,'.pending')
+  local publishing=target==CONFIG_PATH and source:find('.tmp-',1,true)~=nil
+  local restoring=target==CONFIG_PATH and migrationPath(source,'.pending')
+  if T.settingsRenameFails or backup and T.backupRenameFails or holding and T.settingsHoldFails
+      or publishing and T.settingsPublishFails or restoring and T.settingsRestoreFails then return nil,'rename failed' end
+  if backup and T.backupRaceBody then put(target,T.backupRaceBody) end
+  if holding and T.settingsRaceAtHold then put(source,T.settingsRaceAtHold) end
+  if publishing and T.settingsRaceAtPublish then put(target,T.settingsRaceAtPublish) end
+  if restoring and T.recoveryRaceBody then put(target,T.recoveryRaceBody) end
+  if bodyAt(target)~=nil then return nil,'target exists' end
+  local body=bodyAt(source)
+  if body==nil then return nil,'source missing' end
+  put(target,publishing and T.settingsFinalMismatch and '{}' or body);put(source,nil)
+  if backup and T.backupFinalMismatch then put(target,'{}') end
+  return true
 end
-os.remove=function(path)T.settingsFiles[path]=nil;return true end
+os.remove=function(path)error('raw deletion prohibited: '..path)end
 loadfile=function(path)
   if path:match('settings%-config%.lua$') and not T.helperMissing then
     return assert(load(SETTINGS_SOURCE,'@'..CONFIG_DIRECTORY..'\\settings-config.lua'))

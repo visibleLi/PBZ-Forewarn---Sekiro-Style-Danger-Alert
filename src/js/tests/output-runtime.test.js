@@ -34,7 +34,7 @@ function delegate() {
     return { Add(fn) { assert.equal(typeof fn, 'function'); listeners.add(fn); },
         Remove(fn) { listeners.delete(fn); }, fire(...args) { for (const fn of [...listeners]) fn(...args); } };
 }
-function fixture(diagnostics) {
+function fixture(diagnostics, settings = {}) {
     const e = { wall: 1800000000000, game: 0, files: new Map(), logs: [], timers: new Set(), objects: new Map(),
         acceptedPosts: [], glyphShows: [], overlay: null };
     function object(name, values = {}) { const o = Object.assign({ _path: name, valid: true }, values); e.objects.set(name, o); return o; }
@@ -67,6 +67,16 @@ function fixture(diagnostics) {
         return object(timelinePath + '.Task', { Ability: ability, Timeline: timeline, CurrentTime: 0,
             OnCompleted: delegate(), OnCancelled: delegate(), GetRoleActor: () => null });
     };
+    e.lifecycleTask = function (ability) {
+        const task = e.task(ability, 'Main'), action = task.Timeline.Actions.Get(0).Action;
+        const type = object('/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C');
+        const dataType = object('/PBZCombatAsset/Prototypes/Bullet/BulletData/BP_PBZ_OverlapBulletData.BP_PBZ_OverlapBulletData_C');
+        action.GetClass = () => type;
+        action.BulletData = object(task._path + '.Data', { GetClass: () => dataType, StartDelay: 0.7,
+            EffectData: { ParticleData: new NativeArray([{ ActivateMoment: 1,
+                Particle: object('/PBZVFXPack/VFX/BattleFX/Common/NS_AttackAlert_Red_001.NS_AttackAlert_Red_001') }]) } });
+        return task;
+    };
     e.select = function (ability, task) {
         ability.ActiveTasks = new NativeArray([task]);
         enemy.AbilitySystemComponent.ActivatableAbilities.Items = new NativeArray([
@@ -78,7 +88,7 @@ function fixture(diagnostics) {
     const bankPath = content + 'PBZForewarn/PBZForewarn.bnk';
     e.files.set(bankPath, 'native-bank-fixture');
     e.files.set(normalize(content + '../../platform/steam/ue4ss/Mods/PBZForewarnHooks/PBZForewarnHooks.config.json'),
-        JSON.stringify({ GenericAttack: true, Hooks: false, Diagnostics: diagnostics, ObserveAttacks: true }));
+        JSON.stringify({ ...settings, _internal: { Hooks: false, Diagnostics: diagnostics, ObserveAttacks: true, ...settings._internal } }));
 
     // UMG setters retain external state. Visibility is observed only on the
     // mounted tree after a tick, not through presentation's diagnostic reports.
@@ -295,6 +305,43 @@ for (const diagnostics of [true, false]) {
         assert.equal(e.visibleGlyphs().length, 1); assert.equal(e.visibleGlyphs()[0].text, '危');
         assert.equal(e.glyphShows.length, 2, 'the independent attack must show a fresh mounted danger glyph');
         console.log('INDEPENDENT Diagnostics=' + diagnostics + ' PlayingIDs=' + e.acceptedPosts.map(p => p.playingId).join(',') + ' glyphShows=' + e.glyphShows.length);
+        passed++; console.log('PASS ' + name);
+    } catch (error) { failed++; console.error('FAIL ' + name + '\n' + error.stack); }
+    finally { e.stop(); }
+}
+for (const diagnostics of [true, false]) {
+    const e = fixture(diagnostics), name = 'lifecycle Start preparation reaches output once without delay or recompile replay (Diagnostics=' + diagnostics + ')';
+    try {
+        e.root.bIsActive = false;
+        const ability = e.ability('LifecycleRisk_C_1', 1), task = e.lifecycleTask(ability);
+        e.select(ability, task); e.tick(task, 0.7);
+        assert.equal(e.acceptedPosts.length, 1); assert(e.acceptedPosts[0].playingId > 0);
+        assert.equal(e.visibleGlyphs().length, 1); assert.equal(e.visibleGlyphs()[0].text, '危');
+        const color = e.visibleGlyphs()[0].color.SpecifiedColor;
+        assert(color.R > color.G && color.R > color.B, 'the mounted glyph is red');
+        e.tick(task, 0.95, 250); e.tick(task, 1.2, 250); e.tick(task, 1.41, 210);
+        assert.equal(e.acceptedPosts.length, 1); assert.equal(e.glyphShows.length, 1);
+        assert.equal(e.visibleGlyphs().length, 0);
+        task.OnCancelled.fire(); ability.bIsActive = false;
+        e.tick(task, 1.8, 400); assert.equal(e.acceptedPosts.length, 1);
+        passed++; console.log('PASS ' + name);
+    } catch (error) { failed++; console.error('FAIL ' + name + '\n' + error.stack); }
+    finally { e.stop(); }
+}
+for (const marked of [false, true]) {
+    const name = 'legacy false reaches real preparation outputs only before the numeric upgrade epoch (marked=' + marked + ')';
+    const e = fixture(false, { _internal: { GenericAttack: false },
+        ...(marked ? { _extra: { PBZForewarnGenericAttackEpoch: 1 } } : {}) });
+    try {
+        e.root.bIsActive = false;
+        const ability = e.ability('UpgradeRisk_C_1', 1), task = e.lifecycleTask(ability);
+        e.select(ability, task); e.tick(task, 0.7);
+        if (marked) {
+            assert.equal(e.acceptedPosts.length, 0); assert.equal(e.visibleGlyphs().length, 0);
+        } else {
+            assert.equal(e.acceptedPosts.length, 1); assert.equal(e.acceptedPosts[0].playingId, 1);
+            assert.equal(e.visibleGlyphs().length, 1); assert.equal(e.visibleGlyphs()[0].text, '危');
+        }
         passed++; console.log('PASS ' + name);
     } catch (error) { failed++; console.error('FAIL ' + name + '\n' + error.stack); }
     finally { e.stop(); }
