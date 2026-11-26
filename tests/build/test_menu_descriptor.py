@@ -18,8 +18,10 @@ class DescriptorTests(unittest.TestCase):
         default_block = re.search(r'const DEFAULTS = \{(.*?)\};', source, re.S).group(1)
         names = set(re.findall(r'\b(\w+):', default_block))
         visible = {'LeadMs', 'RangeCm', 'OnlyLockedTarget', 'SoundOn', 'SoundVolume',
-                   'GlyphOn', 'GlyphFontSize', 'GlyphY'}
+                   'GlyphOn', 'GlyphFontSize', 'GlyphY', 'Diagnostics'}
         self.assertEqual(set(keyed), visible)
+        self.assertEqual(keyed['Diagnostics']['type'], 'toggle')
+        self.assertIs(keyed['Diagnostics']['default'], False)
         self.assertTrue(visible <= names)
         self.assertFalse({'SemanticFallback', 'YuZanCastWarning', 'YuZanCastLeadMs'} & names)
         self.assertEqual(len(names), 20)
@@ -48,7 +50,7 @@ class DescriptorTests(unittest.TestCase):
                 self.assertNotIn('restart', row['help']['en'].lower())
             elif key != 'FontPath':
                 self.assertIn('restart', row['help']['en'])
-        self.assertEqual(len(keyed), 8)
+        self.assertEqual(len(keyed), 9)
 
     def test_live_runtime_keys_match_editable_menu_rows(self):
         descriptor = json.loads((ROOT / 'src/lua/PBZForewarnHooks.modsmenu.json').read_text(encoding='utf8'))
@@ -59,7 +61,7 @@ class DescriptorTests(unittest.TestCase):
         self.assertEqual(reserved, {'TickMs', 'DiscoverMs', 'ScanMs', 'LateGraceMs', 'MaxGlyphMs', 'FontPath'})
         self.assertFalse(reserved & {row['key'] for row in rows})
         self.assertNotIn('const legacyKeys', source)
-        self.assertEqual(sum(row['type'] != 'readonly' for row in rows), 8)
+        self.assertEqual(sum(row['type'] != 'readonly' for row in rows), 9)
         for row in rows:
             if row['type'] == 'readonly':
                 self.assertNotEqual(row['label']['zh-Hans'], row['key'])

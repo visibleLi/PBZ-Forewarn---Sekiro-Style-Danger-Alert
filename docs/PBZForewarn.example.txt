@@ -1,6 +1,6 @@
-# PBZForewarn 0.9.0; legacy migration example only, not automatically installed.
+# PBZForewarn 0.9.1; legacy migration example only, not automatically installed.
 # New builds import this format once, then read PBZForewarnHooks.config.json.
-# Eight public controls remain at JSON top level; internal settings move to _internal.
+# Nine public controls, including Diagnostics, use the JSON top level.
 # Menu saves preserve internal values. Manual JSON edits require a full restart.
 LeadMs=350
 RangeCm=3500
@@ -10,12 +10,12 @@ SoundVolume=0.8
 GlyphOn=1
 GlyphFontSize=120
 GlyphY=0.32
+Diagnostics=0
 # Internal functionality is retained, not displayed in Menu.
 # 旧TXT升级时GenericAttack=0也一次性开启；之后在带epoch1标记的JSON里手改false才保留关闭。
 # GenericAttack关闭不恢复已删除的首领特判。
 GenericAttack=1
 BlackOn=1
-Diagnostics=1
 ObserveAttacks=1
 Hooks=1
 ObservationFlushMs=20000

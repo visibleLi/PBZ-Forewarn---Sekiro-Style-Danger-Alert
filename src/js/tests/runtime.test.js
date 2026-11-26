@@ -11,14 +11,14 @@ const mainSource = fs.readFileSync(path.join(__dirname, '../PBZForewarn/main.js'
 let passed = 0;
 function test(name, body) { body(); passed++; console.log('PASS ' + name); }
 const array = xs => ({ Num: () => xs.length, Get: i => xs[i] });
-const PUBLIC_SETTINGS = ['LeadMs','RangeCm','OnlyLockedTarget','SoundOn','SoundVolume','GlyphOn','GlyphFontSize','GlyphY'];
-const INTERNAL_SETTINGS = ['BlackOn','GenericAttack','Diagnostics','ObserveAttacks','Hooks','ObservationFlushMs',
+const PUBLIC_SETTINGS = ['LeadMs','RangeCm','OnlyLockedTarget','SoundOn','SoundVolume','GlyphOn','GlyphFontSize','GlyphY','Diagnostics'];
+const INTERNAL_SETTINGS = ['BlackOn','GenericAttack','ObserveAttacks','Hooks','ObservationFlushMs',
     'TickMs','DiscoverMs','ScanMs','LateGraceMs','MaxGlyphMs','FontPath'];
 const RETIRED_SETTINGS = ['SemanticFallback','YuZanCastWarning','YuZanCastLeadMs'];
 function structuredSettings(marked = true) {
     return { LeadMs:225, RangeCm:1800, OnlyLockedTarget:true, SoundOn:false, SoundVolume:0.35,
-        GlyphOn:false, GlyphFontSize:96, GlyphY:0.44,
-        _internal:{ BlackOn:false, GenericAttack:false, Diagnostics:false, ObserveAttacks:false, Hooks:false,
+        GlyphOn:false, GlyphFontSize:96, GlyphY:0.44, Diagnostics:false,
+        _internal:{ BlackOn:false, GenericAttack:false, ObserveAttacks:false, Hooks:false,
             ObservationFlushMs:5000, TickMs:32, DiscoverMs:100, ScanMs:500, LateGraceMs:120, MaxGlyphMs:1800,
             FontPath:'/Preserved/Custom.Font' },
         _extra:{ ...(marked ? {PBZForewarnGenericAttackEpoch:1} : {}),
@@ -181,13 +181,15 @@ function fixture(config, startup = {}) {
     return env;
 }
 
-test('startup configures native audio without writing an external audio bus', () => {
+test('fresh install defaults diagnostic capture off and keeps the cue pipeline active', () => {
     const e = fixture(); assert.equal(e.bus().seq, 0); assert.equal(e.bus().paused, true);
     assert(!e.files.has(e.saved + 'PBZForewarn.txt')); assert(!e.files.has(e.configPath));
-    assert.equal(e.settings.LeadMs, 350); assert.equal(e.settings.GenericAttack, true); assert.deepEqual(e.configWrites, []);
+    assert.equal(e.settings.Diagnostics, false); assert.equal(e.settings.GenericAttack, true); assert.deepEqual(e.configWrites, []);
     assert.equal([...e.timers.values()][0].ms, 16); assert(![...e.files.keys()].some(p => p.endsWith('_bus.json')));
     assert.equal(e.bankPath, 'D:/Mock/ProjectPBZ/Content/PBZForewarn/PBZForewarn.bnk');
-    assert.equal(e.bankRelativePath, 'PBZForewarn/PBZForewarn.bnk'); assert.equal(e.bankConfig.eventId, 1682749338); e.mod.stop();
+    assert.equal(e.bankRelativePath, 'PBZForewarn/PBZForewarn.bnk'); assert.equal(e.bankConfig.eventId, 1682749338);
+    e.tick(0.7); assert.equal(e.cues().length, 1, 'diagnostic capture does not gate an ordinary warning');
+    e.mod.stop();
 });
 test('unmarked test.1 structured false upgrades only GenericAttack without writing the config', () => {
     const json=JSON.stringify(structuredSettings(false)), e=fixture(undefined,{json});
@@ -390,11 +392,10 @@ test('empty malformed and non-object JSON use defaults and never stale legacy or
         assert.deepEqual(e.configReads, [e.configPath]); assert(e.logs.some(x => x.includes('config-read-error')));
         e.tick(0.7); assert.equal(e.cues().length, 1); e.mod.stop();
         assert.equal(e.files.get(e.configPath), json); assert.deepEqual(e.configWrites, []);
-        const report = JSON.parse(e.files.get(e.saved + 'pbzforewarn_diagnostics.json'));
-        assert(report.recent.some(x => x.kind === 'config-read-error'));
+        assert(!e.files.has(e.saved + 'pbzforewarn_diagnostics.json'), 'invalid config leaves diagnostics default off');
     }
 });
-test('structured JSON loads eight public and twelve internal settings without rewriting hidden data', () => {
+test('structured JSON loads nine public and eleven internal settings without rewriting hidden data', () => {
     const values=structuredSettings(), json=JSON.stringify(values), e=fixture('LeadMs=900\nGenericAttack=1',{json});
     assert.deepEqual(Object.keys(values).filter(key=>!key.startsWith('_')).sort(), PUBLIC_SETTINGS.slice().sort());
     assert.deepEqual(Object.keys(values._internal).sort(), INTERNAL_SETTINGS.slice().sort());
@@ -603,6 +604,27 @@ test('live black filter withdraws a playing cue and reenabling does not replay i
     e.menuSave({BlackOn:false}); e.tick(0.8,500); assert(e.cancels().some(x=>x.reason==='settings-disabled'));
     e.menuSave({BlackOn:true},2); e.tick(0.9,500); assert.equal(e.cues().length,1); e.mod.stop();
 });
+test('JS startup during diagnostic promotion reads the verified original, not the legacy TXT', () => {
+    const e=fixture('Diagnostics=0\nGenericAttack=1'); e.mod.stop();
+    const original='{"LeadMs":225,"_internal":{"Diagnostics":1,"GenericAttack":false},"_extra":{"PBZForewarnGenericAttackEpoch":1}}';
+    for(const suffix of ['.pending','.bak']) e.files.set(e.configPath+'.pre-diagnostics-menu'+suffix,original);
+    e.mod.start();
+    assert.equal(e.settings.LeadMs,225); assert.equal(e.settings.Diagnostics,true);
+    assert.equal(e.settings.GenericAttack,false); assert(!e.files.has(e.configPath));
+    e.mod.stop(); assert.deepEqual(e.configWrites,[]);
+});
+test('a complete Menu save applies the public diagnostic switch ahead of a legacy internal value', () => {
+    const original = {diagnostics:true,_internal:{Diagnostics:1,ObserveAttacks:true,Hooks:true},
+        _extra:{PBZForewarnGenericAttackEpoch:1}};
+    const e=fixture(undefined,{json:JSON.stringify(original)}); e.tick(0.7);
+    assert.equal(e.settings.Diagnostics,true);
+    e.menuSave({Diagnostics:false}); e.tick(0.8,500);
+    assert.equal(e.settings.Diagnostics,false); assert.equal(e.settings.Hooks,true);
+    assert.equal(e.cues().length,1);
+    assert.deepEqual(JSON.parse(e.files.get(e.configPath))._internal,original._internal);
+    e.mod.stop(); e.mod.start(); assert.equal(e.settings.Diagnostics,false); e.mod.stop();
+    assert.deepEqual(e.configWrites,[]);
+});
 test('diagnostics and observation can start disabled then repeatedly enable without resetting battle history', () => {
     const e=fixture(undefined,{json:'{"Diagnostics":false,"ObserveAttacks":false}'}); e.tick(0.7);
     e.menuSave({Diagnostics:true,ObserveAttacks:true,ObservationFlushMs:5000}); e.tick(0.8,500);
@@ -613,7 +635,7 @@ test('diagnostics and observation can start disabled then repeatedly enable with
 });
 test('disabling observation or diagnostics flushes retained cues and marks capture disabled', () => {
     for(const values of [{ObserveAttacks:false},{Diagnostics:false}]) {
-        const e=fixture(undefined,{json:'{}'}); e.tick(0.7);
+        const e=fixture(undefined,{json:'{"Diagnostics":true}'}); e.tick(0.7);
         e.menuSave(values); e.tick(0.8,500);
         const saved=JSON.parse(e.files.get(e.saved+'pbzforewarn_observations.json'));
         assert.equal(saved.enabled,false); assert.equal(saved.captureEnabled,false);
@@ -623,18 +645,18 @@ test('disabling observation or diagnostics flushes retained cues and marks captu
     }
 });
 test('failed disable-boundary observation write retries during shutdown while capture stays off', () => {
-    const e=fixture(undefined,{json:'{}'}); e.tick(0.7); e.failObservationWrite=true;
+    const e=fixture(undefined,{json:'{"Diagnostics":true}'}); e.tick(0.7); e.failObservationWrite=true;
     e.menuSave({ObserveAttacks:false}); e.tick(0.8,500); e.failObservationWrite=false; e.mod.stop();
     const final=JSON.parse(e.files.get(e.saved+'pbzforewarn_observations.json'));
     assert(final.events.some(x=>x.kind==='warning-cue')); assert.equal(final.enabled,false);
 });
 test('live optional observation failure retains cue pipeline and reports unavailability', () => {
-    const e=fixture(undefined,{json:'{"ObserveAttacks":false}',missingModule:'./native-attack-observer'});
+    const e=fixture(undefined,{json:'{"Diagnostics":true,"ObserveAttacks":false}',missingModule:'./native-attack-observer'});
     e.menuSave({ObserveAttacks:true}); e.tick(0.7);
     assert.equal(e.cues().length,1); assert(e.logs.some(x=>x.includes('observation-unavailable'))); e.mod.stop();
 });
 test('live observation flush interval changes the next due write without resetting observation history', () => {
-    const e=fixture('ObservationFlushMs=20000'); e.tick(0.7);
+    const e=fixture('Diagnostics=1\nObservationFlushMs=20000'); e.tick(0.7);
     e.menuSave({ObservationFlushMs:5000}); e.tick(0.71,5200);
     const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
     assert.equal(report.flush.observationWrites,2); assert.equal(report.settings.ObservationFlushMs,5000);
@@ -663,7 +685,7 @@ test('partial malformed or missing saves retain outputs and retry the same notic
     assert(e.logs.some(x=>x.includes('config-refresh-error'))); e.mod.stop(); assert.deepEqual(e.configWrites,[]);
 });
 test('Menu save while paused applies output preferences and never creates a warning', () => {
-    const e=fixture(undefined,{json:'{}'}); e.paused=true;
+    const e=fixture(undefined,{json:'{"Diagnostics":true}'}); e.paused=true;
     e.menuSave({SoundOn:false,GlyphOn:false}); e.tick(0.1);
     assert.equal(e.settings.SoundOn,false); assert.equal(e.settings.GlyphOn,false); assert.equal(e.cues().length,0);
     e.mod.stop(); const final=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
@@ -679,7 +701,7 @@ test('persisted values survive isolated output application failure', () => {
     assert.equal(e.hud.length,1); assert.equal(e.timers.size,1); e.mod.stop(); assert.deepEqual(e.configWrites,[]);
 });
 test('contained glyph failure is recorded separately from a successful save and audio update', () => {
-    const e=fixture(undefined,{json:'{}'}); e.containedUIFailure=true;
+    const e=fixture(undefined,{json:'{"Diagnostics":true}'}); e.containedUIFailure=true;
     e.menuSave({SoundVolume:0.3}); e.tick(0.7);
     assert.equal(JSON.parse(e.files.get(e.configPath)).SoundVolume,0.3);
     e.mod.stop(); const final=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
@@ -761,7 +783,7 @@ test('global clock exception pauses without changing world identity or replaying
     e.failClock = false; e.tick(0.72); assert.equal(e.cues().length, 1); e.mod.stop();
 });
 test('malformed hook snapshot retries then discovers an actor outside the class scan', () => {
-    const e = fixture(); const owner = e.addEnemy('Hinted', false); const t = e.addTask(owner, 'hinted'); t.task.CurrentTime = 0.7;
+    const e = fixture('Diagnostics=1'); const owner = e.addEnemy('Hinted', false); const t = e.addTask(owner, 'hinted'); t.task.CurrentTime = 0.7;
     e.files.set(e.saved + 'pbzforewarn_hooks.json', '{broken'); e.tick(0); assert.equal(e.cues().length, 0);
     e.files.set(e.saved + 'pbzforewarn_hooks.json', JSON.stringify({ version: 1, session: 'hooks', active: true,
         heartbeat: e.wall, hints: [{ seq: 1, at: e.wall, ability: owner.ability._path, actor: owner.enemy._path }] }));
@@ -769,12 +791,12 @@ test('malformed hook snapshot retries then discovers an actor outside the class 
     assert(JSON.parse(e.files.get(e.saved + 'pbzforewarn_diagnostics.json')).activity.some(x => x.kind === 'hook-hint'));
 });
 test('invalidated hook snapshots do not keep reporting a living bridge', () => {
-    const e = fixture(); const p = e.saved + 'pbzforewarn_hooks.json'; e.files.set(p, JSON.stringify({ version: 1, session: 'hooks', active: true, heartbeat: e.wall, hints: [] }));
+    const e = fixture('Diagnostics=1'); const p = e.saved + 'pbzforewarn_hooks.json'; e.files.set(p, JSON.stringify({ version: 1, session: 'hooks', active: true, heartbeat: e.wall, hints: [] }));
     e.tick(0); e.files.set(p, '{partial'); e.tick(0.064, 64); e.mod.stop();
     assert.equal(JSON.parse(e.files.get(e.saved + 'pbzforewarn_diagnostics.json')).hookBridgeAlive, false);
 });
 test('native start hint directly tracks an active task absent from every ASC list', () => {
-    const e = fixture(); e.owner.asc.ActivatableAbilities.Items = array([]); e.owner.ability.tasks.length = 0;
+    const e = fixture('Diagnostics=1'); e.owner.asc.ActivatableAbilities.Items = array([]); e.owner.ability.tasks.length = 0;
     e.first.task.CurrentTime = 0.7;
     e.files.set(e.saved + 'pbzforewarn_hooks.json', JSON.stringify({ version: 1, session: 'hooks', active: true,
         heartbeat: e.wall, hints: [{ seq: 1, at: e.wall, ability: e.owner.ability._path,
@@ -792,7 +814,7 @@ test('unlisted native task stops predicting after one second with no progress an
     assert(e.logs.some(x => x.includes('native-task-stalled'))); e.tick(0.72); assert.equal(e.cues().length, 1); e.mod.stop();
 });
 test('unrecognized effects leave actionable inventory instead of silently vanishing', () => {
-    const e = fixture(); e.first.action.NiagaraEffect = { _path: '/PBZVFXPack/VFX/BattleFX/Common/NS_Special_001' };
+    const e = fixture('Diagnostics=1'); e.first.action.NiagaraEffect = { _path: '/PBZVFXPack/VFX/BattleFX/Common/NS_Special_001' };
     e.tick(0.7); e.mod.stop(); const report = JSON.parse(e.files.get(e.saved + 'pbzforewarn_diagnostics.json'));
     const catalog = JSON.parse(e.files.get(e.saved + 'pbzforewarn_resources.json'));
     assert(catalog.entries.some(x => x.data.reason === 'unrecognized-effect')); assert.equal(e.cues().length, 0);
@@ -804,14 +826,14 @@ test('runtime tag eligibility changes cancel but do not replay previously fired 
     e.owner.asc.tags.add('ready'); e.tick(0.76); assert.equal(e.cues().length, 1); e.mod.stop();
 });
 test('bound enemy role uses its own tag state while friendly and unbound roles are suppressed', () => {
-    const e = fixture(); const roleOwner = e.addEnemy('Role'); e.first.timeline.Actions = array([]);
+    const e = fixture('Diagnostics=1'); const roleOwner = e.addEnemy('Role'); e.first.timeline.Actions = array([]);
     e.first.timeline.RoleLayers = array([{ RoleName: 'Partner', Actions: array([e.first.event]) }]);
     e.first.action.ActivationRequirements.RequireTags = ['ready']; e.owner.asc.tags.add('ready');
     e.first.task.GetRoleActor = () => roleOwner.enemy;
     e.tick(0.66); assert.equal(e.cues().length, 0); roleOwner.asc.tags.add('ready'); roleOwner.enemy.friendly = true;
     e.tick(0.68); assert.equal(e.cues().length, 0); roleOwner.enemy.friendly = false;
     e.tick(0.70); assert.equal(e.cues().length, 1); e.mod.stop();
-    const u = fixture(); u.first.timeline.Actions = array([]);
+    const u = fixture('Diagnostics=1'); u.first.timeline.Actions = array([]);
     u.first.timeline.RoleLayers = array([{ RoleName: 'Missing', Actions: array([u.first.event]) }]);
     u.tick(0.7); assert.equal(u.cues().length, 0); u.mod.stop();
     const report = JSON.parse(u.files.get(u.saved + 'pbzforewarn_diagnostics.json'));
@@ -827,7 +849,7 @@ test('stop and restart clean delegate bindings and publish a new session', () =>
     e.mod.start(); assert.equal(e.timers.size, 1); assert.notEqual(e.bus().session, oldSession); assert.equal(e.bus().seq, 0); e.mod.stop();
 });
 test('diagnostic write failure cannot lose game-engine audio events', () => {
-    const e = fixture(); e.failWrite = true; e.tick(0.7, 5010); assert.equal(e.cues().length, 1);
+    const e = fixture('Diagnostics=1'); e.failWrite = true; e.tick(0.7, 5010); assert.equal(e.cues().length, 1);
     assert(e.logs.some(x => x.includes('diagnostic-write-error')));
     e.failWrite = false; e.tick(0.72); assert.equal(e.cues().length, 1); e.mod.stop();
 });
@@ -928,7 +950,7 @@ test('actor range loss still cancels tail after natural warning end', () => {
     assert(e.cancels().some(x=>x.id===cueId && x.reason==='actor-filtered')); e.mod.stop();
 });
 test('one withdrawal is counted once with explicit cancellation evidence', () => {
-    const e=fixture(); e.tick(0.7); const cueId=e.cues()[0].id;
+    const e=fixture('Diagnostics=1'); e.tick(0.7); const cueId=e.cues()[0].id;
     e.first.task.OnCancelled.Fire(); e.tick(0.72); e.tick(0.74); e.mod.stop();
             e.mod.stop();
             const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
@@ -940,7 +962,7 @@ test('one withdrawal is counted once with explicit cancellation evidence', () =>
 });
 
 test('editor preview condition is counted as inactive instead of a missed attack', () => {
-    const e=fixture(); e.first.action.ActivationRequirements.RequireTags=['CharacterState.EditorDebug.Preview'];
+    const e=fixture('Diagnostics=1'); e.first.action.ActivationRequirements.RequireTags=['CharacterState.EditorDebug.Preview'];
     e.tick(0.7); e.tick(1.2,500); e.mod.stop();
     const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
     assert.equal(e.cues().length,0); assert.equal(report.stats.missed,0);
@@ -952,7 +974,7 @@ test('editor preview condition is counted as inactive instead of a missed attack
 });
 
 test('a tag-blocked warning records why it was skipped and how late it was seen', () => {
-    const e=fixture(); e.first.action.ActivationRequirements.RequireTags=['CharacterState.NotOwned'];
+    const e=fixture('Diagnostics=1'); e.first.action.ActivationRequirements.RequireTags=['CharacterState.NotOwned'];
     e.tick(0.7); e.tick(1.2,500); e.mod.stop();
     const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
     assert.equal(e.cues().length,0); assert.equal(report.stats.conditionsNotMet,1);
@@ -969,14 +991,13 @@ test('diagnostics off with generic preparation disabled skips deep sampling but 
     e.first.action.GetAbilitySystemComponent=()=>{evidenceReads++; return e.owner.asc;};
     e.tick(0.7); assert.equal(e.cues().length,1); e.first.task.OnCancelled.Fire(); e.tick(0.72); e.mod.stop();
     assert.equal(semanticReads,0); assert.equal(evidenceReads,0);
-    const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
-    assert(report.recent.some(x=>x.kind==='CUE')); assert(report.recent.some(x=>x.kind==='CANCEL'));
-    assert.equal(report.activity.length,0); assert.equal(report.resourceCatalog.count,0);
+    assert.equal(e.cancels().filter(x=>x.id===e.cues()[0].id).length,1);
+    assert(!e.files.has(e.saved+'pbzforewarn_diagnostics.json'));
     assert(!e.files.has(e.saved+'pbzforewarn_resources.json'));
 });
 
 test('repeated resources do not inflate catalog or push early fight events out of history', () => {
-    const e=fixture();
+    const e=fixture('Diagnostics=1');
     for(let i=0;i<100;i++) { e.owner.ability.activation++; e.tick(0.7,80); e.tick(1.41,710); }
     e.mod.stop(); const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
     const catalog=JSON.parse(e.files.get(e.saved+'pbzforewarn_resources.json'));
@@ -994,7 +1015,7 @@ test('natural event ending permits tail even if its required tags later disappea
 });
 
 test('hundreds of ordinary and candidate actions preserve the fired warning resource', () => {
-    const e=fixture(), entries=[e.first.event];
+    const e=fixture('Diagnostics=1'), entries=[e.first.event];
     for(let i=0;i<700;i++) {
         const effect=i<450 ? null : {_path:'/PBZVFXPack/VFX/BattleFX/Common/NS_Unknown_'+i};
         const action={_path:'/Actions/junk-'+i,NiagaraEffect:effect,GetClass:()=>({_path:'/Class/Ordinary'}),
@@ -1011,7 +1032,7 @@ test('hundreds of ordinary and candidate actions preserve the fired warning reso
 });
 
 test('Lua health failures and recovery remain visible in JS diagnostics', () => {
-    const e=fixture(); e.files.set(e.saved+'pbzforewarn_hooks.json',JSON.stringify({version:1,session:'lua-new',active:true,
+    const e=fixture('Diagnostics=1'); e.files.set(e.saved+'pbzforewarn_hooks.json',JSON.stringify({version:1,session:'lua-new',active:true,
         heartbeat:e.wall,hints:[],health:{writeFailures:2,recoveries:1,lastSuccessfulWriteMs:e.wall,
             lastError:'sharing conflict',lastErrorStage:'open',currentlyFailing:false,registered:2}}));
     e.tick(0); e.mod.stop(); const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
@@ -1036,44 +1057,44 @@ function provideNativeFrame(env, handle=1) {
 test('observation on and off keep identical cue and withdrawal sequences',()=>{
     const results=[];
     for(const enabled of [true,false]) {
-        const e=fixture('ObserveAttacks='+(enabled?'1':'0')); provideNativeFrame(e);
+        const e=fixture('Diagnostics=1\nObserveAttacks='+(enabled?'1':'0')); provideNativeFrame(e);
         e.tick(0.3);e.tick(0.7);e.first.task.OnCancelled.Fire();e.tick(0.71);e.mod.stop();
         results.push(e.audioEvents.map(x=>({kind:x.kind,id:x.id,color:x.color,reason:x.reason})));
     }
     assert.deepEqual(results[0],results[1]);
 });
 test('native observations are persisted but cannot generate an unsupported warning',()=>{
-    const e=fixture();provideNativeFrame(e);
+    const e=fixture('Diagnostics=1');provideNativeFrame(e);
     e.first.action.NiagaraEffect={_path:'/Unknown/OrdinaryEffect'};
     e.tick(0.7);e.mod.stop();const report=observations(e);
     assert.equal(e.cues().length,0);assert(report.events.some(x=>x.kind==='native-frame'&&x.typeName==='RedEye'));
     assert(report.events.some(x=>x.kind==='attack-plan'));assert.equal(report.mode,'observe-only');
 });
 test('emitted warning is present in the bounded encounter summary',()=>{
-    const e=fixture();e.tick(0.7);e.mod.stop();const summary=observations(e).encounterSummary;
+    const e=fixture('Diagnostics=1');e.tick(0.7);e.mod.stop();const summary=observations(e).encounterSummary;
     const actor=summary.actors.find(x=>x.actor==='/Enemy');
     assert(actor);assert.equal(actor.counts.warningCue,1);assert.equal(actor.colors.red,1);
 });
 test('same resource in another activation has another observation identity',()=>{
-    const e=fixture();provideNativeFrame(e);e.tick(0.1);
+    const e=fixture('Diagnostics=1');provideNativeFrame(e);e.tick(0.1);
     e.owner.ability.activation++;e.tick(0.1,250);e.mod.stop();
     const plans=observations(e).events.filter(x=>x.kind==='attack-plan');
     assert.equal(new Set(plans.map(x=>x.activation)).size,2);
 });
 test('unchanged action snapshots do not record every compile progress update',()=>{
-    const e=fixture();provideNativeFrame(e);e.tick(0.1);e.tick(0.2,250);e.tick(0.3,250);e.mod.stop();
+    const e=fixture('Diagnostics=1');provideNativeFrame(e);e.tick(0.1);e.tick(0.2,250);e.tick(0.3,250);e.mod.stop();
     const report=observations(e);
     assert.equal(report.events.filter(x=>x.kind==='attack-plan').length,1);
     assert.equal(report.events.filter(x=>x.kind==='warning-plan').length,1);
 });
 test('observation file write failure leaves cues and audio running',()=>{
-    const e=fixture();e.failObservationWrite=true;e.tick(0.7);e.tick(0.8,5100);e.mod.stop();
+    const e=fixture('Diagnostics=1');e.failObservationWrite=true;e.tick(0.7);e.tick(0.8,5100);e.mod.stop();
     assert.equal(e.cues().length,1);const report=JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json'));
     assert.equal(report.stats.errors,0);assert(report.flush.observationWriteFailures>0);
     assert(report.recent.some(x=>x.kind==='observation-write-error'));
 });
 test('observation file is written on its own slower cadence and skipped when unchanged',()=>{
-    const e=fixture('ObservationFlushMs=20000');
+    const e=fixture('Diagnostics=1\nObservationFlushMs=20000');
     const writes=()=>JSON.parse(e.files.get(e.saved+'pbzforewarn_diagnostics.json')).flush.observationWrites;
     assert.equal(writes(),1);                 // forced write at startup
     e.tick(0.7);assert.equal(writes(),1);     // nothing due yet
@@ -1082,14 +1103,15 @@ test('observation file is written on its own slower cadence and skipped when unc
     e.tick(0.73,21000);assert.equal(writes(),2); // due again but nothing changed
     e.mod.stop();assert.equal(writes(),3);     // shutdown always flushes
 });
-test('diagnostics off disables all optional observation reads and files',()=>{
+test('diagnostics off disables optional observation reads and all diagnostic files through shutdown',()=>{
     const e=fixture('Diagnostics=0');let reads=0;
     Object.defineProperty(e.player,'GetComponentByClass',{get(){reads++;throw Error('must not read');}});
-    e.tick(0.7);e.mod.stop();assert.equal(reads,0);assert.equal(e.cues().length,1);
-    assert(!e.files.has(e.saved+'pbzforewarn_observations.json'));
+    e.tick(0.7);e.tick(0.8,31000);e.mod.stop();assert.equal(reads,0);assert.equal(e.cues().length,1);
+    for(const name of ['diagnostics','observations','resources'])
+        assert(!e.files.has(e.saved+'pbzforewarn_'+name+'.json'),name+' must not be written while off');
 });
 test('Lua observations preserve callback clock and never use import player as capture identity',()=>{
-    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+    const e=fixture('Diagnostics=1');e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
         session:'observer-lua',seq:1,active:true,heartbeat:e.wall,events:[{seq:1,kind:'timeline-call',phase:'pre',
             callId:1,gameTime:{status:'read',value:42,source:'GameplayStatics.GetTimeSeconds'},
             context:{world:'/World/A',ability:'/Ability',actor:'/Enemy',task:'/Task'},params:{StartTimeSeconds:{status:'read',value:2.88}}}]}));
@@ -1099,13 +1121,13 @@ test('Lua observations preserve callback clock and never use import player as ca
     assert.equal(entry.capture.params.StartTimeSeconds.value,2.88);assert.equal(e.cues().length,1);
 });
 test('stale Lua observation snapshots cannot impersonate current calls',()=>{
-    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+    const e=fixture('Diagnostics=1');e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
         session:'old',seq:1,active:true,heartbeat:e.wall-5000,events:[{seq:1,kind:'warning-call',phase:'call'}]}));
     e.tick(0.7);e.mod.stop();assert(!observations(e).events.some(x=>x.kind==='native-warning-call'));
     assert(observations(e).events.some(x=>x.status==='snapshot-inactive-or-stale'));
 });
 test('Lua snapshot sequence gaps are explicit and repeated imports do not duplicate calls',()=>{
-    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+    const e=fixture('Diagnostics=1');e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
         session:'gap',seq:8,active:true,heartbeat:e.wall,events:[{seq:8,kind:'warning-call',phase:'call',context:{world:'/Other'}}]}));
     e.tick(0.1);e.tick(0.2,100);e.mod.stop();const report=observations(e);
     assert.equal(report.events.filter(x=>x.kind==='native-warning-call').length,1);
@@ -1113,7 +1135,7 @@ test('Lua snapshot sequence gaps are explicit and repeated imports do not duplic
     assert.equal(report.events.find(x=>x.kind==='native-warning-call').captureWorldMatchesImportedWorld,false);
 });
 test('clock rewind increments observation epoch before native records are reused',()=>{
-    const e=fixture();provideNativeFrame(e);e.game=2;e.tick(0.1);e.game=0;e.tick(0.2);e.mod.stop();
+    const e=fixture('Diagnostics=1');provideNativeFrame(e);e.game=2;e.tick(0.1);e.game=0;e.tick(0.2);e.mod.stop();
     const frames=observations(e).events.filter(x=>x.kind==='native-frame');
     assert.equal(new Set(frames.map(x=>x.clockEpoch)).size,2);
     assert(observations(e).events.some(x=>x.kind==='observer-reset'&&x.reason==='game-clock-rewind'));
@@ -1121,20 +1143,20 @@ test('clock rewind increments observation epoch before native records are reused
 
 test('missing optional observation modules leave baseline cues operational',()=>{
     for(const name of ['./observation-store','./native-attack-observer','./timeline-observation']) {
-        const e=fixture(undefined,{missingModule:name});e.tick(0.7);e.mod.stop();
+        const e=fixture('Diagnostics=1',{missingModule:name});e.tick(0.7);e.mod.stop();
         assert.equal(e.cues().length,1);assert(!e.files.has(e.saved+'pbzforewarn_observations.json'));
         assert(e.diagnostics().some(x=>x.includes('observation-unavailable')));
     }
 });
 test('disabled observations do not even require missing optional files',()=>{
-    const e=fixture('ObserveAttacks=0',{missingModule:'./observation-store'});e.tick(0.7);e.mod.stop();
+    const e=fixture('Diagnostics=1\nObserveAttacks=0',{missingModule:'./observation-store'});e.tick(0.7);e.mod.stop();
     assert.equal(e.cues().length,1);assert(!e.diagnostics().some(x=>x.includes('observation-unavailable')));
 });
 test('observer store construction failure cannot stop cue startup',()=>{
-    const e=fixture(undefined,{badStore:true});e.tick(0.7);e.mod.stop();assert.equal(e.cues().length,1);
+    const e=fixture('Diagnostics=1',{badStore:true});e.tick(0.7);e.mod.stop();assert.equal(e.cues().length,1);
 });
 test('invalid Lua rows cannot advance cursor past valid observations',()=>{
-    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+    const e=fixture('Diagnostics=1');e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
         session:'reject',seq:1,active:true,heartbeat:e.wall,events:[
             {seq:999999,kind:'timeline-call',phase:'pre'},
             {seq:1,kind:'not-a-call',phase:'post'},
@@ -1144,14 +1166,14 @@ test('invalid Lua rows cannot advance cursor past valid observations',()=>{
     assert.equal(report.hookImport.lastSeq,1);assert.equal(report.hookImport.rejectedRows,2);
 });
 test('Lua structured activation stays in capture and is not promoted to identity',()=>{
-    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
+    const e=fixture('Diagnostics=1');e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:1,
         session:'abi',seq:1,active:true,heartbeat:e.wall,events:[{seq:1,kind:'timeline-call',phase:'pre',
             context:{world:'/World/A',activation:{status:'read',value:7}}}]}));
     e.tick(0.7);e.mod.stop();const entry=observations(e).events.find(x=>x.kind==='timeline-call');
     assert.equal(entry.activation,null);assert.equal(entry.capture.context.activation.value,7);
 });
 test('global observation sampling covers multiple tasks without withholding cues',()=>{
-    const e=fixture();provideNativeFrame(e);
+    const e=fixture('Diagnostics=1');provideNativeFrame(e);
     const extras=[];for(let i=0;i<5;i++){const other=e.addEnemy('Other'+i),task=e.addTask(other,'other'+i);
         task.action.DeflectBulletType=2;task.task.CurrentTime=0.7;extras.push(task);}
     e.tick(0.7);assert.equal(e.cues().length,6);
@@ -1181,7 +1203,7 @@ function namedOnlyRuntime(kind, config, startup) {
 }
 test('named boss actions without structural preparation resources cannot cue with retired keys enabled',()=>{
     for(const kind of ['round','assault','cast']) {
-        const e=namedOnlyRuntime(kind,'SemanticFallback=1\nYuZanCastWarning=1\nYuZanCastLeadMs=1000');
+        const e=namedOnlyRuntime(kind,'Diagnostics=1\nSemanticFallback=1\nYuZanCastWarning=1\nYuZanCastLeadMs=1000');
         assert.equal(e.settings.GenericAttack,true);
         for(const time of [0,0.4,0.7,1.1]) e.tick(time,250);
         e.owner.ability.activation++; e.tick(0,64); e.tick(0.7,250);
@@ -1225,7 +1247,7 @@ test('duplicate ordinary GUID nodes and a later array reorder preserve one cue i
     assert.equal(e.cues().length,1); assert.equal(e.cues()[0].id,id); assert.equal(e.cancels().length,0); e.mod.stop();
 });
 test('a name-only cast marker cannot suppress a later ordinary Success black warning',()=>{
-    const e=namedOnlyRuntime('cast','YuZanCastWarning=1',genericDisabledSettings()); e.tick(0.4); assert.equal(e.cues().length,0);
+    const e=namedOnlyRuntime('cast','YuZanCastWarning=1',genericDisabledSettings({Diagnostics:true})); e.tick(0.4); assert.equal(e.cues().length,0);
     e.first.task.OnCompleted.Fire(); e.owner.ability.activation++;
     const success=ordinaryFollowup(e); success.timeline._path=e.owner.ability._path+'.Success'; e.tick(undefined,250);
     assert.equal(e.cues().length,1); assert.equal(e.cues()[0].color,'black');
@@ -1233,7 +1255,7 @@ test('a name-only cast marker cannot suppress a later ordinary Success black war
     assert(observations(e).events.some(x=>x.kind==='warning-cue'&&x.source==='existing-0.5-scheduler'));
 });
 test('a Main-to-Success switch is retained as a branch observation without another cue',()=>{
-    const e=fixture(undefined,genericDisabledSettings());
+    const e=fixture(undefined,genericDisabledSettings({Diagnostics:true}));
     e.owner.enemy._path='/Game/Test.BP_Monster_FemaleVessel_YuZan_C_1';
     e.owner.ability._path='/Game/Test.GA_YuZan_Skill_03_A_R_Start_C_1';
     const mainTimeline={...e.first.timeline,_path:'/Game/Test.Ability.Main'};
@@ -1249,7 +1271,7 @@ test('a Main-to-Success switch is retained as a branch observation without anoth
     assert.equal(transition.branchConfirmed,false);
 });
 test('YuZan spell-warning resources remain cue-disabled observations',()=>{
-    const e=fixture();
+    const e=fixture('Diagnostics=1');
     e.owner.ability._path='/Game/Test.GA_YuZan_Skill_03_C_1';
     e.first.action.NiagaraEffect._path='/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101';
     e.tick(0.1,250);e.mod.stop();
@@ -1259,14 +1281,14 @@ test('YuZan spell-warning resources remain cue-disabled observations',()=>{
     assert.equal(spell.cueEnabled,false);assert.equal(e.cues().length,0);
 });
 test('one spell-warning observation is retained per task and phase',()=>{
-    const e=fixture();
+    const e=fixture('Diagnostics=1');
     e.owner.ability._path='/Game/Test.GA_YuZan_Skill_03_C_1';
     e.first.action.NiagaraEffect._path='/PBZVFXPack/VFX/BattleFX/YuZan/NS_YuZan_Warning_AOE_101.NS_YuZan_Warning_AOE_101';
     e.tick(0.1,250);e.tick(0.2,250);e.tick(0.3,250);e.mod.stop();
     assert.equal(observations(e).events.filter(x=>x.kind==='spell-warning-observation').length,1);
 });
 test('trial version is identical in START, diagnostics and observation snapshots',()=>{
-    const e=fixture();e.tick(0.1);e.mod.stop();
+    const e=fixture('Diagnostics=1');e.tick(0.1);e.mod.stop();
     const start=JSON.parse(e.logs.find(x=>x.startsWith('[PBZMOD] [Forewarn] START ')).split('START ')[1]);
     assert.equal(start.version,/const VERSION = "([^"]+)"/.exec(mainSource)[1]);
     assert.equal(observations(e).version,start.version);
@@ -1274,7 +1296,7 @@ test('trial version is identical in START, diagnostics and observation snapshots
 });
 
 test('Lua schema2 paths decode without changing callback clock or cue output',()=>{
-    const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:2,
+    const e=fixture('Diagnostics=1');e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:2,
         version:'0.6.0-trial.1',session:'lua-v2',seq:1,active:true,heartbeat:e.wall,
         pathDictionary:{1:'/World/A',2:'/Enemy/Ability',3:'/Enemy/Actor'},
         health:{writeFailures:2,recoveries:2,currentlyFailing:false},events:[{seq:1,kind:'timeline-call',phase:'pre',callId:1,
@@ -1287,7 +1309,7 @@ test('Lua schema2 paths decode without changing callback clock or cue output',()
 });
 
 test('real Lua schema2 wire fixture imports string call IDs and structured parameters',()=>{
-    const e=fixture();const fixturePath=path.join(__dirname,'../../lua/tests/observer-schema2-wire-fixture.json');
+    const e=fixture('Diagnostics=1');const fixturePath=path.join(__dirname,'../../lua/tests/observer-schema2-wire-fixture.json');
     const payload=JSON.parse(fs.readFileSync(fixturePath,'utf8'));payload.heartbeat=e.wall;
     e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify(payload));e.tick(0.7);e.mod.stop();
     const r=observations(e),calls=r.events.filter(x=>x.kind==='timeline-call'),focus=r.events.filter(x=>x.kind==='focused-call-summary');
@@ -1301,7 +1323,7 @@ test('real Lua schema2 wire fixture imports string call IDs and structured param
 
 test('Lua schema2 missing or malformed references cannot advance valid cursor',()=>{
     for(const reference of [{$path:99},{$path:1,extra:'ambiguous'},{$path:-1}]){
-        const e=fixture();e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:2,
+        const e=fixture('Diagnostics=1');e.files.set(e.saved+'pbzforewarn_observer_hooks.json',JSON.stringify({schemaVersion:2,
             session:'bad-path',seq:2,active:true,heartbeat:e.wall,pathDictionary:{1:'/World/A'},events:[
                 {seq:1,kind:'timeline-call',phase:'pre',context:{world:reference}},
                 {seq:2,kind:'timeline-call',phase:'post',context:{world:{$path:1}}}]}));
@@ -1313,7 +1335,7 @@ test('Lua schema2 missing or malformed references cannot advance valid cursor',(
 });
 
 test('focused Lua summaries survive original event eviction without becoming duplicate execution events',()=>{
-    const e=fixture();const payload={schemaVersion:2,session:'focused',seq:500,active:true,heartbeat:e.wall,
+    const e=fixture('Diagnostics=1');const payload={schemaVersion:2,session:'focused',seq:500,active:true,heartbeat:e.wall,
         pathDictionary:{1:'/Game/FeiZei_SpecialAttack_07',2:'/Game/Enemy'},events:[],
         focusRetention:{count:1,total:1,dropped:0},focusSummaries:[{callId:'fw-observe-focused:4',kind:'timeline-call',firstSeq:1,lastSeq:2,
             ability:{$path:1},actor:{$path:2},first:{phase:'pre',params:{StartTimeSeconds:{value:2.883}}},
@@ -1327,7 +1349,7 @@ test('focused Lua summaries survive original event eviction without becoming dup
 });
 
 test('late first discovery retains the task position and missed-plan context',()=>{
-    const e=fixture();e.tick(3.71554);e.mod.stop();const r=observations(e);
+    const e=fixture('Diagnostics=1');e.tick(3.71554);e.mod.stop();const r=observations(e);
     const first=r.events.find(x=>x.kind==='task-lifecycle'&&x.phase==='first-observed');
     const missed=r.events.find(x=>x.kind==='warning-missed');
     assert.equal(first.firstObservedTimelineTime,3.71554);assert.equal(first.startTimeVerified,false);
@@ -1336,7 +1358,7 @@ test('late first discovery retains the task position and missed-plan context',()
 });
 
 test('task rewind and record replacement retain separate local identities without manufacturing strikes',()=>{
-    const e=fixture();e.tick(0.3);e.tick(0.1);e.owner.ability.activation++;e.tick(0.1,64);e.mod.stop();
+    const e=fixture('Diagnostics=1');e.tick(0.3);e.tick(0.1);e.owner.ability.activation++;e.tick(0.1,64);e.mod.stop();
     const r=observations(e),life=r.events.filter(x=>x.kind==='task-lifecycle');
     const rewind=life.find(x=>x.phase==='timeline-rewind-observed');
     const firsts=life.filter(x=>x.phase==='first-observed');
@@ -1347,7 +1369,7 @@ test('task rewind and record replacement retain separate local identities withou
 });
 
 test('task cancellation preserves terminal facts without asserting a projectile became safe',()=>{
-    const e=fixture();e.tick(0.7);e.first.task.OnCancelled.Fire();e.tick(0.72);e.mod.stop();
+    const e=fixture('Diagnostics=1');e.tick(0.7);e.first.task.OnCancelled.Fire();e.tick(0.72);e.mod.stop();
     const r=observations(e),ended=r.events.find(x=>x.kind==='task-lifecycle'&&x.phase==='native-task-ended');
     const cancel=r.events.find(x=>x.kind==='warning-withdrawal');
     assert.equal(ended.callback,'OnCancelled');assert.equal(ended.dangerEndedVerified,false);
@@ -1355,7 +1377,7 @@ test('task cancellation preserves terminal facts without asserting a projectile 
 });
 
 test('native task delegate does not borrow an old world clock after the actor world changes',()=>{
-    const e=fixture();e.tick(0.7);e.owner.enemy.GetWorld=()=>({_path:'/World/New'});e.game=1.2;
+    const e=fixture('Diagnostics=1');e.tick(0.7);e.owner.enemy.GetWorld=()=>({_path:'/World/New'});e.game=1.2;
     e.first.task.OnCancelled.Fire();e.mod.stop();const r=observations(e);
     const ended=r.events.find(x=>x.kind==='task-lifecycle'&&x.phase==='native-task-ended');
     assert.equal(ended.captureWorld,'/World/New');assert.equal(ended.worldKey,null);assert.equal(ended.clockEpoch,null);
@@ -1394,7 +1416,7 @@ function candidateCatalog(e) {
     return body ? JSON.parse(body).entries.map(x=>x.data).filter(x=>x.bulletSignalCandidates) : [];
 }
 test('nested standard bullet warning is recorded as a candidate without cue or glyph promotion',()=>{
-    const e=fixture();diagnosticBullet(e);e.tick(0.7);e.tick(1.05,350);e.mod.stop();
+    const e=fixture('Diagnostics=1');diagnosticBullet(e);e.tick(0.7);e.tick(1.05,350);e.mod.stop();
     const entries=candidateCatalog(e);assert.equal(entries.length,1);
     const probe=entries[0].bulletSignalCandidates;
     assert.equal(probe.usedForScheduling,false);assert.equal(probe.candidates.length,1);
@@ -1403,7 +1425,7 @@ test('nested standard bullet warning is recorded as a candidate without cue or g
     assert.equal(e.cues().length,0);assert(e.hud.every(x=>x.active.length===0));
 });
 test('candidate diagnostics never add a second ordinary cue and preserve cancellation',()=>{
-    const e=fixture();diagnosticBullet(e,true);e.tick(0.7);assert.equal(e.cues().length,1);
+    const e=fixture('Diagnostics=1');diagnosticBullet(e,true);e.tick(0.7);assert.equal(e.cues().length,1);
     e.first.task.OnCancelled.Fire();e.tick(0.72);e.mod.stop();
     assert.equal(e.cues().length,1);assert.equal(e.cancels().length,1);
     assert.equal(candidateCatalog(e)[0].bulletSignalCandidates.usedForScheduling,false);
@@ -1416,7 +1438,7 @@ test('Diagnostics disabled never reads candidate bullet fields',()=>{
     assert(!e.files.has(e.saved+'pbzforewarn_resources.json'));
 });
 test('transient unresolved bullet evidence retries without freezing the resource template',()=>{
-    const e=fixture();const {bullet}=diagnosticBullet(e);
+    const e=fixture('Diagnostics=1');const {bullet}=diagnosticBullet(e);
     e.first.action['Bullet Data']={softPath:'/Candidate/NotLoaded'};
     e.tick(0.7);e.first.action['Bullet Data']=bullet;e.tick(0.72,2100);e.mod.stop();
     const entries=candidateCatalog(e);assert.equal(entries.length,1);
@@ -1425,7 +1447,7 @@ test('transient unresolved bullet evidence retries without freezing the resource
     assert.equal(e.cues().length,0);
 });
 test('unresolved candidate scans are spaced and capped without disabling ordinary cues',()=>{
-    const e=fixture();let reads=0;
+    const e=fixture('Diagnostics=1');let reads=0;
     Object.defineProperty(e.first.action,'BulletData',{get(){reads++;return {softPath:'/Candidate/Unresolved'};}});
     e.tick(0.7);const first=reads;assert(first>0);
     for(let i=0;i<6;i++)e.tick(0.71,250);assert.equal(reads,first);
@@ -1436,7 +1458,7 @@ test('unresolved candidate scans are spaced and capped without disabling ordinar
 });
 
 test('capture predicate survives bounded resource catalog serialization without hidden truncation',()=>{
-    const e=fixture();e.first.action.NiagaraEffect=null;
+    const e=fixture('Diagnostics=1');e.first.action.NiagaraEffect=null;
     const grab={_path:'/SGameExecution/GA/GA_ExecutedAbilityBase_Grab.GA_ExecutedAbilityBase_Grab_C'};
     const reaction={_path:'/Generic/Reaction.Reaction_C',GetSuperClass:()=>grab};
     const capture={_path:'/Generic/Bullet.Capture',GetClass:()=>({_path:'/SGameExecution/Bullet/Events/BP_BulletEvent_PlayExecution.BP_BulletEvent_PlayExecution_C'}),
@@ -1461,7 +1483,7 @@ test('capture predicate survives bounded resource catalog serialization without 
 });
 
 function preparationRuntime(kind='standard') {
-    const e=fixture('GenericAttack=1\nHooks=0\nObserveAttacks=0');
+    const e=fixture('Diagnostics=1\nGenericAttack=1\nHooks=0\nObserveAttacks=0');
     if(kind==='standard') {
         diagnosticBullet(e);
         e.first.action.GetClass=()=>({_path:'/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C'});

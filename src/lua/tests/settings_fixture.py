@@ -19,7 +19,8 @@ local function put(path,body)
 end
 local function migrationPath(path,ending)
   return path:find('.pre-menu-cleanup'..ending,1,true)~=nil or
-    path:find('.pre-generic-default'..ending,1,true)~=nil
+    path:find('.pre-generic-default'..ending,1,true)~=nil or
+    path:find('.pre-diagnostics-menu'..ending,1,true)~=nil
 end
 local originalOpen=io.open
 io.open=function(path,mode)

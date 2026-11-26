@@ -40,8 +40,8 @@ def logs(lua):
 # Retrospective config regressions at the existing Lua stub-I/O seam, not a
 # newly user-confirmed public acceptance boundary or a real Menu/game test.
 PUBLIC = {'LeadMs', 'RangeCm', 'OnlyLockedTarget', 'SoundOn', 'SoundVolume',
-          'GlyphOn', 'GlyphFontSize', 'GlyphY'}
-INTERNAL = {'BlackOn', 'GenericAttack', 'Diagnostics', 'ObserveAttacks', 'Hooks',
+          'GlyphOn', 'GlyphFontSize', 'GlyphY', 'Diagnostics'}
+INTERNAL = {'BlackOn', 'GenericAttack', 'ObserveAttacks', 'Hooks',
             'ObservationFlushMs', 'TickMs', 'DiscoverMs', 'ScanMs', 'LateGraceMs',
             'MaxGlyphMs', 'FontPath'}
 RETIRED = {'SemanticFallback', 'YuZanCastWarning', 'YuZanCastLeadMs'}
@@ -52,9 +52,52 @@ PENDING = CANONICAL + '.pre-generic-default.pending'
 REPLACED = CANONICAL + '.pre-generic-default.replaced'
 OLD_BACKUP = CANONICAL + '.pre-menu-cleanup.bak'
 OLD_PENDING = CANONICAL + '.pre-menu-cleanup.pending'
+DIAG_BACKUP = CANONICAL + '.pre-diagnostics-menu.bak'
+DIAG_PENDING = CANONICAL + '.pre-diagnostics-menu.pending'
+DIAG_REPLACED = CANONICAL + '.pre-diagnostics-menu.replaced'
 
-# Approved test.2 upgrade seam: load/refresh plus the existing in-memory I/O stub.
+# Approved load/refresh seam with the existing in-memory I/O stub.
 EPOCH = 'PBZForewarnGenericAttackEpoch'
+for value, expected in ((True, True), (0, False)):
+    legacy = {'LeadMs': 613, '_internal': {'dIaGnOsTiCs': value, 'ObserveAttacks': False,
+              'GenericAttack': False, 'Hooks': True}, '_extra': {EPOCH: 1, 'preserve': [None, 7]}}
+    body = ' \r\n' + json.dumps(legacy) + '\n'
+    l, m, s = fresh(body=body, files={BACKUP: 'older original bytes'})
+    t = l.globals().T
+    saved = json.loads(t.json)
+    check(saved.get('Diagnostics') is expected and s.Diagnostics is expected and
+          saved['_internal'] == {'ObserveAttacks': False, 'GenericAttack': False, 'Hooks': True} and
+          saved['_extra'] == legacy['_extra'] and s.GenericAttack is False,
+          'upgrades the old diagnostic value to one public Boolean without re-enabling generic warnings '+str(value))
+    check(t.settingsFiles[DIAG_BACKUP] == body and t.settingsFiles[BACKUP] == 'older original bytes' and
+          t.settingsFiles[DIAG_PENDING] is None and t.settingsFiles[DIAG_REPLACED] == body,
+          'diagnostics promotion preserves exact original bytes in a distinct recovery namespace')
+    l2, m2, s2 = fresh(body=t.json)
+    check(s2.Diagnostics is expected and l2.globals().T.json == t.json and l2.globals().T.settingsWrites == 0,
+          'the promoted diagnostic choice survives restart without a second migration')
+old_diagnostics = '{"diagnostics":true,"_internal":{"Diagnostics":true,"Hooks":true},"_extra":{"PBZForewarnGenericAttackEpoch":1}}'
+l, m, s = fresh(body=old_diagnostics, settingsPublishFails=True)
+t = l.globals().T
+check(s.Diagnostics is True and t.json == old_diagnostics and t.settingsFiles[DIAG_BACKUP] == old_diagnostics,
+      'failed diagnostic promotion keeps the saved choice and restores original bytes')
+t.json = old_diagnostics.replace('{', '{"Diagnostics":false,', 1)
+check(m.refresh().Diagnostics is False and m.load(DIRECTORY).Hooks is True,
+      'exact public Menu value beats both legacy copies even after a failed promotion')
+l, m, s = fresh(files={DIAG_BACKUP: old_diagnostics, DIAG_PENDING: old_diagnostics})
+check(s.Diagnostics is True and json.loads(l.globals().T.json)['Diagnostics'] is True and 'CONFIG_RECOVERED' in logs(l),
+      'startup recovers a matching diagnostic migration hold before promoting it')
+for old_hold in (OLD_PENDING, PENDING):
+    l, m, s = fresh(body=old_diagnostics, files={old_hold: 'earlier recovery bytes'})
+    t = l.globals().T
+    check(t.json == old_diagnostics and t.settingsFiles[old_hold] == 'earlier recovery bytes' and
+          t.settingsFiles[DIAG_PENDING] is None and t.settingsWrites == 0 and s.Diagnostics is True and
+          m.source == 'migration-failed', 'diagnostic promotion cannot create a second recovery hold '+old_hold)
+for original_bytes in ('older migration bytes', old_diagnostics):
+    l, m, s = fresh(body=old_diagnostics, files={OLD_PENDING: original_bytes})
+    t=l.globals().T
+    check(t.json==old_diagnostics and t.settingsFiles[OLD_PENDING]==original_bytes and
+          t.settingsFiles[DIAG_PENDING] is None and t.settingsWrites==0 and
+          'MIGRATION_FAILED' in logs(l), 'existing migration hold blocks fresh or reused diagnostics hold '+repr(original_bytes))
 original = ' \r\n' + json.dumps({'LeadMs': 613, 'SoundOn': False,
     '_internal': {'GenericAttack': False, 'Hooks': False, 'FontPath': '/retained'},
     '_extra': {'nested': {'unknown': [None, False, 7]}}}) + '\n'
@@ -83,8 +126,8 @@ for restart in range(2):
 l, m, s = fresh()
 payload = json.loads(l.globals().T.json)
 check(set(payload) == PUBLIC | {'_internal', '_extra'} and set(payload['_internal']) == INTERNAL
-      and payload['_extra'] == {EPOCH: 1},
-      'fresh JSON has exactly eight public settings and twelve hidden settings')
+      and payload['_extra'] == {EPOCH: 1} and payload['Diagnostics'] is False,
+      'fresh JSON has nine public settings and eleven hidden settings with diagnostic recording off')
 check(s.GenericAttack is True and not any(s[key] is not None for key in RETIRED),
       'generic warnings default on and retired settings are absent from runtime')
 
@@ -114,7 +157,7 @@ check(t.settingsFiles[BACKUP] == body and t.settingsFiles[REPLACED] == body and 
 check(payload['_extra'] == {'Extra': None, 'Odd"Key': '😀', 'Float': -1200, EPOCH: 1} and s.Extra is None,
       'codec preserves unknown null surrogate-pair key and finite exponent as disk-only extras')
 l, m, s = fresh(config='Hooks=0', body='{"Hooks":null,"Diagnostics":null,"LeadMs":null}')
-check(s.Hooks is True and s.Diagnostics is True and s.LeadMs == 350, 'null known settings retain defaults without stale legacy fallback')
+check(s.Hooks is True and s.Diagnostics is False and s.LeadMs == 350, 'null known settings retain defaults without stale legacy fallback')
 
 l, m, s = fresh(body='﻿{"Hooks":false,"Hooks":true,"LeadMs":"125"}')
 check(s.Hooks is True and s.LeadMs == 125, 'duplicate keys use last value and numeric strings match JS interpretation')
@@ -203,11 +246,11 @@ l, m, s = fresh(config='Hooks=1', body=original)
 t = l.globals().T
 payload = json.loads(t.json)
 check(set(payload) == PUBLIC | {'_internal', '_extra'} and set(payload['_internal']) == INTERNAL,
-      'flat upgrade emits only eight public scalars and two hidden objects')
+      'flat upgrade emits only nine public scalars and two hidden objects')
 check(all(payload[key] == flat_values[key] for key in PUBLIC) and
       all(payload['_internal'][key] == flat_values[key] for key in INTERNAL-{'GenericAttack'}) and
       payload['_internal']['GenericAttack'] is True,
-      'flat upgrade changes only generic false among twenty non-default raw known values')
+      'flat upgrade changes only generic false and diagnostic scope among twenty non-default raw known values')
 check(payload['_extra'] == {EPOCH: 1, **{key: value for key, value in flat_values.items()
                            if key not in PUBLIC | INTERNAL | RETIRED}},
       'flat upgrade preserves unknown scalars objects arrays null and special names under extra')
@@ -462,8 +505,8 @@ for flag in ('jsonDenied','settingsReadThrows','settingsReadError','settingsRead
 s.Hooks=False
 check(m.load(DIRECTORY).Hooks is True, 'refreshed settings remain defensive copies')
 
-# A provider-like patch of only the eight public fields retains hidden data;
-# manual hidden changes still apply to the fourteen live controls, not reserved.
+# A provider-like patch of only the public fields retains hidden data;
+# manual hidden changes still apply to live controls, not reserved values.
 reserved = {'TickMs', 'DiscoverMs', 'ScanMs', 'LateGraceMs', 'MaxGlyphMs', 'FontPath'}
 initial = {key: flat_values[key] for key in PUBLIC}
 initial['_internal'] = {key: flat_values[key] for key in INTERNAL}
@@ -472,17 +515,17 @@ l, m, s = fresh(body=json.dumps(initial))
 t = l.globals().T
 public_patch = {'LeadMs': 421, 'RangeCm': 4200, 'OnlyLockedTarget': False,
                 'SoundOn': True, 'SoundVolume': 1.1, 'GlyphOn': True,
-                'GlyphFontSize': 155, 'GlyphY': 0.25}
+                'GlyphFontSize': 155, 'GlyphY': 0.25, 'Diagnostics': False}
 saved = {**initial, **public_patch}
 t.json = json.dumps(saved, ensure_ascii=False)
 s = m.refresh()
 check(all(s[key] == value for key, value in public_patch.items()),
-      'public-only Menu-like patch applies exactly the eight public values')
+      'public-only Menu-like patch applies exactly the nine public values')
 check(all(s[key] == flat_values[key] for key in INTERNAL-reserved) and
       json.loads(t.json)['_internal'] == initial['_internal'] and
       json.loads(t.json)['_extra'] == initial['_extra'] and t.settingsWrites == 0,
       'public-only save preserves hidden runtime values and nested disk extras without module writes')
-internal_patch = {'Hooks': True, 'Diagnostics': True, 'ObserveAttacks': True,
+internal_patch = {'Hooks': True, 'ObserveAttacks': True,
                   'BlackOn': True, 'GenericAttack': True, 'ObservationFlushMs': 15000,
                   'TickMs': 88, 'DiscoverMs': 123, 'ScanMs': 888, 'LateGraceMs': 200,
                   'MaxGlyphMs': 2500, 'FontPath': '/still-not-live'}

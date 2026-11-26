@@ -173,6 +173,17 @@
         "zh-Hans": "危字锚点占HUD高度的比例（0.1–0.8，默认0.32）。越小越靠上，越大越靠下；水平方向保持居中。菜单保存成功后应用，更新当前筛选与待发预警，不补播已消费的预警。",
         "zh-Hant": "危字錨點占HUD高度的比例（0.1–0.8，預設0.32）。越小越靠上，越大越靠下；水平方向保持置中。選單儲存成功後套用，更新目前篩選與待發預警，不補播已消費的預警。"
       }
+    },
+    {
+      "key": "Diagnostics",
+      "type": "toggle",
+      "label": {"en": "Diagnostic recording", "zh-Hans": "诊断记录", "zh-Hant": "診斷記錄"},
+      "default": false,
+      "help": {
+        "en": "Record optional troubleshooting data (off on new installs). Turning it off stops periodic diagnostic writes; active observation may save one last snapshot. Warning sound, glyph and discovery hooks keep their own settings. Applies after a successful Menu save.",
+        "zh-Hans": "用于排查问题，新安装默认关闭。关闭后停止定时写入诊断文件；若正在观察，可能保存一次最后快照。危音效、危字和发现钩子仍按各自设置运行。菜单保存成功后应用。",
+        "zh-Hant": "用於排查問題，新安裝預設關閉。關閉後停止定時寫入診斷檔案；若正在觀察，可能儲存一次最後快照。危音效、危字和發現鉤子仍按各自設定運作。選單儲存成功後套用。"
+      }
     }
   ]
 }

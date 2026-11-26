@@ -1,20 +1,19 @@
-PBZForewarn 0.9.0 — Sekiro-Style Danger Alert
+PBZForewarn 0.9.1 — Sekiro-Style Danger Alert
 只狼风格“危”预警
 
 English
 =======
 
-WHAT'S NEW IN 0.9 — 0.9.0
-- Enables generic preparation once on upgrade, including old saved 0/false values.
-  After the upgrade marker is saved, a later manual false remains respected.
-- The old boss/ability-name warning routes are removed; no switch restores them.
-- Menu contains only eight everyday controls: lead, range, locked target, sound,
-  volume, glyph visibility, size and vertical position. No third-party patch needed.
-- Black warnings and diagnostic features remain available internally, not as Menu
-  rows. Startup backs up pre-upgrade JSON before updating the same config file.
-- Adds the overlap-bullet Start-resource preparation route. One test.2 session
-  recorded six red cues accepted by the audio interface; this is limited evidence,
-  not all-move coverage or a native-crash repair.
+WHAT'S NEW IN 0.9.1 — DIAGNOSTIC RECORDING SWITCH
+- Menu adds one Diagnostic recording switch (nine controls total). It defaults
+  off on new installs; an existing saved value is preserved and backed up on
+  upgrade. No third-party Menu patch is needed.
+- Turning it off stops periodic diagnostic, resource catalog and observation
+  JSON writes. Active observation may save one last snapshot. Warning sound,
+  glyphs and discovery hooks keep their own settings. Attack recognition is
+  unchanged from 0.9.0.
+- Offline checks pass for the switch, migration, and warning output. In-game
+  Menu operation and frame-time impact are unverified in this build.
 
 Generic cues use LeadMs and authored preparation coordinates, not measured impact
 or original effect time. Grab risk does not guarantee a grab. An earlier dev.5
@@ -47,7 +46,7 @@ Both PBZModLoader and UE4SS are required.
 
 INSTALL
 Mod Manager: close the game, install both requirements, disable older Forewarn,
-import PBZForewarn-0.9.0.zip, and enable all of its parts.
+import PBZForewarn-0.9.1.zip, and enable all of its parts.
 
 Manual: with both requirements already installed, merge ProjectPBZ and platform
 into the game root. Keep every file and fully restart.
@@ -55,28 +54,23 @@ into the game root. Keep every file and fully restart.
 Press Alt+F9 to preview the warning sound.
 
 SETTINGS
-The eight Menu controls have English, Simplified and Traditional Chinese labels
-and help. Existing output and font-size settings have limited earlier gameplay
-observations; this new compact layout/migration has offline checks only.
-Settings file (relative to game root):
+The nine Menu controls have English, Simplified and Traditional Chinese labels
+and help. Settings file (relative to game root):
 platform\steam\ue4ss\Mods\PBZForewarnHooks\PBZForewarnHooks.config.json
 
-Install/update as usual; no extra patch or manual configuration step is required.
 On first start, Forewarn imports the old Saved\PBZForewarn.txt if no JSON exists.
-On upgrade, the existing JSON is backed up as
-PBZForewarnHooks.config.json.pre-generic-default.bak. Old flat JSON is also grouped:
-eight public settings stay at the top, internal values move into _internal, and
-unknown values stay in _extra. The three retired boss keys are not executed.
-This upgrade enables generic preparation once, including old GenericAttack=0/false
-from TXT or test.1 JSON. Other settings are preserved. The reserved numeric marker
-_extra.PBZForewarnGenericAttackEpoch=1 records the upgrade; keep it when later
-setting _internal.GenericAttack=false manually. That later false is respected on
-restart. No switch restores the deleted boss rules; no third-party patch is needed.
+The diagnostic switch is stored as top-level Diagnostics. Upgrading an existing
+0.9.0 JSON preserves the saved choice and backs up the original before moving the
+setting out of _internal. The diagnostic backup ends in .pre-diagnostics-menu.bak.
+If the older generic upgrade is also needed, both changes use the existing
+.pre-generic-default.bak. Keep these backups. The numeric marker
+_extra.PBZForewarnGenericAttackEpoch=1 keeps later _internal.GenericAttack=false
+from being enabled again on restart. No switch restores the deleted boss rules.
 
 Optional in-game settings: install Mods Menu (Nexus mod 149) and its UE4SS Bridge.
 Open Settings > Mods Menu > UE4SS Mods > Forewarn after the first launch. Neither
-Menu nor Bridge is bundled or modified. The eight controls apply after a successful
-Menu save, normally within about 0.5 s; game stalls may delay this. Menu saves keep
+Menu nor Bridge is bundled or modified. Controls apply after a successful Menu
+save, normally within about 0.5 s; game stalls may delay this. Menu saves keep
 _internal and _extra. Do not edit JSON concurrently with Menu saves.
 
 Timing changes affect pending warnings without replaying consumed cues. Disabling
@@ -106,11 +100,15 @@ Appearance and sound
 - SoundOn=1 — play the warning sound. 1 = on, 0 = off.
 - SoundVolume=0.8 — this mod's volume. Range: 0-2.
 
+Diagnostic recording
+- Diagnostics=false — Enable only when collecting troubleshooting data. When
+  off, the periodic diagnostic JSON files stop updating; basic loader messages
+  and the separate discovery bridge are not controlled by this switch.
+
 Internal features (not Menu controls)
-Black warnings, generic preparation recognition and diagnostic/observation hooks
-remain implemented. Their values remain under _internal; only the old generic
-off value is enabled once by this upgrade. Later marked false is respected.
-The obsolete per-boss configuration is no longer read.
+BlackOn, GenericAttack, ObserveAttacks and Hooks remain under _internal. An
+explicit ObserveAttacks=false still disables combat observation even with
+Diagnostics on. The obsolete per-boss configuration is no longer read.
 
 NOTES
 - 350 ms is a target, not a guarantee for every move. Very short attacks may
@@ -142,14 +140,12 @@ AI assisted research, coding and debugging.
 中文
 ====
 
-0.9 更新内容 — 0.9.0
-- 升级时将旧GenericAttack=0/false开启一次，保存升级标记后再手动关闭会保留，不每次强开。
-- 旧Boss/技能名专属预警路径已移除，任何开关都不能恢复旧特判。
-- 菜单只保留8项日常设置：提前量、距离、仅锁定、声音、音量、显示危字、大小、垂直位置。
-- 黑危、诊断和观察等功能仍在，仅移出菜单。无需第三方菜单补丁或额外安装步骤。
-- 启动时备份升级前JSON，更新同一配置文件；除通用旧关闭值升级开启外，其他设置保留。
-- 新增重叠弹体Start资源准备路径；test.2一场记录6条红危获音频接口接受，只是有限证据，
-  不代表全招支持或原生崩溃修复。
+0.9.1 更新内容 — 诊断记录开关
+- 菜单新增一个「诊断记录」开关（共 9 项）。新安装默认关闭；已有保存值在升级时
+  备份原文件并保留。不需要第三方菜单补丁。
+- 关闭后停止 JS 诊断、资源目录、战斗观察及 Lua 观察快照的定时写盘；若正在观察，
+  可能保存一次最后快照。危音效、危字和发现钩子仍按各自设置运行，招式识别与 0.9.0 相同。
+- 开关、迁移和预警输出已通过离线检查；本版尚未实机验收菜单操作或帧时间变化。
 
 通用提示使用LeadMs和作者准备坐标，不是实测命中或原特效时间；抓取风险不保证实际抓取。
 此前dev.5一场记录曾有三轮完整首次抓取收口，最新test.2场次未覆盖该链。
@@ -178,7 +174,7 @@ PBZModLoader 和 UE4SS 都必须安装。
 
 安装
 管理器：完全退出游戏，装好两个前置，停用旧 Forewarn，导入
-PBZForewarn-0.9.0.zip，并把包内全部部分启用。
+PBZForewarn-0.9.1.zip，并把包内全部部分启用。
 
 手动：前置已装好的情况下，把包内 ProjectPBZ 和 platform 合并到游戏根目录。
 保留全部文件并完全重启。
@@ -186,23 +182,20 @@ PBZForewarn-0.9.0.zip，并把包内全部部分启用。
 按 Alt+F9 试听危音效。
 
 设置
-菜单8项设置提供英文、简中、繁中名称与说明。旧版部分输出与字号设置有有限实机记录；
-本次精简布局和迁移仅离线检查，尚未实机验收。
+菜单9项设置提供英文、简中、繁中名称与说明。
 配置位置（相对游戏根目录）：
 platform\steam\ue4ss\Mods\PBZForewarnHooks\PBZForewarnHooks.config.json
 
-正常安装/更新即可，无额外补丁或手动配置步骤。没有JSON时，首次启动会导入旧的
-Saved\PBZForewarn.txt。本次升级先备份既有JSON为
-PBZForewarnHooks.config.json.pre-generic-default.bak；旧平铺配置同时归整为公开8项顶层、
-内部值_internal和未知数据_extra。三个旧首领键不参与执行。
-本次升级将旧TXT或test.1 JSON中的GenericAttack=0/false统一开启一次，其他设置保留。
-保留标记_extra.PBZForewarnGenericAttackEpoch=1（数字）后，若再手动把_internal.GenericAttack
-改为false，后续重启会尊重这个关闭值，不反复强开。关闭也不能恢复已删除的首领特判。
-无需第三方补丁。
+没有 JSON 时，首次启动会导入旧的 Saved\PBZForewarn.txt。诊断开关保存在 JSON 顶层的
+Diagnostics。升级已有的 0.9.0 配置时，会保留原来的开关状态，备份原文件后把该值移出
+_internal。诊断迁移的备份以 .pre-diagnostics-menu.bak 结尾；若同时需要旧版通用升级，
+两项改动共用 .pre-generic-default.bak。请保留备份。带数字标记
+_extra.PBZForewarnGenericAttackEpoch=1 的配置，手动设为 _internal.GenericAttack=false
+后不会在重启时再被开启。关闭也不能恢复已删除的首领特判。
 
-可选菜单：安装Mods Menu（Nexus mod 149）及其UE4SS Bridge，首次启动后进入
+可选菜单：安装 Mods Menu（Nexus mod 149）及其 UE4SS Bridge，首次启动后进入
 设置 > 模组菜单 > UE4SS 模组 > Forewarn。本包不附带或修改菜单/Bridge。
-8项设置在菜单保存成功后通常约半秒内应用，游戏停顿可能延迟；保存会保留_internal和_extra。
+菜单保存成功后通常约半秒内应用，游戏停顿可能延迟；保存会保留 _internal 和 _extra。
 不要同时用菜单和编辑器修改JSON。提前量更新不补播已消费提示；关声停止本MOD音效，
 开声不补播旧危；危字变化只作用于本MOD显示层和仍有效的提示窗口。
 
@@ -223,9 +216,13 @@ PBZForewarnHooks.config.json.pre-generic-default.bak；旧平铺配置同时归�
 - SoundOn=1 — 播放危音效，1 开启，0 关闭。
 - SoundVolume=0.8 — 本 MOD 音量，范围 0-2。
 
+诊断记录
+- Diagnostics=false — 仅在排查问题时开启。关闭后相关诊断 JSON 不再定时更新；
+  加载器日志和独立的预警发现桥不受这个开关控制。
+
 内部功能（不在菜单展示）
-黑危、通用准备识别、诊断及观察钩子仍保留；值在_internal中，仅旧通用关闭值本次升级开启一次，
-带升级标记后再手动false会保留。
+BlackOn、GenericAttack、ObserveAttacks 和 Hooks 仍在 _internal。若显式设置
+ObserveAttacks=false，即使打开 Diagnostics 也不会采集战斗观察记录。
 已退役的逐首领设置不再读取。
 
 注意

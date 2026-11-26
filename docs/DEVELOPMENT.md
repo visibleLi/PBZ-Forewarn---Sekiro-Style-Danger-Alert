@@ -43,8 +43,8 @@ reaches a player.
 ## Optional Mods Menu test build
 
 `src/lua/PBZForewarnHooks.modsmenu.json` defines the optional UE4SS menu rows.
-The eight public rows have English, Simplified Chinese and Traditional Chinese
-labels/help explaining effect and application mode. Descriptor tests enforce the
+The nine public rows (including Diagnostic recording) have English, Simplified
+Chinese and Traditional Chinese labels/help. Descriptor tests enforce the
 explicit public key set and Menu's 80/400 UTF-16-unit label/help limits; no
 translated setting keys or values are introduced.
 The installer places it in `platform/steam/ue4ss/Mods/PBZForewarnHooks/` and
@@ -52,12 +52,14 @@ ships `Scripts/settings-config.lua`, but deliberately never ships a live
 `PBZForewarnHooks.config.json`. Lua creates that JSON beside `Scripts/` on
 first startup, importing the legacy Saved TXT once and verifying the write.
 Startup applies the generic-default epoch upgrade to pre-marker flat or structured
-JSON after preserving original bytes in `.pre-generic-default.bak`. Eight public
-keys remain top-level, twelve hidden values use `_internal`, and unknown metadata
-is retained in `_extra`. The old three boss keys are not executed. Once the numeric
-`_extra.PBZForewarnGenericAttackEpoch=1` marker is published, structured JSON is
-read-only at startup. Original `.pre-menu-cleanup` recovery files remain distinct;
-the new upgrade does not overwrite or reuse their backups.
+JSON after preserving original bytes in `.pre-generic-default.bak`. Nine public
+keys are top-level, eleven hidden values use `_internal`, and unknown metadata
+is retained in `_extra`. The old three boss keys are not executed. The numeric
+`_extra.PBZForewarnGenericAttackEpoch=1` marker prevents another generic upgrade.
+An existing diagnostic value is promoted to one top-level `Diagnostics` Boolean;
+its backup is `.pre-diagnostics-menu.bak` when the generic upgrade is not needed.
+A pending original in any migration namespace prevents a second upgrade from
+moving the live file. A normalized file needs no rewrite.
 Migration stages and verifies a candidate, holds the original in `.pending`, then
 publishes with a non-replacing rename; failures attempt rollback and retain backup
 material. This is recoverable, not atomic against hard process termination or
@@ -71,8 +73,10 @@ marker above. Both readers normalize pre-marker GenericAttack to true, even if J
 starts before Lua publication; Lua writes the marker only through successful
 creation/migration. Legacy TXT has no epoch and is import-only, so old0 is upgraded.
 A failed publication is reported and retried next startup, not marked complete.
-After epoch1, explicit false remains false. Eight Menu rows patch existing JSON,
-preserving hidden objects and the marker. Fourteen values still refresh after a
+After epoch1, explicit generic false remains false. Both readers prefer a valid
+public `Diagnostics` value over the former `_internal` value during migration.
+Nine Menu rows patch existing JSON, preserving hidden objects and the marker.
+Fourteen values still refresh after a
 complete Menu save notice; six reserved internal values are startup-only.
 The scoped fallback/cast/followup
 modules have been removed; no switch restores them. Generic cues use global
@@ -103,8 +107,12 @@ with listener disposal and distinct observer epochs. Lua owns one 500ms watcher,
 coalesces game-thread transitions, and pauses capture/publication while disabled;
 registered callbacks remain inert until terminal unload. Reserved values remain
 startup snapshots; no scheduler restart or historical cue replay is introduced.
-Output update calls and failures are retained in diagnostics under menuSettings,
-config-saved and config-output-update. These are not audible/screen measurements
+Diagnostic recording is off by default on fresh settings. With it off, JS skips
+periodic diagnostic, resource catalog, and observation JSON writes, and Lua
+pauses its optional observer publisher. Active observation may attempt one final
+snapshot; the separate discovery bridge and loader log are unchanged.
+When recording is on, output update calls and failures are retained in diagnostics
+under menuSettings, config-saved and config-output-update. These are not audible/screen measurements
 or application receipts shown by the third-party Menu. Strict edit-baseline
 conflicts remain excluded. See `docs/VALIDATION.md` for current verification
 limits and the root README for player instructions.

@@ -5,7 +5,7 @@ local KEY = "__PBZForewarnObservationHooks_v1"
 local prior = rawget(_G, KEY)
 if type(prior) == "table" then return prior end
 local M = {}; rawset(_G, KEY, M)
-local VERSION = "0.9.0"
+local VERSION = "0.9.1"
 local PREFIX = "[PBZForewarnObserver] "
 local MAX_EVENTS, MAX_BYTES, MAX_DYNAMIC = 512, 393216, 32
 local MAX_PATHS, MAX_PATH_BYTES, MAX_FOCUS = 2048, 131072, 64
@@ -555,9 +555,12 @@ local function uninstall()
 end
 function M.stop()
     if S.stopped then return end
+    local wasActive=S.active
     S.active=false; S.stopped=true
-    rebuild() -- Only encoded rows and primitive metadata; no UObject access.
-    pcall(publish,true)
+    if wasActive then
+        rebuild() -- Only encoded rows and primitive metadata; no UObject access.
+        pcall(publish,true)
+    end
     if type(ExecuteInGameThread)=="function" then pcall(ExecuteInGameThread,uninstall) end
 end
 -- Called on the game thread. Keep registered callbacks inert during pauses;
@@ -588,11 +591,11 @@ function M.status()
         retained=#S.rows,dropped=S.dropped,focusRetained=#S.focusRows,focusDropped=S.focusDropped,health=h}
 end
 local function enabled(config)
-    local f=io.open(config,"rb"); if not f then return true end
+    local f=io.open(config,"rb"); if not f then return false end
     local ok,body=pcall(f.read,f,65536); pcall(f.close,f)
-    if not ok or type(body)~="string" then return true end
+    if not ok or type(body)~="string" then return false end
     body=body:gsub('^\239\187\191','')
-    local flags={observeattacks=true,diagnostics=true,hooks=true}
+    local flags={observeattacks=true,diagnostics=false,hooks=true}
     for line in body:gmatch('[^\n]+') do
         local k,v=line:match('^%s*([%a]+)%s*=%s*([^#;\r\n]+)')
         if k then k=k:lower(); v=v:match('^%s*(.-)%s*$'):lower()
@@ -644,5 +647,5 @@ local setupOK,setupWhy=pcall(ExecuteInGameThread,function()
     local good,e=pcall(LoopInGameThreadWithDelay,50,maintenance)
     if not good then S.health.discoveryFailures=S.health.discoveryFailures+1; err("maintenance",e) end
 end)
-if not setupOK then S.active=false; S.stopped=true; log("DISABLED",setupWhy); pcall(publish,true) end
+if not setupOK then M.stop(); log("DISABLED",setupWhy) end
 return M

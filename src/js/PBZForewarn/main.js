@@ -11,14 +11,14 @@ const { createTargetFilter } = require("./target-filter");
 const { createDiagnosticStore } = require("./diagnostic-store");
 const { createGrabReactionReader } = require("./grab-reaction");
 const { createGrabWarningCycle } = require("./grab-warning-cycle");
-const VERSION = "0.9.0";
+const VERSION = "0.9.1";
 const DEFAULTS = { LeadMs: 350, RangeCm: 3500, TickMs: 16, DiscoverMs: 50, ScanMs: 250,
     LateGraceMs: 80, MaxGlyphMs: 1200, GlyphOn: true, GlyphFontSize: 120, GlyphY: 0.32,
-    Diagnostics: true, ObserveAttacks: true, Hooks: true, BlackOn: true, GenericAttack: true,
+    Diagnostics: false, ObserveAttacks: true, Hooks: true, BlackOn: true, GenericAttack: true,
     ObservationFlushMs: 20000,
     OnlyLockedTarget: false, SoundOn: true, SoundVolume: 0.8,
     FontPath: "/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font" };
-const MENU_KEYS = ["LeadMs", "RangeCm", "OnlyLockedTarget", "SoundOn", "SoundVolume", "GlyphOn", "GlyphFontSize", "GlyphY"];
+const MENU_KEYS = ["LeadMs", "RangeCm", "OnlyLockedTarget", "SoundOn", "SoundVolume", "GlyphOn", "GlyphFontSize", "GlyphY", "Diagnostics"];
 const BOUNDS = { LeadMs: [0, 1000], ObservationFlushMs: [5000, 60000],
     RangeCm: [500, 10000], TickMs: [16, 100], DiscoverMs: [16, 250], ScanMs: [100, 1000],
     LateGraceMs: [0, 250], MaxGlyphMs: [100, 3000], GlyphFontSize: [30, 240], GlyphY: [0.1, 0.8], SoundVolume: [0, 2] };
@@ -110,11 +110,15 @@ function parseJsonSettings(text) {
             const name = Object.keys(DEFAULTS).find(item => item.toLowerCase() === key.toLowerCase());
             if (!name) continue;
             if (value !== null && typeof value === "object") throw Error("Setting must be scalar: " + key);
-            if (!structured || MENU_KEYS.includes(name) !== internal) applySetting(result, key, value);
+            if (!structured || MENU_KEYS.includes(name) !== internal || name === "Diagnostics")
+                applySetting(result, key, value);
         }
     };
-    readMembers(values, false);
+    // A valid public value wins over the old internal value. An exact Menu
+    // key also wins over a case alias if the startup migration couldn't run.
     if (object(values._internal)) readMembers(values._internal, true);
+    readMembers(values, false);
+    if (Object.hasOwn(values, "Diagnostics")) applySetting(result, "Diagnostics", values.Diagnostics);
     if (values._extra?.PBZForewarnGenericAttackEpoch !== 1) result.GenericAttack = true;
     return result;
 }
@@ -214,7 +218,7 @@ function start() {
             s.once.set(onceKey, Date.now());
             if (s.once.size > 4096) s.once.delete(s.once.keys().next().value);
         }
-        s.diagnostics.record(kind, data);
+        if (s.settings?.Diagnostics) s.diagnostics.record(kind, data);
         if (!["inventory", "eligibility", "task-found", "hook-hint", "rate-jump", "active-ability-no-timeline", "timeline-coverage"].includes(kind)) log(kind, data);
     }
     const a = createAdapter(UE, puerts, (k, d) => diagnostic(k, d, k + JSON.stringify(d)),
@@ -302,7 +306,7 @@ function start() {
         // Read only one matching recovery pair; never import stale TXT in that gap.
         if (json === undefined && !UE.BlueprintPathsLibrary.FileExists(configPath)) {
             try {
-                const pending = [".pre-menu-cleanup", ".pre-generic-default"]
+                const pending = [".pre-menu-cleanup", ".pre-generic-default", ".pre-diagnostics-menu"]
                     .filter(suffix => UE.BlueprintPathsLibrary.FileExists(configPath + suffix + ".pending"));
                 if (pending.length > 1) throw Error("Ambiguous settings migration snapshots");
                 if (pending.length) {
@@ -365,9 +369,9 @@ function start() {
         if (!wanted) {
             if (s.attackObserver) { try { s.attackObserver.setEnabled(false); } catch (_) { s.observationFaults++; } }
             observe("observation-boundary", { reason: "settings-disabled", captureEnabled: false });
-            // Persist dirty evidence before capture is gated off.
-            flush(true, false);
             observing = false;
+            // One final attempt for evidence collected before the switch.
+            flush(true, true);
             return;
         }
         try {
@@ -495,7 +499,7 @@ function start() {
             s.executionCapabilities.clear();
             s.grabCycle.clear(); s.pendingGrabDelivery.clear();
         }
-                s.diagnostics.setEnabled(s.settings.Diagnostics);
+        s.diagnostics.setEnabled(s.settings.Diagnostics);
         configureObservation();
         // Recompile with stable event keys; the scheduler retains fired/past tombstones.
         for (const r of s.records.values()) {
@@ -614,15 +618,15 @@ function start() {
             } else { if (kind === "missed") s.stats.missed++; diagnostic(kind, compactEvent(data)); }
         } });
     s.presentation = createPresentation(UE, cpp, a, s.settings, diagnostic);
-    function flush(force, captureEnabled = observing) {
+    function flush(force, finalObservation = false) {
+        if (!s.settings.Diagnostics && !finalObservation) return;
         const now = Date.now();
         if (force || now - s.lastReport >= 5000) {
-            // The observation file is the largest write. Serializing it on the
-            // game thread every 5 s was the measured cause of periodic stalls,
-            // so it keeps its own slower cadence and skips unchanged content.
+            // Keep the separate, slower cadence for the larger observation file.
             const observationDue = force || !s.lastObservationFlush ||
                 now - s.lastObservationFlush >= s.settings.ObservationFlushMs;
             if (s.observationStoreReady && observationDue && (force || s.observations.sequence() !== s.lastObservationSeq)) {
+                const captureEnabled = observing;
                 try {
                     const begin = Date.now(), snapshot = s.observations.snapshot();
                     const observationReport = { version: VERSION, session, at: now, ...snapshot, enabled: captureEnabled, captureEnabled,
@@ -647,6 +651,7 @@ function start() {
                     diagnostic("observation-write-error", { error: String(error) }, "observation-write-error");
                 }
             }
+            if (!s.settings.Diagnostics) return; // Final observation only; don't restart other writes.
             const snapshot = s.diagnostics.snapshot();
             const report = { version: VERSION, session, at: now, stats: s.stats, tasks: s.records.size, actors: s.actors.length,
                 hookHintsSeen: s.stats.hooks, hookBridgeAlive: s.hooksAlive, hookHealth: s.hookHealth,
@@ -666,7 +671,7 @@ function start() {
             }
             catch (e) { diagnostic("diagnostic-write-error", { error: String(e) }, "diag-error"); }
         }
-        if (s.diagnostics.catalogDirty() && (force || now - s.lastCatalogReport >= 30000)) {
+        if (s.settings.Diagnostics && s.diagnostics.catalogDirty() && (force || now - s.lastCatalogReport >= 30000)) {
             const catalog = s.diagnostics.catalogSnapshot();
             try {
                 writeText(saved + "pbzforewarn_resources.json", JSON.stringify({ runtimeVersion: VERSION, session, at: now, ...catalog }));

@@ -1,5 +1,47 @@
 # Validation / 自检边界
 
+## 2026-11-26: 0.9.1 diagnostic recording switch and periodic write gating
+
+Build: `0.9.1`; branch `fix/diagnostics-menu` merged fast-forward into `dev` and
+tagged `v0.9.1` (`main` remains independent and unchanged per user direction;
+Nexus upload is handled by the user).
+
+Changes:
+- Exposes `Diagnostics` as the ninth public Menu toggle, defaulting `false` on
+  fresh installs while preserving explicit saved values from legacy TXT, flat
+  JSON, or `_internal.Diagnostics`.
+- Promotes legacy internal/alias `Diagnostics` values into one top-level
+  Boolean with an original-byte backup (`.pre-diagnostics-menu.bak`, or shared
+  `.pre-generic-default.bak` when the generic epoch upgrade also runs) and
+  blocks a second migration if any prior `.pending` recovery hold exists.
+- Gates periodic JS `pbzforewarn_diagnostics.json`, `pbzforewarn_resources.json`,
+  and `pbzforewarn_observations.json` writes when `Diagnostics` is off (active
+  observation may make one final snapshot attempt on transition to off), and
+  prevents Lua `observation-hooks.lua` from writing a tombstone when unloading
+  after never being active.
+- Preserves independent `Hooks` discovery, Wwise audio, UMG glyph output, and
+  all 0.9.0 warning recognition routes unchanged.
+
+Offline verification: full ordered gate (`build_bank.py`, `verify.py`,
+`package.py --source`) with Python 3.12.16 + lupa 2.8 and Node.js 24.22.3 +
+TypeScript 5.9.3: 28 suites / 1,214 checks, every suite exit 0 and checks > 0,
+106 validated inputs, JavaScript syntax passed. Focused suites include JS
+`runtime` (168 checks), real internal chain `output-runtime` (7 checks), Lua
+`test_settings` (320 checks), Lua `test_observation` (86 checks), and
+`test_menu_descriptor` (4 checks). Independent review caught an overlapping
+`.pending` migration hold edge case; a failing test was added first, then fixed
+and verified green.
+
+Unverified / limits:
+- **In-game behavior is unverified for 0.9.1.** No game session was run for
+  this build. Real Mods Menu / UE4SS Bridge discovery, saving, live reload,
+  audible/rendered output, and frame-time impact are unverified.
+- The player-reported 89 ms frame spike and file sizes (reported against an
+  unmatched "1.6" label) were not reproduced or measured. Do not claim frame
+  spikes are eliminated without an in-game A/B frametime measurement.
+- Local `.claude` files and audio inputs remain excluded from commits and
+  Source ZIPs. Exact archive hashes are recorded outside Git.
+
 ## 2026-11-25: 0.9.0 dev checkpoint promotion and final local distribution
 
 Build: `0.9.0`; offline promotion session `release-v09-20261125`. Runtime behavior

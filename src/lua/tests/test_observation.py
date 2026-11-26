@@ -98,10 +98,12 @@ def check(v,label):
     assert v,label
     passed.append(label)
 
-def fresh(before=''):
+def fresh(before='', diagnostics=True):
     lua=LuaRuntime(unpack_returned_tuples=True)
     lua.execute(BASE)
     install(lua)
+    if diagnostics:
+        lua.globals().T.config = 'Diagnostics=1'
     lua.execute(before)
     mod=lua.execute(SOURCE, name='@'+DIRECTORY+'\\observation-hooks.lua')
     lua.globals().M=mod
@@ -127,6 +129,11 @@ def data(lua, raw=False):
     value['events']=decode(value['events'])
     value['focusSummaries']=decode(value['focusSummaries'])
     return value
+
+z,m=fresh(diagnostics=False)
+z.execute('game();publish();T.now=T.now+10;maintenance();publish();M.stop();game()')
+check(not m.status()['active'] and len(z.globals().T.hooks)==0 and len(z.globals().T.writes)==0,
+      'starting with diagnostics off never writes the observer file, including on unload')
 
 z,m=fresh()
 check(len(z.globals().T.hooks)==0,'setup queues registration without touching UE from the loading thread')
@@ -244,7 +251,8 @@ check(z.eval('publish()') is True,'async publisher terminates after stop')
 z,m=fresh();z.execute("game();a,task,actor,tl=ability();local main={};for i=1,500 do main[i]={Action=warning(a,task,actor,'/Game/Test.ClassA')}end;local role={};for i=1,500 do role[i]={Action=warning(a,task,actor,'/Game/Test.ClassB')}end;tl.Actions=arr(main);tl.RoleLayers=arr({{RoleName='Other',Actions=arr(role)},{RoleName='Extra',Actions=arr(role)}});T.arrayElements=0;invoke(PLAY,'pre',a,param(tl),param(1),param(0),param(0),param(''));invoke(PLAY,'post',a,param(tl),param(1),param(0),param(0),param(''))")
 check(z.globals().T.arrayElements<=514,'runtime candidate discovery caps total inspected nodes across role layers at 512 plus bounded layer references')
 
-for setting in ('ObserveAttacks=0','Diagnostics=0','Hooks=0','observeattacks=false','\ufeffDiagnostics=false'):
+for setting in ('Diagnostics=1\nObserveAttacks=0','Diagnostics=0','Diagnostics=1\nHooks=0',
+                'Diagnostics=1\nobserveattacks=false','\ufeffDiagnostics=false'):
     z,m=fresh('T.config='+json.dumps(setting,ensure_ascii=False))
     z.execute('game();maintenance();publish()')
     check(not m.status()['active'] and len(z.globals().T.loops)==1 and len(z.globals().T.hooks)==0 and len(z.globals().T.writes)==0,'startup switch pauses observer capture with resident loops: '+setting)

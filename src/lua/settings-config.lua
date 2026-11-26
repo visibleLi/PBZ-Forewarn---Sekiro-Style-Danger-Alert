@@ -6,7 +6,7 @@ local M = {}
 rawset(_G, GLOBAL_KEY, M)
 local defaults = {LeadMs=350, RangeCm=3500, TickMs=16, DiscoverMs=50, ScanMs=250,
     LateGraceMs=80, MaxGlyphMs=1200, GlyphOn=true, GlyphFontSize=120, GlyphY=0.32,
-    Diagnostics=true, ObserveAttacks=true, Hooks=true, BlackOn=true,
+    Diagnostics=false, ObserveAttacks=true, Hooks=true, BlackOn=true,
     GenericAttack=true, ObservationFlushMs=20000,
     OnlyLockedTarget=false, SoundOn=true, SoundVolume=0.8,
     FontPath="/Game/PBZContent/UI/Fonts/ZH_ZiKuTangKuangShanKaiShuJF_Font.ZH_ZiKuTangKuangShanKaiShuJF_Font"}
@@ -16,7 +16,7 @@ local bounds = {LeadMs={0,1000}, ObservationFlushMs={5000,60000},
 local names = {}
 for key in pairs(defaults) do names[key:lower()] = key end
 local public = {LeadMs=true, RangeCm=true, OnlyLockedTarget=true, SoundOn=true,
-    SoundVolume=true, GlyphOn=true, GlyphFontSize=true, GlyphY=true}
+    SoundVolume=true, GlyphOn=true, GlyphFontSize=true, GlyphY=true, Diagnostics=true}
 local retired = {semanticfallback=true, yuzancastwarning=true, yuzancastleadms=true}
 local NULL, OBJECT, ARRAY = {}, {}, {} -- Keep null and empty object/array distinct.
 local numberLiterals=setmetatable({},{__mode='k'}) -- Lossless unknown numeric values during migration.
@@ -196,16 +196,20 @@ end
 local function normalize(values)
     local result=copy(defaults)
     local grouped=structured(values)
+    -- Read old internal Diagnostics before its public Menu spelling so an
+    -- explicit public value always wins during the compatibility window.
+    if grouped and values._internal then
+        for _,key in ipairs(keys(values._internal)) do
+            local name=names[key:lower()]
+            if name=='Diagnostics' or name and not public[name] then assign(result,key,values._internal[key]) end
+        end
+    end
     for _,key in ipairs(keys(values)) do
         local name=names[key:lower()]
         if name and (not grouped or public[name]) then assign(result,key,values[key]) end
     end
-    if grouped and values._internal then
-        for _,key in ipairs(keys(values._internal)) do
-            local name=names[key:lower()]
-            if name and not public[name] then assign(result,key,values._internal[key]) end
-        end
-    end
+    -- The exact key written by Menu also wins over legacy case aliases.
+    assign(result,'Diagnostics',values.Diagnostics)
     if not genericUpgraded(values) then result.GenericAttack=true end
     return result
 end
@@ -238,6 +242,27 @@ local function partition(values)
         end
     end
     return result
+end
+local function needsDiagnosticsPromotion(values)
+    if values.Diagnostics~=nil and type(values.Diagnostics)~='boolean' then return true end
+    for key in pairs(values) do
+        if key~='Diagnostics' and names[key:lower()]=='Diagnostics' then return true end
+    end
+    for key in pairs(values._internal or {}) do
+        if names[key:lower()]=='Diagnostics' then return true end
+    end
+    return false
+end
+local function promoteDiagnostics(values,value)
+    for _,source in ipairs({values,values._internal}) do
+        for key in pairs(source) do
+            if names[key:lower()]=='Diagnostics' then
+                source[key]=nil
+                if numberLiterals[source] then numberLiterals[source][key]=nil end
+            end
+        end
+    end
+    values.Diagnostics=value
 end
 local function upgradeGeneric(values)
     local result=structured(values) and values or partition(values)
@@ -333,6 +358,8 @@ local function create(path,body)
 end
 local GENERIC_SUFFIX='.pre-generic-default'
 local MENU_SUFFIX='.pre-menu-cleanup'
+local DIAGNOSTICS_SUFFIX='.pre-diagnostics-menu'
+local MIGRATION_SUFFIXES={MENU_SUFFIX,GENERIC_SUFFIX,DIAGNOSTICS_SUFFIX}
 -- Windows CRT rename does not replace a destination. Publish the backup this
 -- way (never open it with wb), then keep the original until new JSON readback.
 -- This is recoverable, not atomic against process termination or other writers.
@@ -340,6 +367,9 @@ local function upgrade(path,original,body,suffix)
     local BACKUP,PENDING=suffix..'.bak',suffix..'.pending'
     local held,published,temp=false,false,nil
     local ok,why=pcall(function()
+        -- A leftover hold from another upgrade must not become one of two
+        -- competing recovery snapshots when we move the canonical file.
+        for _,candidate in ipairs(MIGRATION_SUFFIXES) do missing(path..candidate..'.pending') end
         local backup,state=read(path..BACKUP)
         if backup then
             if backup~=original then error('original-byte backup conflicts') end
@@ -377,7 +407,7 @@ end
 local function recover(path)
     return pcall(function()
         local original,pending
-        for _,suffix in ipairs({MENU_SUFFIX,GENERIC_SUFFIX}) do
+        for _,suffix in ipairs(MIGRATION_SUFFIXES) do
             local body,state=read(path..suffix..'.pending')
             if body then
                 if original then error('ambiguous pending migration snapshots') end
@@ -394,7 +424,7 @@ local function recover(path)
 end
 -- directory is the absolute Scripts directory beside main/timeline/observation.
 -- Returns the cached snapshot; only the first call performs startup migration.
--- Marked structured JSON is read-only; pre-epoch JSON is upgraded with backup.
+-- Only required migrations replace canonical JSON, with the original backed up.
 function M.load(directory)
     if M.settings then return copy(M.settings) end
     M.settings=copy(defaults)
@@ -417,13 +447,19 @@ function M.load(directory)
         if ok then
             M.settings=normalize(values)
             M.source='json'
-            if not genericUpgraded(values) then
-                local encoded,newBody=pcall(function() return encode(upgradeGeneric(values)) end)
+            local generic=not genericUpgraded(values)
+            local diagnostics=needsDiagnosticsPromotion(values)
+            if generic or diagnostics then
+                local encoded,newBody=pcall(function()
+                    local canonical=generic and upgradeGeneric(values) or values
+                    if diagnostics then promoteDiagnostics(canonical,M.settings.Diagnostics) end
+                    return encode(canonical)
+                end)
                 local migrated,err=false,newBody
-                if encoded then migrated,err=upgrade(M.path,body,newBody,GENERIC_SUFFIX) end
+                if encoded then migrated,err=upgrade(M.path,body,newBody,generic and GENERIC_SUFFIX or DIAGNOSTICS_SUFFIX) end
                 M.source=migrated and 'json-migrated' or 'migration-failed'
-                report(migrated and 'CONFIG_MIGRATED structured settings; original bytes backed up' or
-                    ('MIGRATION_FAILED '..tostring(err)..'; GenericAttack enabled in memory; other original JSON values retained; retry next startup'))
+                report(migrated and 'CONFIG_MIGRATED settings; original bytes backed up' or
+                    ('MIGRATION_FAILED '..tostring(err)..'; using normalized settings in memory; retry next startup'))
             end
         else M.source='invalid'; report('CONFIG_INVALID '..tostring(values)..'; using defaults') end
         return copy(M.settings)
@@ -447,7 +483,11 @@ function M.load(directory)
         end
         values=result; M.settings=normalize(values)
     end
-    local encoded,body=pcall(function() return encode(upgradeGeneric(values)) end)
+    local encoded,body=pcall(function()
+        local canonical=upgradeGeneric(values)
+        promoteDiagnostics(canonical,M.settings.Diagnostics)
+        return encode(canonical)
+    end)
     local ok,err=false,body
     if encoded then ok,err=create(M.path,body) end
     M.source=ok and (legacy and 'migrated' or 'created') or 'migration-failed'

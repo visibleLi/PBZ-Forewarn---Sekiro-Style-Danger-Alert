@@ -86,9 +86,17 @@ function fixture(diagnostics, settings = {}) {
     const saved = 'C:/Fixture/Saved/', content = 'D:/Fixture/ProjectPBZ/Content/';
     const normalize = p => path.posix.normalize(p.replace(/\\/g, '/'));
     const bankPath = content + 'PBZForewarn/PBZForewarn.bnk';
+    const configPath = normalize(content + '../../platform/steam/ue4ss/Mods/PBZForewarnHooks/PBZForewarnHooks.config.json');
     e.files.set(bankPath, 'native-bank-fixture');
-    e.files.set(normalize(content + '../../platform/steam/ue4ss/Mods/PBZForewarnHooks/PBZForewarnHooks.config.json'),
+    e.files.set(configPath,
         JSON.stringify({ ...settings, _internal: { Hooks: false, Diagnostics: diagnostics, ObserveAttacks: true, ...settings._internal } }));
+    e.saveDiagnostics = (enabled, change) => {
+        const config = JSON.parse(e.files.get(configPath));
+        e.files.set(configPath, JSON.stringify({ ...config, Diagnostics: enabled }));
+        e.files.set(configPath.replace('PBZForewarnHooks/PBZForewarnHooks.config.json', 'PBZModsMenuBridge/events-PBZForewarnHooks.txt'),
+            `Changed=${change}\r\nEnd=1\r\n`);
+    };
+    e.writes = [];
 
     // UMG setters retain external state. Visibility is observed only on the
     // mounted tree after a tick, not through presentation's diagnostic reports.
@@ -195,7 +203,9 @@ function fixture(diagnostics, settings = {}) {
         BlueprintPathsLibrary: { ProjectSavedDir: () => saved, ProjectContentDir: () => content, ConvertRelativePathToFull: normalize,
             FileExists: file => e.files.has(file) },
         EasyCsv: { LoadStringFromLocalFile(file, out) { out.value = e.files.get(file) || ''; return e.files.has(file); },
-            SaveStringToFileWithFullPath(body, file) { assert.equal(typeof body, 'string'); e.files.set(file, body); return true; } },
+            SaveStringToFileWithFullPath(body, file) {
+                assert.equal(typeof body, 'string'); e.writes.push(path.basename(file)); e.files.set(file, body); return true;
+            } },
         GameplayStatics: { GetPlayerController(context, index) { assert.equal(context, gi); assert.equal(index, 0); return pc; },
             GetPlayerPawn(context, index) { assert.equal(context, world); assert.equal(index, 0); return player; },
             IsGamePaused(context) { assert.equal(context, world); return false; },
@@ -342,6 +352,36 @@ for (const marked of [false, true]) {
             assert.equal(e.acceptedPosts.length, 1); assert.equal(e.acceptedPosts[0].playingId, 1);
             assert.equal(e.visibleGlyphs().length, 1); assert.equal(e.visibleGlyphs()[0].text, '危');
         }
+        passed++; console.log('PASS ' + name);
+    } catch (error) { failed++; console.error('FAIL ' + name + '\n' + error.stack); }
+    finally { e.stop(); }
+}
+{
+    const name = 'Menu diagnostic recording stops writes, resumes recording, and preserves warning output';
+    const e = fixture(true);
+    try {
+        e.tick(e.first, 0.7);
+        assert.equal(e.acceptedPosts.length, 1);
+        assert.equal(e.visibleGlyphs().length, 1);
+        assert(e.writes.includes('pbzforewarn_diagnostics.json'));
+        const beforeDisable = e.writes.length;
+        e.saveDiagnostics(false, 1);
+        e.tick(e.first, 0.8, 500);
+        assert.deepEqual(e.writes.slice(beforeDisable), ['pbzforewarn_observations.json']);
+        assert.equal(e.acceptedPosts.length, 1, 'a settings save must not replay the current warning');
+
+        e.tick(e.first, 1.42, 620);
+        e.first.OnCompleted.fire(); e.root.bIsActive = false;
+        const independent = e.ability('OffRisk_C_2', 2), task = e.lifecycleTask(independent);
+        e.select(independent, task); e.tick(task, 0.7, 64);
+        assert.equal(e.acceptedPosts.length, 2);
+        assert.equal(e.visibleGlyphs()[0].text, '危');
+        e.tick(task, 1.42, 31000);
+        assert.equal(e.writes.length, beforeDisable + 1, 'no periodic writes while disabled');
+
+        e.saveDiagnostics(true, 2); e.tick(task, 1.43, 500);
+        assert(e.writes.slice(beforeDisable + 1).includes('pbzforewarn_diagnostics.json'));
+        assert.equal(e.acceptedPosts.length, 2);
         passed++; console.log('PASS ' + name);
     } catch (error) { failed++; console.error('FAIL ' + name + '\n' + error.stack); }
     finally { e.stop(); }
