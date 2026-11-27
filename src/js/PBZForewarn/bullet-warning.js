@@ -167,9 +167,23 @@ function createBulletWarning({ valid, path, list, effectPath, requirements }) {
                         riskConditions: [], refs: [] });
                 });
             }
-            // One physical action, one cue. Ambiguous/multiple selected signals stay observations.
-            if (matches.length !== 1) return null;
-            const { refs, ...match } = matches[0];
+            // One physical action, one cue. Same-lifecycle identical direct standard
+            // resources combine into one plan with all matched event proofs retained;
+            // mixed colors, cross-lifecycle, lifecycle particles, and multiple grabs fail closed.
+            if (matches.length === 0) return null;
+            let selected = matches[0], refs = selected.refs;
+            if (matches.length > 1) {
+                const sameDirectSignal = actionClass === DELAY &&
+                    (selected.lifecycle === "InitializeEvents" || selected.lifecycle === "StartEvents") &&
+                    matches.every(item => item.kind === "standard-warning-resource" &&
+                        item.lifecycle === selected.lifecycle && item.color === selected.color &&
+                        item.effectPath === selected.effectPath && item.riskConditions.length === 0 &&
+                        item.route.length === 1 && item.route[0].classPath === EFFECT && !!item.route[0].eventPath);
+                if (!sameDirectSignal) return null;
+                selected = { ...selected, route: matches.flatMap(item => item.route) };
+                refs = matches.flatMap(item => item.refs);
+            }
+            const { refs: _refs, ...match } = selected;
             const result = { ...match, actionClass, bulletPath: path(bullet), start: times.start, end: times.end,
                 timingBasis: "authored-action-preparation-candidate", executionVerified: false,
                 nativeLaunchCoordinateConfirmed: false,

@@ -79,8 +79,37 @@ test("unknown interval and subbullet siblings do not veto direct warning", () =>
     assert.equal(plan(input([interval, effect()])).color, "red");
     assert.equal(plan(input([interval])), null);
 });
-test("multiple direct signals and conflicting colors reject one-node ambiguity", () => {
-    assert.equal(plan(input([effect(), effect()])), null); assert.equal(plan(input([effect(), effect(BLUE)])), null);
+test("same-lifecycle identical standard resources combine into one plan with full source proofs", () => {
+    const first = effect(), second = effect();
+    const a = input([first, second]);
+    const result = plan(a);
+    assert(result);
+    assert.equal(result.color, "red");
+    assert.equal(result.kind, "standard-warning-resource");
+    assert.equal(result.lifecycle, "StartEvents");
+    assert.equal(result.effectPath, RED);
+    assert.deepEqual(result.route.map(step => step.eventPath), [first._path, second._path]);
+    assert.equal(warning.eligibility(a, times, "source", result).eligible, true);
+    second.Niagara = obj({}, BLUE);
+    assert.equal(warning.eligibility(a, times, "source", result).eligible, false);
+    second.Niagara = obj({}, RED);
+    assert.equal(warning.eligibility(a, times, "source", result).eligible, true);
+    a.BulletData.StartEvents.Events = array([first]);
+    assert.equal(warning.eligibility(a, times, "source", result).eligible, false);
+    a.BulletData.StartEvents.Events = array([first, effect()]);
+    assert.equal(warning.eligibility(a, times, "source", result).eligible, false);
+    const blueInit = input([effect(BLUE), effect(BLUE)]);
+    blueInit.BulletData.InitializeEvents = blueInit.BulletData.StartEvents; delete blueInit.BulletData.StartEvents;
+    const blueResult = plan(blueInit);
+    assert(blueResult); assert.equal(blueResult.color, "blue"); assert.equal(blueResult.lifecycle, "InitializeEvents");
+    assert.equal(blueResult.route.length, 2);
+});
+test("conflicting colors cross-lifecycle signals and multiple grab executions still reject", () => {
+    assert.equal(plan(input([effect(), effect(BLUE)])), null);
+    const cross = input([effect()]);
+    cross.BulletData.InitializeEvents = { Events: array([effect()]) };
+    assert.equal(plan(cross), null);
+    assert.equal(plan(input([grab(), grab()], DURATION)), null);
 });
 test("CantDeflect plus verified grab ancestry creates black capability risk", () => {
     const result = plan(input([grab()], DURATION)); assert.equal(result.color, "black");

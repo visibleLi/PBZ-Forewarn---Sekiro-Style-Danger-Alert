@@ -77,6 +77,23 @@ function fixture(diagnostics, settings = {}) {
                 Particle: object('/PBZVFXPack/VFX/BattleFX/Common/NS_AttackAlert_Red_001.NS_AttackAlert_Red_001') }]) } });
         return task;
     };
+    e.multiMountTask = function (ability) {
+        const task = e.task(ability, 'Reset'), action = task.Timeline.Actions.Get(0).Action;
+        const type = object('/PBZDeflectSystem/Actions/GAA_DelayDeflectProjectileBullet.GAA_DelayDeflectProjectileBullet_C');
+        const effectType = object('/SGameCombatSystem/Bullet/Event/BP_BulletEvent_Effect.BP_BulletEvent_Effect_C');
+        const intervalType = object('/Script/SGameCombatSystem.BulletEvent_Interval');
+        const red = object('/PBZVFXPack/VFX/BattleFX/Common/NS_AttackAlert_Red_001.NS_AttackAlert_Red_001');
+        const mountA = object(task._path + '.EffectA', { GetClass: () => effectType, Niagara: red, Socket: 'head' });
+        const mountB = object(task._path + '.EffectB', { GetClass: () => effectType, Niagara: red, Socket: '0' });
+        const sibling = object(task._path + '.Interval', { GetClass: () => intervalType, StartDelay: 0.78 });
+        action.GetClass = () => type;
+        action['Random Bullet Data'] = new NativeArray();
+        action.Branch = 'None';
+        action.BulletData = object(task._path + '.Data', {
+            StartEvents: { Events: new NativeArray([mountA, mountB, sibling]) }
+        });
+        return task;
+    };
     e.select = function (ability, task) {
         ability.ActiveTasks = new NativeArray([task]);
         enemy.AbilitySystemComponent.ActivatableAbilities.Items = new NativeArray([
@@ -382,6 +399,25 @@ for (const marked of [false, true]) {
         e.saveDiagnostics(true, 2); e.tick(task, 1.43, 500);
         assert(e.writes.slice(beforeDisable + 1).includes('pbzforewarn_diagnostics.json'));
         assert.equal(e.acceptedPosts.length, 2);
+        passed++; console.log('PASS ' + name);
+    } catch (error) { failed++; console.error('FAIL ' + name + '\n' + error.stack); }
+    finally { e.stop(); }
+}
+for (const diagnostics of [true, false]) {
+    const e = fixture(diagnostics), name = 'same-lifecycle duplicate standard bullet mounts reach output once without replay (Diagnostics=' + diagnostics + ')';
+    try {
+        e.root.bIsActive = false;
+        const ability = e.ability('MultiMountRisk_C_1', 1), task = e.multiMountTask(ability);
+        e.select(ability, task); e.tick(task, 0.7);
+        assert.equal(e.acceptedPosts.length, 1); assert(e.acceptedPosts[0].playingId > 0);
+        assert.equal(e.visibleGlyphs().length, 1); assert.equal(e.visibleGlyphs()[0].text, '危');
+        const color = e.visibleGlyphs()[0].color.SpecifiedColor;
+        assert(color.R > color.G && color.R > color.B, 'the mounted glyph is red');
+        e.tick(task, 0.95, 250); e.tick(task, 1.2, 250); e.tick(task, 1.41, 210);
+        assert.equal(e.acceptedPosts.length, 1); assert.equal(e.glyphShows.length, 1);
+        assert.equal(e.visibleGlyphs().length, 0);
+        task.OnCancelled.fire(); ability.bIsActive = false;
+        e.tick(task, 1.8, 400); assert.equal(e.acceptedPosts.length, 1);
         passed++; console.log('PASS ' + name);
     } catch (error) { failed++; console.error('FAIL ' + name + '\n' + error.stack); }
     finally { e.stop(); }

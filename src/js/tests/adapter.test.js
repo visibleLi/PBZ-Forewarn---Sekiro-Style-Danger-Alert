@@ -940,13 +940,48 @@ test("generic diagnostics off skips unrelated semantic and bullet graph reads", 
     assert.equal(genericCollect(local, a).events.length, 0); assert.equal(reads, 0);
 });
 test("generic malformed unknown ambiguous and capped graphs fail closed", () => {
-    const local = genericAdapter(), malformed = bulletAction(), unknown = bulletAction(), capped = bulletAction(), ambiguous = bulletAction();
+    const local = genericAdapter(), malformed = bulletAction(), unknown = bulletAction(), capped = bulletAction(),
+        mixedColor = bulletAction(), crossLifecycle = bulletAction();
     Object.defineProperty(malformed, "BulletData", { get() { throw Error("bridge failed"); } });
     unknown.GetClass = () => object("/Other/GAA_DelayDeflectProjectileBullet_C");
-    const effect = redBullet().StartEvents.Events.Get(0);
-    capped.BulletData.StartEvents.Events = array(...Array(33).fill(effect));
-    ambiguous.BulletData.StartEvents.Events = array(effect, effect);
-    for (const a of [malformed, unknown, capped, ambiguous]) assert.equal(genericCollect(local, a).events.length, 0);
+    const redEffect = redBullet().StartEvents.Events.Get(0);
+    const blueEffect = typedObject("/Arbitrary/BlueEffect", BULLET_EFFECT_CLASS, { Niagara: object(bluePath) });
+    capped.BulletData.StartEvents.Events = array(...Array(33).fill(redEffect));
+    mixedColor.BulletData.StartEvents.Events = array(redEffect, blueEffect);
+    crossLifecycle.BulletData.InitializeEvents = { Events: array(typedObject("/Arbitrary/InitRedEffect", BULLET_EFFECT_CLASS, { Niagara: object(nestedRedPath) })) };
+    for (const a of [malformed, unknown, capped, mixedColor, crossLifecycle]) assert.equal(genericCollect(local, a).events.length, 0);
+});
+test("generic same-lifecycle duplicate standard resources emit one cue with full multi-event proof", () => {
+    const local = genericAdapter();
+    const mountA = typedObject("/Renamed/Multi/EffectA", BULLET_EFFECT_CLASS, { Niagara: object(nestedRedPath), Socket: "head" });
+    const mountB = typedObject("/Renamed/Multi/EffectB", BULLET_EFFECT_CLASS, { Niagara: object(nestedRedPath), Socket: "0" });
+    const sibling = typedObject("/Renamed/Multi/Interval", "/Script/SGameCombatSystem.BulletEvent_Interval", { StartDelay: 0.78 });
+    const bullet = object("/Renamed/Multi/Bullet", { StartEvents: { Events: array(mountA, mountB, sibling) } });
+    const a = bulletAction(bullet, "/Renamed/Multi/Action");
+    a["Random Bullet Data"] = array(); a.Branch = "None";
+    const compact = genericCollect(local, a, { captureDiagnostics: false });
+    const full = genericCollect(local, a, { captureDiagnostics: true });
+    assert.equal(compact.events.length, 1); assert.deepEqual(scheduling(compact), scheduling(full));
+    const e = compact.events[0], proof = e.meta.bulletWarning;
+    assert.equal(e.color, "red"); assert.equal(e.eligible, true);
+    assert.equal(e.meta.recognition.source, "bullet-preparation");
+    assert.equal(proof.lifecycle, "StartEvents");
+    assert.deepEqual(proof.route.map(step => step.eventPath), [mountA.path, mountB.path]);
+    assert.deepEqual(JSON.parse(JSON.stringify(proof)), proof);
+    assert.equal(local.bulletWarningEligibility(a, e.meta, asc, proof).eligible, true);
+    mountB.Niagara = object(bluePath);
+    assert.equal(local.bulletWarningEligibility(a, e.meta, asc, proof).eligible, false);
+    mountB.Niagara = object(nestedRedPath);
+    assert.equal(local.bulletWarningEligibility(a, e.meta, asc, proof).eligible, true);
+    a.ActivationRequirements.RequireTags = ["Combat.Missing"];
+    assert.equal(genericCollect(local, a).events[0].eligible, false);
+    a.ActivationRequirements = emptyRequirements();
+    // Separate actions remain separate cues (never cross-action deduplication).
+    const secondBullet = object("/Renamed/Multi/Bullet2", { StartEvents: { Events: array(mountA, mountB) } });
+    const b = bulletAction(secondBullet, "/Renamed/Multi/Action2");
+    const pair = local.events(timeline([event({ Action: a, StartTime: 1 }), event({ Action: b, StartTime: 2 })]),
+        classifyEffect, asc, {}, null, { captureDiagnostics: false });
+    assert.equal(pair.events.length, 2);
 });
 test("generic selected signal recheck rejects bullet color and runtime mode changes", () => {
     const local = genericAdapter(), a = bulletAction(), r = genericCollect(local, a), e = r.events[0];
