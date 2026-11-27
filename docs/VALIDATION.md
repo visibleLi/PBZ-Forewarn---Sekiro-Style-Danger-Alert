@@ -1,5 +1,70 @@
 # Validation / 自检边界
 
+## 2026-11-27: same-lifecycle identical bullet warning mounts (`dev`, pre-version-bump)
+
+Build: `0.9.1` version string on branch `feat/bullet-same-signal-merge` merged
+fast-forward into `dev` (version bump deferred to the next release cut; `main`
+unchanged).
+
+Changes:
+- Allows `src/js/PBZForewarn/bullet-warning.js` to combine multiple direct
+  standard red or blue `BP_BulletEvent_Effect_C` mounts on the same
+  `GAA_DelayDeflectProjectileBullet_C` action and same lifecycle root
+  (`InitializeEvents` or `StartEvents`) into one preparation warning plan when
+  every match shares the same color and `effectPath`.
+- Retains every matched event reference in both the JSON-safe `route` and the
+  private pre-emit `proofs` WeakMap so mutating, replacing, or removing any
+  mount invalidates execution-time eligibility.
+- Continues rejecting mixed colors, cross-lifecycle matches (including
+  `EffectData.Start` combined with `StartEvents`), multiple `DURATION` grab
+  executions, non-neutral `Random Bullet Data` / `Branch` selection, and
+  cross-action merging.
+
+Offline verification:
+- Vertical RED → GREEN TDD across `bullet-warning.test.js` (19 checks),
+  `adapter.test.js` (97 checks), and real internal chain `output-runtime.test.js`
+  (9 checks, Diagnostics on/off). All three newly added assertions failed on the
+  unchanged `0.9.1` baseline (`null` / `0 !== 1`) before the change and passed
+  after it.
+- Full ordered gate (`build_bank.py`, `verify.py --node <node24>`) with Python
+  3.12.16 (`lupa 2.8`) and Node.js 24.22.3: 28 suites / 1,218 checks, every
+  suite exit 0 and checks > 0, JavaScript syntax passed.
+- Candidate installer archive verified via `package.py` into an external staging
+  directory (SHA-256 `75bee111c956267260b87807be2084f6e92eb424e68bc4f2020b9921c61e344e`;
+  `bullet-warning.js` SHA-256 `7f15dd70130c56fae1479752737101231dd4bb5946d705def55d9f1bbd8e5726`).
+
+In-game verification (partial, single session):
+- Baseline comparison session `mwyzl4ir-tu4c5j8b` (`0.9.1`, archived outside
+  Git): `GA_Qishu_Lei_SplitAttack_01_Easy`, `GA_Qishu_Lei_SplitAttack_CA`, and
+  `GA_Qishu_Lei_SplitAttack_01` produced 0 warning cues while single-mount
+  `GA_Qishu_Lei_SplitAttack_Reset` (4) and `GA_Qishu_Lei_BulletAttack_01_Easy`
+  (2) produced red cues (`missed=0`, `errors=0`).
+- Candidate session `mwz2xquc-2ecnngqe` (`0.9.1` build string; installed
+  `bullet-warning.js` SHA-256 matched candidate archive
+  `7f15dd70130c56fae1479752737101231dd4bb5946d705def55d9f1bbd8e5726`,
+  `GenericAttack=true`, `Diagnostics=true`, metadata-only evidence archived
+  outside Git): 7 red cues total (`bulletCues=7`, `missed=0`, `errors=0`,
+  `audio.played=7`, `audio.errors=0`):
+  - `GA_Qishu_Lei_SplitAttack_01_Easy`: 3 red cues (estimated lead 323.81,
+    331.38, 340.05 ms)
+  - `GA_Qishu_Lei_SplitAttack_CA`: 1 red cue (estimated lead 338.15 ms)
+  - `GA_Qishu_Lei_SplitAttack_Reset`: 2 red cues (estimated lead 329.22,
+    317.86 ms)
+  - `GA_Qishu_Lei_BulletAttack_01_Easy`: 1 red cue (estimated lead 336.10 ms)
+
+Unverified / limits:
+- `GA_Qishu_Lei_SplitAttack_01` (base variant) had no confirmed observation in
+  session `mwz2xquc-2ecnngqe` and remains unverified in-game (covered offline
+  only).
+- One session on one machine (recorded while the game session remained open);
+  not a distribution, all-move coverage, or native crash-freedom claim.
+- Log audit only: `audio.played=7` is Wwise API acceptance, not an acoustic or
+  screen measurement; `missed=0` means no queued cue was missed.
+- Only `bullet-warning.js` SHA-256 was checked against the candidate ZIP in
+  game; full installed ZIP comparison was not performed.
+- `GA_Qishu_Lei_BulletAttack_01_Easy` timing offset relative to delayed beam
+  emission remains an open timing question and was not changed.
+
 ## 2026-11-26: 0.9.1 diagnostic recording switch and periodic write gating
 
 Build: `0.9.1`; branch `fix/diagnostics-menu` merged fast-forward into `dev` and
